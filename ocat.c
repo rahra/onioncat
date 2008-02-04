@@ -3,20 +3,14 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdarg.h>
-//#include <inttypes.h>
-//#include <sys/types.h>
-//#include <sys/stat.h>
-//#include <fcntl.h>
-//#include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/ip6.h>
 #include <net/if.h>
-//#include <linux/if_tun.h>
-//#include <sys/ioctl.h>
 
 #include "ocat.h"
 
-static int debug_level_ = 3;
+static int debug_level_ = 4;
+int tunfd_;
 
 void log_msg(int lf, const char *fmt, ...)
 {
@@ -37,6 +31,10 @@ void log_msg(int lf, const char *fmt, ...)
 
       case L_ERROR:
          fprintf(stderr, "error: ");
+         break;
+
+      case L_FATAL:
+         fprintf(stderr, "FATAL: ");
          break;
 
       default:
@@ -88,15 +86,21 @@ int main(int argc, char *argv[])
    struct ip6_hdr *ihd = (struct ip6_hdr*) &data[4];
    ssize_t rlen;
    FILE *out = stdout;
-   int tunfd;
    char tunname[IFNAMSIZ] = "";
    OnionPeer_t *peer;
 
+   // init peer structure
    init_peers();
-
-   tunfd = tun_alloc(tunname, "FD87:D87E:EB43::1");
-   onion_listen(tunfd);
-
+   // create TUN device
+   tunfd_ = tun_alloc(tunname, "FD87:D87E:EB43::1");
+   // start socket receiver thread
+   init_socket_receiver();
+   // create listening socket and start socket acceptor
+   init_socket_acceptor();
+   // create socks connector thread
+   init_socks_connector();
+   // start packet dequeuer
+   init_packet_dequeuer();
 
    for (;;)
    {
@@ -109,17 +113,17 @@ int main(int argc, char *argv[])
       if ((rlen = read(tunfd, data + IP6HLEN + 4, ntohs(ihd->ip6_ctlun.ip6_un1.ip6_un1_plen))) == -1)
          perror("main:read data"), exit(1);
          */
-      rlen = receive_packet(tunfd, data);
-      log_msg(L_DEBUG, "received packet on tunfd %d", tunfd);
 
-      if (!(peer = search_peer(&ihd->ip6_dst)))
-         if (!(peer = establish_peer(tunfd, &ihd->ip6_dst)))
-         {
-            log_msg(L_ERROR, "could not establish new peer, ignoring packet.");
-            continue;
-         }
+      rlen = receive_packet(tunfd_, data);
+      log_msg(L_DEBUG, "received packet on tunfd %d", tunfd_);
 
-      write(peer->tcpfd, data, rlen + IP6HLEN + 4);
+      if (!forward_packet(&ihd->ip6_dst, data, rlen))
+      {
+         log_msg(L_NOTICE, "establishing new socks peer");
+         push_socks_connector(&ihd->ip6_dst);
+         log_msg(L_DEBUG, "queuing packet");
+         queue_packet(&ihd->ip6_dst, data, rlen);
+      }
    }
 
    return 0;

@@ -1,8 +1,12 @@
-//#include <stdio.h>
+/*! ocattun.c
+ *  These functions create the TUN device.
+ *
+ *  @author Bernhard Fischer <rahra _at_ cypherpunk at>
+ *  @version 2008/02/03-01
+ */
+
 #include <stdlib.h>
-//#include <unistd.h>
 #include <string.h>
-//#include <inttypes.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>

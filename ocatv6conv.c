@@ -1,3 +1,11 @@
+/*! ocatv6conv.c
+ *  These functions convert IPv6 addresses to onion URLs
+ *  and vice versa.
+ *
+ *  @author Bernhard Fischer <rahra _at_ cypherpunkt at>
+ *  @version 2008/02/03-01
+ */
+
 #include <string.h>
 #include <netinet/ip6.h>
 
@@ -20,7 +28,6 @@ void shl5(char *bin)
 
 int oniontipv6(const char *onion, struct in6_addr *ip6)
 {
-//   char *dst = (struct in6_addr*) ip6;
    int i, j, c;
 
    memset(ip6, 0, 16);
