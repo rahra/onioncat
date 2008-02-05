@@ -19,21 +19,25 @@ static const char tor_prefix_[] = TOR_PREFIX;
 
 int has_tor_prefix(const struct in6_addr *addr)
 {
+   return memcmp(addr, tor_prefix_, 6) == 0;
+/*
    int i;
 
    for (i = 0; i < 6; i++)
       if (*(((char*) addr) + i) != tor_prefix_[i])
          return 0;
-   return 1;
+   return 1;*/
 }
 
 
 void set_tor_prefix(struct in6_addr *addr)
 {
+   memcpy(addr, tor_prefix_, 6);
+/*
    int i;
 
    for (i = 0; i < 6; i++)
-      *(((char*) addr) + i) = tor_prefix_[i];
+      *(((char*) addr) + i) = tor_prefix_[i];*/
 }
 
 

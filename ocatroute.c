@@ -6,6 +6,8 @@
  *  @version 2008/02/03-01
  */
 
+//#define _POSIX_C_SOURCE 199309L
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -83,85 +85,6 @@ void delete_peer(OnionPeer_t *peer)
 }
 
 
-/*
-void *socks_reader(OnionPeer_t *peer)
-{
-   int len;
-   char buf[FRAME_SIZE];
-
-   log_msg(L_NOTICE, "socks_reader: __called__");
-   while (peer->time)
-   {
-      if ((len = read(peer->tcpfd, buf, FRAME_SIZE)) > 0)
-      {
-         peer->time = time(NULL);
-         write(peer->tunfd, buf, len);
-      }
-
-      if (len < FRAME_SIZE)
-      {
-         log_msg(L_DEBUG, "socks_reader: short read, closing.");
-         close(peer->tcpfd);
-         delete_peer(peer);
-      }
-   }
-   log_msg(L_NOTICE, "socks_reader: terminating");
-   return NULL;
-}
-*/
-
-
-/*
-OnionPeer_t *establish_peer(int fd, const struct in6_addr *addr)
-{
-   char onion[32];
-   char soarg[128];
-   OnionPeer_t *peer;
-   pthread_t thread;
-
-   log_msg(L_DEBUG, "establish_peer: __called__");
-
-   ipv6tonion(addr, onion);
-   strcat(onion, ".onion");
-
-   peer = get_empty_peer();
-   memcpy(&peer->addr, addr, 16);
-   peer->tunfd = fd;
-   if ((peer->tcpfd = socks_connect(onion)) < 0)
-   {
-      log_msg(L_ERROR, "establish_peer: socks_connect() failed");
-      delete_peer(peer);
-      return NULL;
-   }
-   log_msg(L_DEBUG, "establish_peer: socks_connect() successful");
-   
-
-   peer->time = time(NULL);
-   if (pthread_create(&thread, NULL, (void*)(socks_reader), peer))
-   {
-      log_msg(L_ERROR, "establish_peer: pthread_create() failed");
-      close(peer->tcpfd);
-      delete_peer(peer);
-      return NULL;
-   }
-
-   log_msg(L_NOTICE, "establish_peer: peer successfully established");
-
-   return peer;
-}
-*/
-
-
-/*
-void update_peer_time(const OnionPeer_t *peer)
-{
-   pthread_mutex_lock(&peer_mutex_);
-   peer->time = time(NULL);
-   pthread_mutex_unlock(&peer_mutex_);
-}
-*/
-
-
 const OnionPeer_t *forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
 {
    OnionPeer_t *peer;
@@ -177,8 +100,6 @@ const OnionPeer_t *forward_packet(const struct in6_addr *addr, const char *buf, 
 
    return peer;
 }
-
-
 
 
 void queue_packet(const struct in6_addr *addr, const char *buf, int buflen)
@@ -210,16 +131,22 @@ void *packet_dequeuer(void *p)
 {
    PacketQueue_t **queue, *fqueue;
    OnionPeer_t *peer;
+   struct timespec ts;
+   int rc;
 
    for (;;)
    {
-      log_msg(L_NOTICE, "packet dequeuer waiting for packets");
+      log_msg(L_NOTICE, "[packet_dequeuer] waiting for packets");
       pthread_mutex_lock(&queue_mutex_);
+      clock_gettime(CLOCK_REALTIME, &ts);
+      ts.tv_sec += DEQUEUER_WAKUP;
 //FIXME: unconditional wait... wake up should be improved
 //      if (!queue_)
-         pthread_cond_wait(&queue_cond_, &queue_mutex_);
+//         pthread_cond_wait(&queue_cond_, &queue_mutex_);
+      if ((rc = pthread_cond_timedwait(&queue_cond_, &queue_mutex_, &ts)))
+         log_msg(L_FATAL, "[packet_dequeuer] woke up: \"%s\"", strerror(rc));
 
-      log_msg(L_DEBUG, "starting dequeuing");
+      log_msg(L_DEBUG, "[packet_dequeuer] starting dequeuing");
       for (queue = &queue_; *queue; /*queue = &(*queue)->next*/)
       {
          //FIXME: this could be more performant of locking is done outside of for(...)
@@ -237,7 +164,7 @@ void *packet_dequeuer(void *p)
             fqueue = *queue;
             *queue = (*queue)->next;
             free(fqueue);
-            log_msg(L_DEBUG, "packet dequeued");
+            log_msg(L_DEBUG, "[packet_dequeuer] packet dequeued");
             continue;
          }
          queue = &(*queue)->next;
@@ -250,9 +177,10 @@ void *packet_dequeuer(void *p)
 void init_packet_dequeuer(void)
 {
    pthread_t thread;
+   int rc;
 
-   if (pthread_create(&thread, NULL, packet_dequeuer, NULL))
-      log_msg(L_FATAL, "could not start socket_receiver thread");
+   if ((rc = pthread_create(&thread, NULL, packet_dequeuer, NULL)))
+      log_msg(L_FATAL, "[init_packet_dequeuer] could not start socket_receiver thread: \"%s\"", strerror(rc));
 }
 
 
@@ -352,12 +280,13 @@ void *socket_receiver(void *p)
 void init_socket_receiver(void)
 {
    pthread_t thread;
+   int rc;
 
    if (pipe(lpfd_) < 0)
-      log_msg(L_FATAL, "could not create pipe for socket_receiver: \"%s\"", strerror(errno)), exit(1);
+      log_msg(L_FATAL, "[init_socket_receiver] could not create pipe for socket_receiver: \"%s\"", strerror(errno)), exit(1);
 
-   if (pthread_create(&thread, NULL, socket_receiver, NULL))
-      log_msg(L_FATAL, "could not start socket_receiver thread");
+   if ((rc = pthread_create(&thread, NULL, socket_receiver, NULL)))
+      log_msg(L_FATAL, "[init_socket_receiver] could not start socket_receiver thread: \"%s\"", strerror(rc));
 
 /* thread should never terminate
    if (pthread_detach(thread))
@@ -394,7 +323,12 @@ void insert_peer(int fd, const struct in6_addr *addr)
    peer->state = PEER_ACTIVE;
    peer->time = time(NULL);
    if (addr)
+   {
       memcpy(&peer->addr, addr, sizeof(struct in6_addr));
+      peer->dir = PEER_OUTGOING;
+   }
+   else
+      peer->dir = PEER_INCOMING;
    pthread_mutex_unlock(&peer_mutex_);
 
    // wake up socket_receiver
@@ -428,18 +362,19 @@ void init_socket_acceptor(void)
 {
    struct sockaddr_in in = {AF_INET, htons(OCAT_LISTEN_PORT), {htonl(INADDR_LOOPBACK)}};
    pthread_t thread;
+   int rc;
 
    if ((sockfd_ = socket(PF_INET, SOCK_STREAM, 0)) < 0)
-      log_msg(L_FATAL, "could not create listener socker: \"%s\"", strerror(errno)), exit(1);
+      log_msg(L_FATAL, "[init_socket_acceptor] could not create listener socker: \"%s\"", strerror(errno)), exit(1);
 
    if (bind(sockfd_, (struct sockaddr*) &in, sizeof(struct sockaddr_in)) < 0)
-      log_msg(L_FATAL, "could not bind listener: \"%s\"", strerror(errno)), exit(1);
+      log_msg(L_FATAL, "[init_socket_acceptor] could not bind listener: \"%s\"", strerror(errno)), exit(1);
 
    if (listen(sockfd_, 32) < 0)
-      log_msg(L_FATAL, "could not bring listener to listening state: \"%s\"", strerror(errno)), exit(1);
+      log_msg(L_FATAL, "[init_socket_acceptor] could not bring listener to listening state: \"%s\"", strerror(errno)), exit(1);
 
-   if (pthread_create(&thread, NULL, socket_acceptor, NULL))
-      log_msg(L_FATAL, "could not create socket_acceptor"), exit(1);
+   if ((rc = pthread_create(&thread, NULL, socket_acceptor, NULL)))
+      log_msg(L_FATAL, "[init_socket_acceptor] could not create socket_acceptor: \"%s\"", strerror(rc)), exit(1);
 }
 
 
@@ -539,18 +474,19 @@ void *socks_connector(void *p)
 void init_socks_connector(void)
 {
    pthread_t thread;
+   int rc;
 
    if (pipe(cpfd_) < 0)
-      log_msg(L_FATAL, "could not create pipe for socks_connector: \"%s\"", strerror(errno)), exit(1);
+      log_msg(L_FATAL, "[init_socks_connector] could not create pipe for socks_connector: \"%s\"", strerror(errno)), exit(1);
 
-   if (pthread_create(&thread, NULL, socks_connector, NULL))
-      log_msg(L_FATAL, "could not start socks_connector thread");
+   if ((rc = pthread_create(&thread, NULL, socks_connector, NULL)))
+      log_msg(L_FATAL, "[init_socks_connector] could not start socks_connector thread: \"%s\"", strerror(rc));
 }
 
 
 void push_socks_connector(const struct in6_addr *addr)
 {
-   log_msg(L_DEBUG, "writing to socks connector pipe %d", cpfd_[1]);
+   log_msg(L_DEBUG, "[push_socks_connector] writing to socks connector pipe %d", cpfd_[1]);
    write(cpfd_[1], addr, sizeof(*addr));
 }
 

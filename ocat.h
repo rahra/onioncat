@@ -1,10 +1,12 @@
 #ifndef OCAT_H
 #define OCAT_H
 
+//#define _POSIX_C_SOURCE 199309L
+
 #include <netinet/ip6.h>
 
 
-#define BUFLEN 64*1024
+//#define BUFLEN 64*1024
 
 #define IP6HLEN sizeof(struct ip6_hdr)
 // TOR prefix : FD87:D87E:EB43::/40
@@ -17,12 +19,12 @@
 #define FRAME_SIZE 1514
 #define ONION_NAME_SIZE 23
 
+#define DEQUEUER_WAKUP 5
 
 #define L_NOTICE 1
 #define L_ERROR 2
 #define L_FATAL 3
 #define L_DEBUG 4
-
 
 #define E_SOCKS_SOCK -1
 #define E_SOCKS_CONN -2
@@ -31,6 +33,8 @@
 
 //#define PEER_CONNECT 0
 #define PEER_ACTIVE 1
+#define PEER_INCOMING 0
+#define PEER_OUTGOING 1
 
 typedef struct PacketQueue
 {
@@ -51,11 +55,12 @@ typedef struct SocksHdr
 typedef struct OnionPeer
 {
    struct in6_addr addr;   //<! remote address of peer
-   int tunfd;              //<! local file descriptor
+//   int tunfd;              //<! local file descriptor
    int tcpfd;              //<! remote file descriptor
    time_t time;            //<! timestamp of latest packet
    int state;              //<! status of peer
-   PacketQueue_t *queue;   //<! first packet in send queue
+   int dir;
+//   PacketQueue_t *queue;   //<! first packet in send queue
 //   pid_t pid;
 } OnionPeer_t;
 

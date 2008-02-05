@@ -1,6 +1,6 @@
 CC	= gcc
 CFLAGS = -pipe -g -Wall
-LDFLAGS	= -lpthread
+LDFLAGS	= -lpthread -lrt
 TARGET = ocat
 
 all: $(TARGET)

@@ -10,6 +10,7 @@
 #include "ocat.h"
 
 static int debug_level_ = 4;
+//static int route_packets_ = 0;
 int tunfd_;
 
 void log_msg(int lf, const char *fmt, ...)
@@ -65,25 +66,17 @@ void print_v6_hd(FILE *out, const struct ip6_hdr *ihd)
 int receive_packet(int fd, char *buf)
 {
    int rlen;
-/*   struct ip6_hdr *ihd = (struct ip6_hdr*) (buf + 4);
-
-
-   if ((rlen = read(fd, buf, IP6HLEN + 4)) == -1)
-      perror("main:read header"), exit(1);
-
-   if (rlen < IP6HLEN)
-      fprintf(stderr, "short read. Eof, exiting...\n"), exit(0);
-
-   log_msg(L_DEBUG, "reading %d (0x%04x) bytes payload", ntohs(ihd->ip6_ctlun.ip6_un1.ip6_un1_plen), ntohs(ihd->ip6_ctlun.ip6_un1.ip6_un1_plen));
-   if ((rlen = read(fd, buf + IP6HLEN + 4, ntohs(ihd->ip6_ctlun.ip6_un1.ip6_un1_plen))) == -1)
-      perror("main:read data"), exit(1);
-
-   return rlen + IP6HLEN + 4;
-   */
 
    rlen = read(fd, buf, FRAME_SIZE);
    log_msg(L_DEBUG, "read frame with framesize %d", rlen);
+
    return rlen;
+}
+
+
+void usage(const char *s)
+{
+   fprintf(stderr, "usage: %s [OPTIONS] <onion_hostname>\n", s);
 }
 
 
@@ -94,12 +87,29 @@ int main(int argc, char *argv[])
    ssize_t rlen;
    char tunname[IFNAMSIZ] = "", onion[ONION_NAME_SIZE], *s;
    struct in6_addr addr;
+   int c;
 
    if (argc < 2)
-      fprintf(stderr, "usage: %s <onion_hostname>\n", argv[0]), exit(1);
+      usage(argv[0]), exit(1);
+
+   while ((c = getopt(argc, argv, "d:h")) != -1)
+      switch (c)
+      {
+         case 'd':
+            debug_level_ = atoi(optarg);
+            break;
+
+         case 'h':
+         default:
+            usage(argv[0]);
+            exit(1);
+      }
+
+   if (!argv[optind])
+      usage(argv[0]), exit(1);
 
    // convert parameter to IPv6 address
-   strncpy(onion, argv[1], ONION_NAME_SIZE);
+   strncpy(onion, argv[optind], ONION_NAME_SIZE);
    if ((s = strchr(onion, '.')))
          *s = '\0';
    if (strlen(onion) != 16)
@@ -120,20 +130,29 @@ int main(int argc, char *argv[])
    // start packet dequeuer
    init_packet_dequeuer();
 
+   log_msg(L_NOTICE, "[main] local IP is %s on %s", inet_ntop(AF_INET6, &addr, data, FRAME_SIZE), tunname);
+
    for (;;)
    {
-      /*
-      if ((rlen = read(tunfd, data, IP6HLEN + 4)) == -1)
-         perror("main:read header"), exit(1);
-      if (rlen < IP6HLEN)
-         fprintf(stderr, "short read. Eof, exiting...\n"), exit(0);
-
-      if ((rlen = read(tunfd, data + IP6HLEN + 4, ntohs(ihd->ip6_ctlun.ip6_un1.ip6_un1_plen))) == -1)
-         perror("main:read data"), exit(1);
-         */
-
       rlen = receive_packet(tunfd_, data);
       log_msg(L_DEBUG, "received packet on tunfd %d", tunfd_);
+
+      // do some packet validation
+      if (*((uint16_t*) &data[2]) != htons(0x86dd))
+      {
+         log_msg(L_ERROR, "ethertype is not IPv6, dropping packet");
+         continue;
+      }
+      if (!has_tor_prefix(&ihd->ip6_dst))
+      {
+         log_msg(L_ERROR, "destination %s unreachable, dropping packet", inet_ntop(AF_INET6, &ihd->ip6_dst, data, FRAME_SIZE));
+         continue;
+      }
+      if (!has_tor_prefix(&ihd->ip6_src))
+      {
+         log_msg(L_ERROR, "source address invalid. Remote ocat could not reply, dropping packet");
+         continue;
+      }
 
       if (!forward_packet(&ihd->ip6_dst, data, rlen))
       {
