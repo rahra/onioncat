@@ -13,61 +13,8 @@
 
 
 int tunfd_;
-static int debug_level_ = 4;
-static pthread_mutex_t log_mutex_ = PTHREAD_MUTEX_INITIALIZER;
+extern int debug_level_;
 
-
-void log_msg(int lf, const char *fmt, ...)
-{
-   unsigned tid;
-   struct tm *tm;
-   time_t t;
-   FILE *out = stderr;
-   char timestr[32] = "";
-   va_list ap;
-
-   if (debug_level_ < lf)
-      return;
-
-   t = time(NULL);
-   tm = localtime(&t);
-   if (tm)
-      strftime(timestr, 32, "%c", tm);
-
-   pthread_mutex_lock(&log_mutex_);
-   fprintf(out, "%s ", timestr);
-   switch (lf)
-   {
-      case L_DEBUG:
-         fprintf(stderr, "debug : ");
-         break;
-
-      case L_NOTICE:
-         fprintf(stderr, "notice: ");
-         break;
-
-      case L_ERROR:
-         fprintf(stderr, "error : ");
-         break;
-
-      case L_FATAL:
-         fprintf(stderr, "FATAL : ");
-         break;
-
-      default:
-         return;
-   }
-
-   tid = (unsigned) pthread_self();
-   fprintf(out, "[%08x] ", tid);
-
-   va_start(ap, fmt);
-   vfprintf(stderr, fmt, ap);
-   va_end(ap);
-
-   fprintf(stderr, "\n");
-   pthread_mutex_unlock(&log_mutex_);
-}
 
 void print_v6_hd(FILE *out, const struct ip6_hdr *ihd)
 {
@@ -85,7 +32,15 @@ void print_v6_hd(FILE *out, const struct ip6_hdr *ihd)
 
 void usage(const char *s)
 {
-   fprintf(stderr, "usage: %s [OPTIONS] <onion_hostname>\n", s);
+   fprintf(stderr, "usage: %s [OPTIONS] <onion_hostname>\n"
+         "   -h                    display usage message\n"
+         "   -d <n>                set debug level to n, default = %d\n"
+         "   -i <onion_hostname>   convert onion hostname to IPv6 and exit\n"
+         "   -l <port>             set ocat listen port, default = %d\n"
+         "   -o <ipv6_addr>        convert IPv6 address to onion url and exit\n"
+         "   -s <port>             set hidden service virtual port, default = %d\n"
+         "   -t <port>             set tor SOCKS port, default = %d\n"
+         , s, debug_level_, ocat_listen_port_, ocat_dest_port_, tor_socks_port_);
 }
 
 
@@ -96,19 +51,40 @@ int main(int argc, char *argv[])
    int c, runasroot = 0;
    uid_t uid = 504;
    gid_t gid = 504;
+   int urlconv = 0;
 
    if (argc < 2)
       usage(argv[0]), exit(1);
 
-   while ((c = getopt(argc, argv, "d:hr")) != -1)
+   while ((c = getopt(argc, argv, "d:hriol:t:s:")) != -1)
       switch (c)
       {
          case 'd':
             debug_level_ = atoi(optarg);
             break;
 
+         case 'i':
+            urlconv = 1;
+            break;
+
+         case 'l':
+            ocat_listen_port_ = atoi(optarg);
+            break;
+
+         case 'o':
+            urlconv = 2;
+            break;
+
          case 'r':
             runasroot = 1;
+            break;
+
+         case 's':
+            ocat_dest_port_ = atoi(optarg);
+            break;
+
+         case 't':
+            tor_socks_port_ = atoi(optarg);
             break;
 
          case 'h':
@@ -120,6 +96,17 @@ int main(int argc, char *argv[])
    if (!argv[optind])
       usage(argv[0]), exit(1);
 
+   if (urlconv == 2)
+   {
+      if (inet_pton(AF_INET6, argv[optind], &addr) <= 0)
+         log_msg(L_ERROR, "%s", strerror(errno)), exit(1);
+      if (!has_tor_prefix(&addr))
+         log_msg(L_ERROR, "address does not have TOR prefix"), exit(1);
+      ipv6tonion(&addr, onion);
+      printf("%s.onion\n", onion);
+      exit(0);
+   }
+
    // convert parameter to IPv6 address
    strncpy(onion, argv[optind], ONION_NAME_SIZE);
    if ((s = strchr(onion, '.')))
@@ -129,11 +116,19 @@ int main(int argc, char *argv[])
    if (oniontipv6(onion, &addr) == -1)
       fprintf(stderr, "parameter seems not to be valid onion hostname.\n"), exit(1);
 
+   inet_ntop(AF_INET6, &addr, ip6addr, INET6_ADDRSTRLEN);
+
+   if (urlconv == 1)
+   {
+      printf("%s\n", ip6addr);
+      exit(0);
+   }
+
    // init peer structure
    init_peers();
    // create TUN device
    tunfd_ = tun_alloc(tunname, addr);
-   log_msg(L_NOTICE, "[main] local IP is %s on %s", inet_ntop(AF_INET6, &addr, ip6addr, INET6_ADDRSTRLEN), tunname);
+   log_msg(L_NOTICE, "[main] local IP is %s on %s", ip6addr, tunname);
    // start socket receiver thread
    init_socket_receiver();
    // create listening socket and start socket acceptor

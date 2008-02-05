@@ -40,6 +40,10 @@ static PacketQueue_t *queue_ = NULL;
 static pthread_mutex_t queue_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t queue_cond_ = PTHREAD_COND_INITIALIZER;
 
+uint16_t tor_socks_port_ = TOR_SOCKS_PORT;
+uint16_t ocat_listen_port_ = OCAT_LISTEN_PORT;
+uint16_t ocat_dest_port_ = OCAT_DEST_PORT;
+
 
 void init_peers(void)
 {
@@ -483,7 +487,7 @@ void *socket_acceptor(void *p)
 
 void init_socket_acceptor(void)
 {
-   struct sockaddr_in in = {AF_INET, htons(OCAT_LISTEN_PORT), {htonl(INADDR_LOOPBACK)}};
+   struct sockaddr_in in = {AF_INET, htons(ocat_listen_port_), {htonl(INADDR_LOOPBACK)}};
    pthread_t thread;
    int rc;
 
@@ -495,6 +499,8 @@ void init_socket_acceptor(void)
 
    if (listen(sockfd_, 32) < 0)
       log_msg(L_FATAL, "[init_socket_acceptor] could not bring listener to listening state: \"%s\"", strerror(errno)), exit(1);
+   
+   log_msg(L_NOTICE, "[init_socket_acceptor] created local listener on port %d", ocat_listen_port_);
 
    if ((rc = pthread_create(&thread, NULL, socket_acceptor, NULL)))
       log_msg(L_FATAL, "[init_socket_acceptor] could not create socket_acceptor: \"%s\"", strerror(rc)), exit(1);
@@ -504,7 +510,7 @@ void init_socket_acceptor(void)
 //int socks_connect(const char *onion)
 int socks_connect(const struct in6_addr *addr)
 {
-   struct sockaddr_in in = {AF_INET, htons(TOR_SOCKS_PORT), {htonl(INADDR_LOOPBACK)}};
+   struct sockaddr_in in = {AF_INET, htons(tor_socks_port_), {htonl(INADDR_LOOPBACK)}};
    int fd;
    char buf[FRAME_SIZE], onion[ONION_NAME_SIZE];
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
@@ -530,7 +536,7 @@ int socks_connect(const struct in6_addr *addr)
 
    shdr->ver = 4;
    shdr->cmd = 1;
-   shdr->port = htons(OCAT_DEST_PORT);
+   shdr->port = htons(ocat_dest_port_);
    shdr->addr.s_addr = 0x01000000;
    strcpy(buf + sizeof(SocksHdr_t), "tor6");
    strcpy(buf + sizeof(SocksHdr_t) + 5, onion);

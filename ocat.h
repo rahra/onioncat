@@ -24,6 +24,7 @@
 //! maximum number a packet stays in queue
 #define MAX_QUEUE_DELAY 10
 
+#define L_INFO 0
 #define L_NOTICE 1
 #define L_ERROR 2
 #define L_FATAL 3
@@ -77,7 +78,12 @@ struct ReceiverInfo
 };
 */
 
-/* ocat.c */
+extern uint16_t tor_socks_port_;
+extern uint16_t ocat_listen_port_;
+extern uint16_t ocat_dest_port_;
+
+
+/* ocatlog.c */
 void log_msg(int, const char *, ...);
 
 /* ocatsv6.c -- this function is sourced out
