@@ -6,20 +6,36 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <errno.h>
+#include <time.h>
+#include <pthread.h>
 
 #include "ocat.h"
 
-static int debug_level_ = 4;
+
 int tunfd_;
+static int debug_level_ = 4;
+static pthread_mutex_t log_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 
 
 void log_msg(int lf, const char *fmt, ...)
 {
+   unsigned tid;
+   struct tm *tm;
+   time_t t;
+   FILE *out = stderr;
+   char timestr[32] = "";
    va_list ap;
 
    if (debug_level_ < lf)
       return;
 
+   t = time(NULL);
+   tm = localtime(&t);
+   if (tm)
+      strftime(timestr, 32, "%c", tm);
+
+   pthread_mutex_lock(&log_mutex_);
+   fprintf(out, "%s ", timestr);
    switch (lf)
    {
       case L_DEBUG:
@@ -42,11 +58,15 @@ void log_msg(int lf, const char *fmt, ...)
          return;
    }
 
+   tid = (unsigned) pthread_self();
+   fprintf(out, "[%08x] ", tid);
+
    va_start(ap, fmt);
    vfprintf(stderr, fmt, ap);
    va_end(ap);
 
    fprintf(stderr, "\n");
+   pthread_mutex_unlock(&log_mutex_);
 }
 
 void print_v6_hd(FILE *out, const struct ip6_hdr *ihd)
@@ -74,8 +94,8 @@ int main(int argc, char *argv[])
    char tunname[IFNAMSIZ] = "", onion[ONION_NAME_SIZE], *s, ip6addr[INET6_ADDRSTRLEN];
    struct in6_addr addr;
    int c, runasroot = 0;
-   uid_t uid = 133;
-   gid_t gid = 133;
+   uid_t uid = 504;
+   gid_t gid = 504;
 
    if (argc < 2)
       usage(argv[0]), exit(1);

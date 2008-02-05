@@ -51,12 +51,10 @@ OnionPeer_t *search_peer(const struct in6_addr *addr)
 {
    int i;
 
-//   pthread_mutex_lock(&peer_mutex_);
    for (i = 0; i < MAXPEERS; i++)
       if (!memcmp(addr, &peer_[i].addr, sizeof(struct in6_addr)))
          break;
          //return &peer_[i];
-//   pthread_mutex_unlock(&peer_mutex_);
 
    if (i >= MAXPEERS)
       return NULL;
@@ -87,10 +85,10 @@ const OnionPeer_t *forward_packet(const struct in6_addr *addr, const char *buf, 
 {
    OnionPeer_t *peer;
 
-   log_msg(L_DEBUG, "forwarding packet");
    pthread_mutex_lock(&peer_mutex_);
    if ((peer = search_peer(addr)))
    {
+      log_msg(L_DEBUG, "[forwarding_packet]");
       write(peer->tcpfd, buf, buflen);
       peer->time = time(NULL);
    }
@@ -104,10 +102,10 @@ void queue_packet(const struct in6_addr *addr, const char *buf, int buflen)
 {
    PacketQueue_t *queue;
 
-   log_msg(L_DEBUG, "copying packet to heap for queue");
+   log_msg(L_DEBUG, "[queue_packet] copying packet to heap for queue");
    if (!(queue = malloc(sizeof(PacketQueue_t) + buflen)))
    {
-      log_msg(L_ERROR, "%s for packet to queue", strerror(errno));
+      log_msg(L_ERROR, "[queue_packet] %s for packet to queue", strerror(errno));
       return;
    }
 
@@ -115,11 +113,13 @@ void queue_packet(const struct in6_addr *addr, const char *buf, int buflen)
    queue->psize = buflen;
    queue->data = ((char*)queue) + sizeof(PacketQueue_t);
    memcpy(queue->data, buf, buflen);
+   queue->time = time(NULL);
 
-   log_msg(L_DEBUG, "queuing packet");
+   log_msg(L_DEBUG, "[queue_packet] queuing packet");
    pthread_mutex_lock(&queue_mutex_);
    queue->next = queue_;
    queue_ = queue;
+   log_msg(L_DEBUG, "[queue_packet] waking up dequeuer");
    pthread_cond_signal(&queue_cond_);
    pthread_mutex_unlock(&queue_mutex_);
 }
@@ -131,6 +131,7 @@ void *packet_dequeuer(void *p)
    OnionPeer_t *peer;
    struct timespec ts;
    int rc, timed = 0;
+   time_t delay;
 
    log_msg(L_NOTICE, "[packet_dequeuer] running");
    for (;;)
@@ -164,13 +165,14 @@ void *packet_dequeuer(void *p)
          }
          pthread_mutex_unlock(&peer_mutex_);
 
-         // delete packet from queue if it was sent
-         if (peer)
+         // delete packet from queue if it was sent or is too old
+         delay = time(NULL) - (*queue)->time;
+         if (peer || (delay > MAX_QUEUE_DELAY))
          {
             fqueue = *queue;
             *queue = (*queue)->next;
             free(fqueue);
-            log_msg(L_DEBUG, "[packet_dequeuer] packet dequeued");
+            log_msg(L_DEBUG, "[packet_dequeuer] packet dequeued, delay = %d", delay);
             continue;
          }
          queue = &(*queue)->next;
@@ -191,18 +193,38 @@ void init_packet_dequeuer(void)
 }
 
 
+const static char hdigit_[] = "0123456789abcdef";
+
+void hex_code_header(const char *frame, int len, char *buf)
+{
+   int i;
+
+   for (i = 0; i < len; i++, frame++)
+   {
+      *buf++ = hdigit_[(*frame >> 4) & 0x0f];
+      *buf++ = hdigit_[*frame & 0x0f];
+      *buf++ = ' ';
+   }
+   *--buf = '\0';
+}
+
+
 // do some packet validation
 int validate_frame(const char *frame, int len)
 {
    char buf[INET6_ADDRSTRLEN];
-   struct ip6_hdr *ihd = (struct ip6_hdr*) (frame + 2);
+   struct ip6_hdr *ihd = (struct ip6_hdr*) (frame + 4);
+   char hexbuf[(IP6HLEN + 4) * 3 + 1];
+
+   hex_code_header(frame, len > IP6HLEN + 4 ? IP6HLEN + 4 : len, hexbuf);
+   log_msg(L_DEBUG, "[validate_frame] header \"%s\"", hexbuf);
 
    if (len < IP6HLEN + 4)
    {
       log_msg(L_ERROR, "[validate_frame] frame too short: %d bytes", len);
       return 0;
    }
-   if (*((uint16_t*) &buf[2]) != htons(0x86dd))
+   if (/*(buf[2] != (char)0x86) || (buf[3] != (char)0xdd)*/ *((uint16_t*) &frame[2]) != htons(0x86dd))
    {
       log_msg(L_ERROR, "[validate_frame] ethertype is not IPv6");
       return 0;
@@ -217,18 +239,28 @@ int validate_frame(const char *frame, int len)
       log_msg(L_ERROR, "[validate_frame] source address invalid. Remote ocat could not reply");
       return 0;
    }
-   return 1;
+   return ntohs(ihd->ip6_plen);
+}
+
+
+void cleanup_socket(int fd, OnionPeer_t *peer)
+{
+   log_msg(L_NOTICE, "[cleanup_socket] fd %d reached EOF, closing.", fd);
+   close(fd);
+   pthread_mutex_lock(&peer_mutex_);
+   delete_peer(peer);
+   pthread_mutex_unlock(&peer_mutex_);
 }
 
 
 void *socket_receiver(void *p)
 {
-   int i, fd, maxfd, len, state;
+   int i, fd, maxfd, len, state, plen, rlen;
    char buf[FRAME_SIZE];
    fd_set rset;
 //   struct ip6_hdr *ihd;
 
-   log_msg(L_DEBUG, "socket_receiver running");
+   log_msg(L_DEBUG, "[socket_receiver] running");
    for (;;)
    {
       FD_ZERO(&rset);
@@ -278,14 +310,56 @@ void *socket_receiver(void *p)
          if (FD_ISSET(fd, &rset))
          {
             log_msg(L_DEBUG, "[socket_receiver] reading from %d", fd);
+
+//#define FRAMED_READ
+#ifdef FRAMED_READ
+            if ((len = read(fd, buf, IP6HLEN + 4)) == -1)
+            {
+               log_msg(L_DEBUG, "[socket_receiver] spurious wakup of %d: \"%s\"", fd, strerror(errno));
+               continue;
+            }
+            // handle EOF
+            if (!len)
+            {
+               cleanup_socket(fd, &peer_[i]);
+               continue;
+            }
+            // validate header
+            if (!(plen = validate_frame(buf, len)))
+            {
+               log_msg(L_ERROR, "[socket_receiver] dropping frame");
+               continue;
+            }
+            // read payload
+            if ((rlen = read(fd, &buf[IP6HLEN + 4], plen)) == -1)
+            {
+               log_msg(L_ERROR, "[socket_receiver] error reading packet payload, dropping frame");
+               continue;
+            }
+
+            // forward payload
+            log_msg(L_DEBUG, "[socket_receiver] sending to tun %d framesize %d", tunfd_, len + rlen);
+            write(tunfd_, buf, len + rlen);
+
+            // cleanup on short read => maybe EOF
+            if (rlen < plen)
+            {
+               log_msg(L_DEBUG, "[socket_receiver] short read on %d, %d < %d", fd, rlen, plen);
+               cleanup_socket(fd, &peer_[i]);
+               continue;
+            }
+
+#else
+
+            // this works, but has a problem if more then one frame is readable at the time
             if ((len = read(fd, buf, FRAME_SIZE)) > 0)
             {
                if (!validate_frame(buf, len))
                {
-                  log_msg(L_ERROR, "[socket_receiver] dropping packet");
+                  log_msg(L_ERROR, "[socket_receiver] dropping frame");
                   continue;
                }
-               log_msg(L_DEBUG, "[socket_receiver] sending to tun %d", tunfd_);
+               log_msg(L_DEBUG, "[socket_receiver] sending to tun %d framesize %d", tunfd_, len);
                write(tunfd_, buf, len);
             }
 
@@ -305,6 +379,7 @@ void *socket_receiver(void *p)
                log_msg(L_DEBUG, "[socket_receiver] spurious wakup of %d: \"%s\"", fd, strerror(errno));
                continue;
             }
+#endif
 
             pthread_mutex_lock(&peer_mutex_);
             // update timestamp
@@ -346,14 +421,14 @@ void set_nonblock(int fd)
 
    if ((flags = fcntl(fd, F_GETFL, 0)) == -1)
    {
-      log_msg(L_ERROR, "could not get socket flags for %d: \"%s\"", fd, strerror(errno));
+      log_msg(L_ERROR, "[set_nonblock] could not get socket flags for %d: \"%s\"", fd, strerror(errno));
       flags = 0;
    }
 
    log_msg(L_DEBUG, "[set_nonblock] O_NONBLOCK currently is %x", flags & O_NONBLOCK);
 
    if ((fcntl(socket, F_SETFL, flags | O_NONBLOCK)) == -1)
-      log_msg(L_ERROR, "could not set O_NONBLOCK for %d: \"%s\"", fd, strerror(errno));
+      log_msg(L_ERROR, "[set_nonblock] could not set O_NONBLOCK for %d: \"%s\"", fd, strerror(errno));
 }
 
 
@@ -361,7 +436,7 @@ void insert_peer(int fd, const struct in6_addr *addr)
 {
    OnionPeer_t *peer;
 
-   log_msg(L_DEBUG, "inserting peer %d", fd);
+   log_msg(L_DEBUG, "[inserting_peer] %d", fd);
 
    set_nonblock(fd);
 
@@ -380,7 +455,7 @@ void insert_peer(int fd, const struct in6_addr *addr)
    pthread_mutex_unlock(&peer_mutex_);
 
    // wake up socket_receiver
-   log_msg(L_DEBUG, "waking up socket_receiver");
+   log_msg(L_DEBUG, "[inser_peer] waking up socket_receiver");
    write(lpfd_[1], &fd, 1);
 }
 
@@ -391,14 +466,14 @@ void *socket_acceptor(void *p)
 //   OnionPeer_t *peer;
    int fd;
 
-   log_msg(L_NOTICE, "socket_acceptor running");
+   log_msg(L_NOTICE, "[socket_acceptor] running");
    for (;;)
    {
-      log_msg(L_DEBUG, "acceptor is accepting further connections");
+      log_msg(L_DEBUG, "[socket acceptor] is accepting further connections");
       if ((fd = accept(sockfd_, NULL, NULL)) < 0)
          perror("onion_receiver:accept"), exit(1);
 
-      log_msg(L_NOTICE, "connection accepted on listener");
+      log_msg(L_NOTICE, "[socket acceptor] connection accepted on listener");
       insert_peer(fd, NULL);
    }
 
@@ -434,24 +509,24 @@ int socks_connect(const struct in6_addr *addr)
    char buf[FRAME_SIZE], onion[ONION_NAME_SIZE];
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
 
-   log_msg(L_DEBUG, "socks_connect: __called__");
+   log_msg(L_DEBUG, "[socks_connect] called");
 
    ipv6tonion(addr, onion);
    strcat(onion, ".onion");
 
-   log_msg(L_NOTICE, "trying to connecto to \"%s\" [%s]", onion, inet_ntop(AF_INET6, addr, buf, FRAME_SIZE));
+   log_msg(L_NOTICE, "[socks_connect] trying to connecto to \"%s\" [%s]", onion, inet_ntop(AF_INET6, addr, buf, FRAME_SIZE));
 
    if ((fd = socket(PF_INET, SOCK_STREAM, 0)) < 0)
       return E_SOCKS_SOCK;
 
    if (connect(fd, (struct sockaddr*) &in, sizeof(in)) < 0)
    {
-      log_msg(L_ERROR, "socks_connect: connect() failed");
+      log_msg(L_ERROR, "[socks_connect] connect() failed");
       close(fd);
       return E_SOCKS_CONN;
    }
 
-   log_msg(L_DEBUG, "socks_connect: connect()");
+   log_msg(L_DEBUG, "[socks_connect] connect()");
 
    shdr->ver = 4;
    shdr->cmd = 1;
@@ -461,23 +536,23 @@ int socks_connect(const struct in6_addr *addr)
    strcpy(buf + sizeof(SocksHdr_t) + 5, onion);
 
    write(fd, shdr, sizeof(SocksHdr_t) + strlen(onion) + 6);
-   log_msg(L_DEBUG, "socks_connect: connect request sent");
+   log_msg(L_DEBUG, "[socks_connect] connect request sent");
 
    if (read(fd, shdr, sizeof(SocksHdr_t)) < sizeof(SocksHdr_t))
    {
-      log_msg(L_ERROR, "socks_connect: short read, closing.");
+      log_msg(L_ERROR, "[socks_connect] short read, closing.");
       close(fd);
       return E_SOCKS_REQ;
    }
-   log_msg(L_DEBUG, "socks_connect: socks response received");
+   log_msg(L_DEBUG, "[socks_connect] socks response received");
 
    if (shdr->ver || (shdr->cmd != 90))
    {
-      log_msg(L_ERROR, "socks_connect: request failed");
+      log_msg(L_ERROR, "[socks_connect] request failed, reason = %d", shdr->cmd);
       close(fd);
       return E_SOCKS_RQFAIL;
    }
-   log_msg(L_NOTICE, "SOCKS connection to %s successfully opened on fd %d", onion, fd);
+   log_msg(L_NOTICE, "[socks_connect] connection to %s successfully opened on fd %d", onion, fd);
 
    insert_peer(fd, addr);
 
@@ -491,16 +566,16 @@ void *socks_connector(void *p)
    struct in6_addr addr;
    int len;
 
-   log_msg(L_NOTICE, "socks_connector running");
+   log_msg(L_NOTICE, "[socks_connector] running");
 
    for (;;)
    {
-      log_msg(L_DEBUG, "reading from connector pipe %d", cpfd_[0]);
+      log_msg(L_DEBUG, "[socks_connector] reading from connector pipe %d", cpfd_[0]);
       if ((len = read(cpfd_[0], &addr, sizeof(addr))) == -1)
-         log_msg(L_FATAL, "error reading from connector pipe %d: %s", cpfd_[0], strerror(errno)), exit(1);
-      if (len < sizeof(addr))
+         log_msg(L_FATAL, "[socks_connector] error reading from connector pipe %d: %s", cpfd_[0], strerror(errno)), exit(1);
+      if (len != sizeof(addr))
       {
-         log_msg(L_ERROR, "short read on connector pipe %d: %d bytes", cpfd_[0], len);
+         log_msg(L_ERROR, "[socks_connector] illegal read on connector pipe %d: %d bytes", cpfd_[0], len);
          continue;
       }
 
@@ -510,7 +585,7 @@ void *socks_connector(void *p)
 
       if (peer)
       {
-         log_msg(L_NOTICE, "peer already exists, ignoring");
+         log_msg(L_NOTICE, "[socks_connector] peer already exists, ignoring");
          continue;
       }
 
@@ -557,6 +632,7 @@ int receive_packet(int fd, char *buf)
 void packet_forwarder(void)
 {
    char buf[FRAME_SIZE];
+   char addr[INET6_ADDRSTRLEN];
    struct ip6_hdr *ihd = (struct ip6_hdr*) &buf[4];
    int rlen;
 
@@ -564,7 +640,7 @@ void packet_forwarder(void)
    {
       //rlen = receive_packet(tunfd_, data);
       rlen = read(tunfd_, buf, FRAME_SIZE);
-      log_msg(L_DEBUG, "received packet on tunfd %d, packetsize %d", tunfd_, rlen);
+      log_msg(L_DEBUG, "[packet_forwarder] received on tunfd %d, framesize %d", tunfd_, rlen);
 
       if (!validate_frame(buf, rlen))
       {
@@ -594,9 +670,9 @@ void packet_forwarder(void)
       {
          log_msg(L_NOTICE, "[packet_forwarder] establishing new socks peer");
          //push_socks_connector(&ihd->ip6_dst);
-         log_msg(L_DEBUG, "[packet_forwarder] writing to socks connector pipe %d", cpfd_[1]);
-         write(cpfd_[1], &ihd->ip6_dst, sizeof(struct ip6_hdr));
-         log_msg(L_DEBUG, "queuing packet");
+         log_msg(L_DEBUG, "[packet_forwarder] writing %s to socks connector pipe %d", inet_ntop(AF_INET6, &ihd->ip6_dst, addr, INET6_ADDRSTRLEN), cpfd_[1]);
+         write(cpfd_[1], &ihd->ip6_dst, sizeof(struct in6_addr));
+         log_msg(L_DEBUG, "[packet_forwarder] queuing packet");
          queue_packet(&ihd->ip6_dst, buf, rlen);
       }
    }

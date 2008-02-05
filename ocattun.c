@@ -65,7 +65,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
    ifr6.ifr6_addr = addr.sin6_addr;*/
    ifr6.ifr6_addr = addr;
    ifr6.ifr6_ifindex = ifr.ifr_ifindex;
-   ifr6.ifr6_prefixlen = 40;
+   ifr6.ifr6_prefixlen = TOR_PREFIX_LEN;
    if (ioctl(sfd, SIOCSIFADDR, &ifr6) < 0)
       perror("SIOCIFADDR"), exit(1);
 

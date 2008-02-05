@@ -11,15 +11,18 @@
 #define IP6HLEN sizeof(struct ip6_hdr)
 // TOR prefix : FD87:D87E:EB43::/40
 #define TOR_PREFIX {0xfd,0x87,0xd8,0x7e,0xeb,0x43}
+#define TOR_PREFIX_LEN 48
 #define MAXPEERS 1024
 #define OCAT_LISTEN_PORT 8000
 #define OCAT_DEST_PORT 80
 #define TOR_SOCKS_PORT 9050
 
-#define FRAME_SIZE 1514
+#define FRAME_SIZE 1504
 #define ONION_NAME_SIZE 23
 
 #define DEQUEUER_WAKEUP 3
+//! maximum number a packet stays in queue
+#define MAX_QUEUE_DELAY 10
 
 #define L_NOTICE 1
 #define L_ERROR 2
@@ -41,6 +44,7 @@ typedef struct PacketQueue
    struct PacketQueue *next;
    struct in6_addr addr;
    int psize;
+   time_t time;
    void *data;
 } PacketQueue_t;
 
