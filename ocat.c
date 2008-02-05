@@ -4,14 +4,14 @@
 #include <string.h>
 #include <stdarg.h>
 #include <arpa/inet.h>
-#include <netinet/ip6.h>
 #include <net/if.h>
+#include <errno.h>
 
 #include "ocat.h"
 
 static int debug_level_ = 4;
-//static int route_packets_ = 0;
 int tunfd_;
+
 
 void log_msg(int lf, const char *fmt, ...)
 {
@@ -23,7 +23,7 @@ void log_msg(int lf, const char *fmt, ...)
    switch (lf)
    {
       case L_DEBUG:
-         fprintf(stderr, "debug: ");
+         fprintf(stderr, "debug : ");
          break;
 
       case L_NOTICE:
@@ -31,11 +31,11 @@ void log_msg(int lf, const char *fmt, ...)
          break;
 
       case L_ERROR:
-         fprintf(stderr, "error: ");
+         fprintf(stderr, "error : ");
          break;
 
       case L_FATAL:
-         fprintf(stderr, "FATAL: ");
+         fprintf(stderr, "FATAL : ");
          break;
 
       default:
@@ -63,17 +63,6 @@ void print_v6_hd(FILE *out, const struct ip6_hdr *ihd)
 }
 
 
-int receive_packet(int fd, char *buf)
-{
-   int rlen;
-
-   rlen = read(fd, buf, FRAME_SIZE);
-   log_msg(L_DEBUG, "read frame with framesize %d", rlen);
-
-   return rlen;
-}
-
-
 void usage(const char *s)
 {
    fprintf(stderr, "usage: %s [OPTIONS] <onion_hostname>\n", s);
@@ -82,21 +71,24 @@ void usage(const char *s)
 
 int main(int argc, char *argv[])
 {
-   char data[FRAME_SIZE];
-   struct ip6_hdr *ihd = (struct ip6_hdr*) &data[4];
-   ssize_t rlen;
-   char tunname[IFNAMSIZ] = "", onion[ONION_NAME_SIZE], *s;
+   char tunname[IFNAMSIZ] = "", onion[ONION_NAME_SIZE], *s, ip6addr[INET6_ADDRSTRLEN];
    struct in6_addr addr;
-   int c;
+   int c, runasroot = 0;
+   uid_t uid = 133;
+   gid_t gid = 133;
 
    if (argc < 2)
       usage(argv[0]), exit(1);
 
-   while ((c = getopt(argc, argv, "d:h")) != -1)
+   while ((c = getopt(argc, argv, "d:hr")) != -1)
       switch (c)
       {
          case 'd':
             debug_level_ = atoi(optarg);
+            break;
+
+         case 'r':
+            runasroot = 1;
             break;
 
          case 'h':
@@ -121,47 +113,36 @@ int main(int argc, char *argv[])
    init_peers();
    // create TUN device
    tunfd_ = tun_alloc(tunname, addr);
+   log_msg(L_NOTICE, "[main] local IP is %s on %s", inet_ntop(AF_INET6, &addr, ip6addr, INET6_ADDRSTRLEN), tunname);
    // start socket receiver thread
    init_socket_receiver();
    // create listening socket and start socket acceptor
    init_socket_acceptor();
+
+/*   // create socks connector thread
+   init_socks_connector();
+   // start packet dequeuer
+   init_packet_dequeuer();
+*/
+   
+   if (!runasroot && !getuid())
+   {
+      log_msg(L_NOTICE, "[main] running as root, changing uid/gid to %d/%d", uid, gid);
+      if (setgid(gid))
+         log_msg(L_ERROR, "[main] could not change gid: \"%s\"", strerror(errno));
+      if (setuid(uid))
+         log_msg(L_ERROR, "[main] could not change uid: \"%d\"", strerror(errno));
+   }
+   log_msg(L_NOTICE, "[main] uid/gid = %d/%d", getuid(), getgid());
+
    // create socks connector thread
    init_socks_connector();
    // start packet dequeuer
    init_packet_dequeuer();
 
-   log_msg(L_NOTICE, "[main] local IP is %s on %s", inet_ntop(AF_INET6, &addr, data, FRAME_SIZE), tunname);
-
-   for (;;)
-   {
-      rlen = receive_packet(tunfd_, data);
-      log_msg(L_DEBUG, "received packet on tunfd %d", tunfd_);
-
-      // do some packet validation
-      if (*((uint16_t*) &data[2]) != htons(0x86dd))
-      {
-         log_msg(L_ERROR, "ethertype is not IPv6, dropping packet");
-         continue;
-      }
-      if (!has_tor_prefix(&ihd->ip6_dst))
-      {
-         log_msg(L_ERROR, "destination %s unreachable, dropping packet", inet_ntop(AF_INET6, &ihd->ip6_dst, data, FRAME_SIZE));
-         continue;
-      }
-      if (!has_tor_prefix(&ihd->ip6_src))
-      {
-         log_msg(L_ERROR, "source address invalid. Remote ocat could not reply, dropping packet");
-         continue;
-      }
-
-      if (!forward_packet(&ihd->ip6_dst, data, rlen))
-      {
-         log_msg(L_NOTICE, "establishing new socks peer");
-         push_socks_connector(&ihd->ip6_dst);
-         log_msg(L_DEBUG, "queuing packet");
-         queue_packet(&ihd->ip6_dst, data, rlen);
-      }
-   }
+   // start forwarding packets from tunnel
+   log_msg(L_NOTICE, "[main] starting packet forwarder");
+   packet_forwarder();
 
    return 0;
 }

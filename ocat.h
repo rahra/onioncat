@@ -19,7 +19,7 @@
 #define FRAME_SIZE 1514
 #define ONION_NAME_SIZE 23
 
-#define DEQUEUER_WAKUP 5
+#define DEQUEUER_WAKEUP 3
 
 #define L_NOTICE 1
 #define L_ERROR 2
@@ -96,13 +96,15 @@ void init_peers(void);
 void init_socket_acceptor(void);
 void init_socket_receiver(void);
 void init_socks_connector(void);
-void push_socks_connector(const struct in6_addr *);
+//void push_socks_connector(const struct in6_addr *);
 //int socks_connect(const char *);
 //void *socket_receiver(void *p);
-void update_peer_time(const OnionPeer_t *);
-const OnionPeer_t *forward_packet(const struct in6_addr *, const char *, int);
-void queue_packet(const struct in6_addr *, const char *, int);
+//void update_peer_time(const OnionPeer_t *);
+//const OnionPeer_t *forward_packet(const struct in6_addr *, const char *, int);
+//void queue_packet(const struct in6_addr *, const char *, int);
 void init_packet_dequeuer(void);
+void packet_forwarder(void);
+
 
 
 #endif
