@@ -1,5 +1,5 @@
 CC	= gcc
-CFLAGS = -pipe -g
+CFLAGS = -pipe -g -Wall
 LDFLAGS	= -lpthread
 TARGET = ocat
 

@@ -5,17 +5,19 @@
  *  @version 2008/02/03-01
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 #include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
 #include <arpa/inet.h>
 #include <netinet/ip6.h>
 #include <net/if.h>
 #include <linux/if_tun.h>
-#include <sys/ioctl.h>
 
 #include "ocat.h"
 
@@ -29,11 +31,11 @@ struct in6_ifreq
 };
 
 
-int tun_alloc(char *dev, const char *ipv6)
+int tun_alloc(char *dev, struct in6_addr addr)
 {
    struct ifreq ifr;
    struct in6_ifreq ifr6;
-   struct sockaddr_in6 addr;
+//   struct sockaddr_in6 addr;
    int fd, sfd;
 
    if( (fd = open("/dev/net/tun", O_RDWR)) < 0 )
@@ -54,12 +56,14 @@ int tun_alloc(char *dev, const char *ipv6)
    if (ioctl(sfd, SIOCGIFINDEX, &ifr ) < 0)
       perror("SIOCGIFINDEX"), exit(1);
 
+   /*
    memset(&addr, 0, sizeof(addr));
    addr.sin6_family = AF_INET6;
    if (inet_pton(AF_INET6, ipv6, &addr.sin6_addr) < 0)
       perror("inet_pton"), exit(1);
 
-   ifr6.ifr6_addr = addr.sin6_addr;
+   ifr6.ifr6_addr = addr.sin6_addr;*/
+   ifr6.ifr6_addr = addr;
    ifr6.ifr6_ifindex = ifr.ifr_ifindex;
    ifr6.ifr6_prefixlen = 40;
    if (ioctl(sfd, SIOCSIFADDR, &ifr6) < 0)

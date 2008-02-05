@@ -7,12 +7,15 @@
 #define BUFLEN 64*1024
 
 #define IP6HLEN sizeof(struct ip6_hdr)
-#define TOR_PREF 0xFD87D87EEB43LL
+// TOR prefix : FD87:D87E:EB43::/40
+#define TOR_PREFIX {0xfd,0x87,0xd8,0x7e,0xeb,0x43}
 #define MAXPEERS 1024
-#define OCAT_PORT 8000
+#define OCAT_LISTEN_PORT 8000
+#define OCAT_DEST_PORT 80
 #define TOR_SOCKS_PORT 9050
 
 #define FRAME_SIZE 1500
+#define ONION_NAME_SIZE 23
 
 
 #define L_NOTICE 1
@@ -68,7 +71,6 @@ struct ReceiverInfo
 /* ocat.c */
 void log_msg(int, const char *, ...);
 
-
 /* ocatsv6.c -- this function is sourced out
  * here because of conflicting headers. */
 void set_ipv6_addr(int, struct in6_addr, int);
@@ -76,13 +78,16 @@ void set_ipv6_addr(int, struct in6_addr, int);
 /* ocatv6conv.c */
 void ipv6tonion(const struct in6_addr *, char *);
 int oniontipv6(const char *, struct in6_addr *);
+int has_tor_prefix(const struct in6_addr *);
 
 /* ocattun.c */
-int tun_alloc(char *, const char *);
+//int tun_alloc(char *, const char *);
+int tun_alloc(char *, struct in6_addr);
 
 /* ocatroute.c */
 OnionPeer_t *search_peer(const struct in6_addr *);
 OnionPeer_t *establish_peer(int fd, const struct in6_addr *);
+void init_peers(void);
 void init_socket_acceptor(void);
 void init_socket_receiver(void);
 void init_socks_connector(void);

@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <errno.h>
 #include <sys/select.h>
 
@@ -214,7 +215,8 @@ void *packet_dequeuer(void *p)
    {
       log_msg(L_NOTICE, "packet dequeuer waiting for packets");
       pthread_mutex_lock(&queue_mutex_);
-      if (!queue_)
+//FIXME: unconditional wait... wake up should be improved
+//      if (!queue_)
          pthread_cond_wait(&queue_cond_, &queue_mutex_);
 
       log_msg(L_DEBUG, "starting dequeuing");
@@ -259,7 +261,7 @@ void *socket_receiver(void *p)
    int i, fd, maxfd, len, state;
    char buf[FRAME_SIZE];
    fd_set rset;
-   struct ip6_hdr *ihd;
+//   struct ip6_hdr *ihd;
 
    log_msg(L_DEBUG, "socket_receiver running");
    for (;;)
@@ -283,6 +285,7 @@ void *socket_receiver(void *p)
       }
       pthread_mutex_unlock(&peer_mutex_);
 
+      log_msg(L_DEBUG, "socket_receiver is selecting...");
       if (select(maxfd + 1, &rset, NULL, NULL, NULL) == -1)
          log_msg(L_FATAL, "select encountered error: \"%s\"", strerror(errno));
 
@@ -305,8 +308,12 @@ void *socket_receiver(void *p)
 
          if (FD_ISSET(fd, &rset))
          {
+            log_msg(L_DEBUG, "socket_receiver reading from %d", fd);
             if ((len = read(fd, buf, FRAME_SIZE)) > 0)
+            {
+               log_msg(L_DEBUG, "socket_receiver sending to tun");
                write(tunfd_, buf, len);
+            }
 
             // if len == 0 EOF reached => close session
             if (!len)
@@ -399,12 +406,13 @@ void insert_peer(int fd, const struct in6_addr *addr)
 void *socket_acceptor(void *p)
 {
 //   struct ReceiverInfo *fwinfo;
-   OnionPeer_t *peer;
+//   OnionPeer_t *peer;
    int fd;
 
    log_msg(L_NOTICE, "socket_acceptor running");
    for (;;)
    {
+      log_msg(L_DEBUG, "acceptor is accepting further connections");
       if ((fd = accept(sockfd_, NULL, NULL)) < 0)
          perror("onion_receiver:accept"), exit(1);
 
@@ -418,7 +426,7 @@ void *socket_acceptor(void *p)
 
 void init_socket_acceptor(void)
 {
-   struct sockaddr_in in = {AF_INET, htons(OCAT_PORT), {htonl(INADDR_LOOPBACK)}};
+   struct sockaddr_in in = {AF_INET, htons(OCAT_LISTEN_PORT), {htonl(INADDR_LOOPBACK)}};
    pthread_t thread;
 
    if ((sockfd_ = socket(PF_INET, SOCK_STREAM, 0)) < 0)
@@ -440,13 +448,15 @@ int socks_connect(const struct in6_addr *addr)
 {
    struct sockaddr_in in = {AF_INET, htons(TOR_SOCKS_PORT), {htonl(INADDR_LOOPBACK)}};
    int fd;
-   char buf[128], onion[32];
+   char buf[FRAME_SIZE], onion[ONION_NAME_SIZE];
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
+
+   log_msg(L_DEBUG, "socks_connect: __called__");
 
    ipv6tonion(addr, onion);
    strcat(onion, ".onion");
 
-   log_msg(L_DEBUG, "socks_connect: __called__");
+   log_msg(L_NOTICE, "trying to connecto to \"%s\" [%s]", onion, inet_ntop(AF_INET6, addr, buf, FRAME_SIZE));
 
    if ((fd = socket(PF_INET, SOCK_STREAM, 0)) < 0)
       return E_SOCKS_SOCK;
@@ -462,7 +472,7 @@ int socks_connect(const struct in6_addr *addr)
 
    shdr->ver = 4;
    shdr->cmd = 1;
-   shdr->port = htons(OCAT_PORT);
+   shdr->port = htons(OCAT_DEST_PORT);
    shdr->addr.s_addr = 0x01000000;
    strcpy(buf + sizeof(SocksHdr_t), "tor6");
    strcpy(buf + sizeof(SocksHdr_t) + 5, onion);
