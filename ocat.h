@@ -14,7 +14,7 @@
 #define OCAT_DEST_PORT 80
 #define TOR_SOCKS_PORT 9050
 
-#define FRAME_SIZE 1500
+#define FRAME_SIZE 1514
 #define ONION_NAME_SIZE 23
 
 
