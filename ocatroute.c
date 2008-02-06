@@ -44,6 +44,8 @@ uint16_t tor_socks_port_ = TOR_SOCKS_PORT;
 uint16_t ocat_listen_port_ = OCAT_LISTEN_PORT;
 uint16_t ocat_dest_port_ = OCAT_DEST_PORT;
 
+int vrec_ = 0;
+
 
 void init_peers(void)
 {
@@ -261,6 +263,7 @@ void *socket_receiver(void *p)
 {
    int i, fd, maxfd, len, state, plen, rlen;
    char buf[FRAME_SIZE];
+   char addr[INET6_ADDRSTRLEN];
    fd_set rset;
 //   struct ip6_hdr *ihd;
 
@@ -315,8 +318,8 @@ void *socket_receiver(void *p)
          {
             log_msg(L_DEBUG, "[socket_receiver] reading from %d", fd);
 
-//#define FRAMED_READ
-#ifdef FRAMED_READ
+/*          // *** framed receiver
+            // FIXME: needs packet defragmentation
             if ((len = read(fd, buf, IP6HLEN + 4)) == -1)
             {
                log_msg(L_DEBUG, "[socket_receiver] spurious wakup of %d: \"%s\"", fd, strerror(errno));
@@ -352,13 +355,15 @@ void *socket_receiver(void *p)
                cleanup_socket(fd, &peer_[i]);
                continue;
             }
+*/
 
-#else
-
+/*          // *** unframed receiver
             // this works, but has a problem if more then one frame is readable at the time
+            // and vrec_ is set (packet validation)
             if ((len = read(fd, buf, FRAME_SIZE)) > 0)
             {
-               if (!validate_frame(buf, len))
+               plen = validate_frame(buf, len);
+               if (vrec_ && !plen)
                {
                   log_msg(L_ERROR, "[socket_receiver] dropping frame");
                   continue;
@@ -383,19 +388,58 @@ void *socket_receiver(void *p)
                log_msg(L_DEBUG, "[socket_receiver] spurious wakup of %d: \"%s\"", fd, strerror(errno));
                continue;
             }
-#endif
 
             pthread_mutex_lock(&peer_mutex_);
             // update timestamp
             peer_[i].time = time(NULL);
             // set IP address if it has non yet
-            if (!memcmp(&peer_[i].addr, &in6addr_any, sizeof(struct in6_addr)))
+            if (plen && !memcmp(&peer_[i].addr, &in6addr_any, sizeof(struct in6_addr)))
             {
                memcpy(&peer_[i].addr, &((struct ip6_hdr*) (buf + 4))->ip6_src, sizeof(struct in6_addr));
                log_msg(L_NOTICE, "[socket_receiver] incoming connection on %d from %s now identified", fd,
                      inet_ntop(AF_INET6, &peer_[i].addr, buf, FRAME_SIZE));
             }
             pthread_mutex_unlock(&peer_mutex_);
+*/
+            // *** unframed receiver
+            // write reordered after IP validation
+            // this might happen on linux, see SELECT(2)
+            if ((len = read(fd, buf, FRAME_SIZE)) == -1)
+            {
+               log_msg(L_DEBUG, "[socket_receiver] spurious wakup of %d: \"%s\"", fd, strerror(errno));
+               continue;
+            }
+            // if len == 0 EOF reached => close session
+            if (!len)
+            {
+               log_msg(L_NOTICE, "[socket_receiver] fd %d reached EOF, closing.", fd);
+               close(fd);
+               pthread_mutex_lock(&peer_mutex_);
+               delete_peer(&peer_[i]);
+               pthread_mutex_unlock(&peer_mutex_);
+               continue;
+            }
+            // check frame
+            plen = validate_frame(buf, len);
+            if (vrec_ && !plen)
+            {
+               log_msg(L_ERROR, "[socket_receiver] dropping frame");
+               continue;
+            }
+
+            pthread_mutex_lock(&peer_mutex_);
+            // update timestamp
+            peer_[i].time = time(NULL);
+            // set IP address if it is not set yet and frame is valid
+            if (plen && !memcmp(&peer_[i].addr, &in6addr_any, sizeof(struct in6_addr)))
+            {
+               memcpy(&peer_[i].addr, &((struct ip6_hdr*) (buf + 4))->ip6_src, sizeof(struct in6_addr));
+               log_msg(L_NOTICE, "[socket_receiver] incoming connection on %d from %s is now identified", fd,
+                     inet_ntop(AF_INET6, &peer_[i].addr, addr, INET6_ADDRSTRLEN));
+            }
+            pthread_mutex_unlock(&peer_mutex_);
+            log_msg(L_DEBUG, "[socket_receiver] writing to tun %d framesize %d", tunfd_, len);
+            write(tunfd_, buf, len);
          }
       }
    }
@@ -682,5 +726,38 @@ void packet_forwarder(void)
          queue_packet(&ihd->ip6_dst, buf, rlen);
       }
    }
+}
+
+
+void *socket_cleaner(void *p)
+{
+   int i;
+   log_msg(L_NOTICE, "[socket_cleaner] running");
+   for (;;)
+   {
+      sleep(CLEANER_WAKEUP);
+      log_msg(L_DEBUG, "[socket_cleaner] wakeup");
+      pthread_mutex_lock(&peer_mutex_);
+      for (i = 0; i < MAXPEERS; i++)
+      {
+         if (peer_[i].state && peer_[i].time + MAX_IDLE_TIME < time(NULL))
+         {
+            log_msg(L_NOTICE, "[socket_cleaner] peer %d timed out, closing.", peer_[i].tcpfd);
+            close(peer_[i].tcpfd);
+            delete_peer(&peer_[i]);
+         }
+      }
+      pthread_mutex_unlock(&peer_mutex_);
+   }
+}
+
+
+void init_socket_cleaner(void)
+{
+   pthread_t thread;
+   int rc;
+
+   if ((rc = pthread_create(&thread, NULL, socket_cleaner, NULL)))
+      log_msg(L_FATAL, "[init_socket_cleaner] could not start thread: \"%s\"", strerror(rc));
 }
 

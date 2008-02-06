@@ -24,6 +24,9 @@
 //! maximum number a packet stays in queue
 #define MAX_QUEUE_DELAY 10
 
+#define MAX_IDLE_TIME 120
+#define CLEANER_WAKEUP 10
+
 #define L_INFO 0
 #define L_NOTICE 1
 #define L_ERROR 2
@@ -81,6 +84,7 @@ struct ReceiverInfo
 extern uint16_t tor_socks_port_;
 extern uint16_t ocat_listen_port_;
 extern uint16_t ocat_dest_port_;
+extern int vrec_;
 
 
 /* ocatlog.c */
@@ -114,7 +118,7 @@ void init_socks_connector(void);
 //void queue_packet(const struct in6_addr *, const char *, int);
 void init_packet_dequeuer(void);
 void packet_forwarder(void);
-
+void init_socket_cleaner(void);
 
 
 #endif

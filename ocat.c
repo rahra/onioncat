@@ -38,9 +38,11 @@ void usage(const char *s)
          "   -i <onion_hostname>   convert onion hostname to IPv6 and exit\n"
          "   -l <port>             set ocat listen port, default = %d\n"
          "   -o <ipv6_addr>        convert IPv6 address to onion url and exit\n"
+         "   -r                    run as root, i.e. do not change uid/gid\n"
          "   -s <port>             set hidden service virtual port, default = %d\n"
          "   -t <port>             set tor SOCKS port, default = %d\n"
-         , s, debug_level_, ocat_listen_port_, ocat_dest_port_, tor_socks_port_);
+         "   -v                    validate packets from sockets, default = %d\n"
+         , s, debug_level_, ocat_listen_port_, ocat_dest_port_, tor_socks_port_, vrec_);
 }
 
 
@@ -85,6 +87,10 @@ int main(int argc, char *argv[])
 
          case 't':
             tor_socks_port_ = atoi(optarg);
+            break;
+
+         case 'v':
+            vrec_ = 1;
             break;
 
          case 'h':
@@ -133,6 +139,8 @@ int main(int argc, char *argv[])
    init_socket_receiver();
    // create listening socket and start socket acceptor
    init_socket_acceptor();
+   // starting socket cleaner
+   init_socket_cleaner();
 
 /*   // create socks connector thread
    init_socks_connector();
