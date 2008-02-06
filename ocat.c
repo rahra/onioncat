@@ -12,10 +12,12 @@
 #include "ocat.h"
 
 
-int tunfd_;
+int tunfd_[2] = {0, 1};
+
 extern int debug_level_;
 
 
+/*
 void print_v6_hd(FILE *out, const struct ip6_hdr *ihd)
 {
    char asip[32], adip[32];
@@ -28,6 +30,7 @@ void print_v6_hd(FILE *out, const struct ip6_hdr *ihd)
    fprintf(out, "dst onion: %s\n", onion);
    fprintf(out, "\n");
 }
+*/
 
 
 void usage(const char *s)
@@ -118,9 +121,9 @@ int main(int argc, char *argv[])
    if ((s = strchr(onion, '.')))
          *s = '\0';
    if (strlen(onion) != 16)
-      fprintf(stderr, "parameter seems not to be valid onion hostname.\n"), exit(1);
+      log_msg(L_ERROR, "[main] parameter seems not to be valid onion hostname"), exit(1);
    if (oniontipv6(onion, &addr) == -1)
-      fprintf(stderr, "parameter seems not to be valid onion hostname.\n"), exit(1);
+      log_msg(L_ERROR, "[main] parameter seems not to be valid onion hostname"), exit(1);
 
    inet_ntop(AF_INET6, &addr, ip6addr, INET6_ADDRSTRLEN);
 
@@ -132,8 +135,10 @@ int main(int argc, char *argv[])
 
    // init peer structure
    init_peers();
+#ifndef WITHOUT_TUN
    // create TUN device
-   tunfd_ = tun_alloc(tunname, addr);
+   tunfd_[0] = tunfd_[1] = tun_alloc(tunname, addr);
+#endif
    log_msg(L_NOTICE, "[main] local IP is %s on %s", ip6addr, tunname);
    // start socket receiver thread
    init_socket_receiver();

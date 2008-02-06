@@ -5,6 +5,8 @@
  *  @version 2008/02/03-01
  */
 
+#ifndef WITHOUT_TUN
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -80,3 +82,5 @@ int tun_alloc(char *dev, struct in6_addr addr)
    return fd;
 }              
  
+#endif
+

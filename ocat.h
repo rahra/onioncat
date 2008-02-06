@@ -63,29 +63,17 @@ typedef struct SocksHdr
 typedef struct OnionPeer
 {
    struct in6_addr addr;   //<! remote address of peer
-//   int tunfd;              //<! local file descriptor
    int tcpfd;              //<! remote file descriptor
    time_t time;            //<! timestamp of latest packet
    int state;              //<! status of peer
    int dir;
-//   PacketQueue_t *queue;   //<! first packet in send queue
-//   pid_t pid;
 } OnionPeer_t;
-
-/*
-struct ReceiverInfo
-{
-   int listenfd;
-   int tunfd;
-   pthread_t thread;
-};
-*/
 
 extern uint16_t tor_socks_port_;
 extern uint16_t ocat_listen_port_;
 extern uint16_t ocat_dest_port_;
 extern int vrec_;
-
+extern int tunfd_[2];
 
 /* ocatlog.c */
 void log_msg(int, const char *, ...);

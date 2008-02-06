@@ -33,31 +33,6 @@ void log_msg(int lf, const char *fmt, ...)
       strftime(timestr, 32, "%c", tm);
    tid = (unsigned) pthread_self();
 
-   /*
-   fprintf(out, "%s ", timestr);
-   switch (lf)
-   {
-      case L_DEBUG:
-         fprintf(stderr, "debug : ");
-         break;
-
-      case L_NOTICE:
-         fprintf(stderr, "notice: ");
-         break;
-
-      case L_ERROR:
-         fprintf(stderr, "error : ");
-         break;
-
-      case L_FATAL:
-         fprintf(stderr, "FATAL : ");
-         break;
-
-      default:
-         return;
-   }
-   */
-
    pthread_mutex_lock(&log_mutex_);
    fprintf(out, "%s [%08x] %6s ", timestr, tid, flty_[lf]);
 

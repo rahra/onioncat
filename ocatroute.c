@@ -20,8 +20,6 @@
 #include "ocat.h"
 
 
-// TUN file descriptor
-extern int tunfd_;
 // file descriptor of tcp listener
 static int sockfd_;
 // file descriptors of socket_receiver pipe
@@ -438,8 +436,8 @@ void *socket_receiver(void *p)
                      inet_ntop(AF_INET6, &peer_[i].addr, addr, INET6_ADDRSTRLEN));
             }
             pthread_mutex_unlock(&peer_mutex_);
-            log_msg(L_DEBUG, "[socket_receiver] writing to tun %d framesize %d", tunfd_, len);
-            write(tunfd_, buf, len);
+            log_msg(L_DEBUG, "[socket_receiver] writing to tun %d framesize %d", tunfd_[1], len);
+            write(tunfd_[1], buf, len);
          }
       }
    }
@@ -689,8 +687,8 @@ void packet_forwarder(void)
    for (;;)
    {
       //rlen = receive_packet(tunfd_, data);
-      rlen = read(tunfd_, buf, FRAME_SIZE);
-      log_msg(L_DEBUG, "[packet_forwarder] received on tunfd %d, framesize %d", tunfd_, rlen);
+      rlen = read(tunfd_[0], buf, FRAME_SIZE);
+      log_msg(L_DEBUG, "[packet_forwarder] received on tunfd %d, framesize %d", tunfd_[0], rlen);
 
       if (!validate_frame(buf, rlen))
       {
