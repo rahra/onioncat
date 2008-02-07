@@ -17,6 +17,7 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 #include <netinet/ip6.h>
 #include <net/if.h>
 #include <errno.h>

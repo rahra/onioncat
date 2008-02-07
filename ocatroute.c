@@ -452,7 +452,7 @@ void *socket_receiver(void *p)
             {
                *(((uint32_t*) ihd) - 1) = htonl(AF_INET6);
                write(tunfd_[1], ((uint32_t*) ihd) - 1, plen + 4 + IP6HLEN);
-               ihd = (char*) ihd + plen + IP6HLEN;
+               ihd = (struct ip6_hdr*) ((char*) ihd + plen + IP6HLEN)
                len -= plen + IP6HLEN;
                plen = validate_frame(ihd, len);
             }
