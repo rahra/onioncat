@@ -499,9 +499,17 @@ void *socket_acceptor(void *p)
 
 void init_socket_acceptor(void)
 {
-   struct sockaddr_in in = {AF_INET, htons(ocat_listen_port_), {htonl(INADDR_LOOPBACK)}};
+   struct sockaddr_in in /*= {AF_INET, htons(ocat_listen_port_), {htonl(INADDR_LOOPBACK)}}*/ ;
    pthread_t thread;
    int rc;
+
+   memset(&in, 0, sizeof(in));
+   in.sin_family = AF_INET;
+   in.sin_port = htons(ocat_listen_port_);
+   in.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+#ifndef linux
+   in.sin_len = sizeof(in);
+#endif
 
    if ((sockfd_ = socket(PF_INET, SOCK_STREAM, 0)) < 0)
       log_msg(L_FATAL, "[init_socket_acceptor] could not create listener socker: \"%s\"", strerror(errno)), exit(1);
@@ -522,12 +530,20 @@ void init_socket_acceptor(void)
 //int socks_connect(const char *onion)
 int socks_connect(const struct in6_addr *addr)
 {
-   struct sockaddr_in in = {AF_INET, htons(tor_socks_port_), {htonl(INADDR_LOOPBACK)}};
+   struct sockaddr_in in /* = {AF_INET, htons(tor_socks_port_), {htonl(INADDR_LOOPBACK)}}*/;
    int fd;
    char buf[FRAME_SIZE], onion[ONION_NAME_SIZE];
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
 
    log_msg(L_DEBUG, "[socks_connect] called");
+
+   memset(&in, 0, sizeof(in));
+   in.sin_family = AF_INET;
+   in.sin_port = htons(tor_socks_port_);
+   in.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+#ifndef linux
+   in.sin_len = sizeof(in);
+#endif
 
    ipv6tonion(addr, onion);
    strcat(onion, ".onion");
