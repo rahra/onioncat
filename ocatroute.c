@@ -454,7 +454,7 @@ void *socket_receiver(void *p)
                write(tunfd_[1], ((uint32_t*) ihd) - 1, plen + 4 + IP6HLEN);
                ihd = (char*) ihd + plen + IP6HLEN;
                len -= plen + IP6HLEN;
-               plen = validate_frame(ihd);
+               plen = validate_frame(ihd, len);
             }
 #else
             write(tunfd_[1], ihd, len);
