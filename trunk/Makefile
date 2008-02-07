@@ -1,8 +1,7 @@
 CC	= gcc
 #PREOPTS	= -DWITHOUT_TUN
 CFLAGS = -pipe -g -Wall $(PREOPTS)
-#LDFLAGS	= -lpthread -lrt
-LDFLAGS	= -lpthread
+LDFLAGS	= -lpthread -lrt
 TARGET = ocat
 
 all: $(TARGET)
