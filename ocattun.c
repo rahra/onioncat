@@ -69,7 +69,14 @@ int tun_alloc(char *dev, struct in6_addr addr)
    if(ioctl(fd, TUNSETIFF, (void *) &ifr) < 0)
       perror("TUNSETIFF"), exit(1);
    strcpy(dev, ifr.ifr_name);
-#else
+#else /* FreeBSD */
+/*   int prm = 0;
+   if (ioctl(fd, TUNSLMODE, &prm) == -1)
+      perror("ioctl:TUNSIFHEAD"), exit(1);
+
+   prm = IFF_POINTOPOINT;
+   if (ioctl(fd, TUNSIFMODE, &prm) == -1)
+      perror("ioctl:TUNSIFMODE"), exit(1);*/
 #endif
 
 #ifdef SET_TUN_IP
@@ -97,11 +104,20 @@ int tun_alloc(char *dev, struct in6_addr addr)
    inet_ntop(AF_INET6, &addr, astr, INET6_ADDRSTRLEN);
 #ifdef linux
    sprintf(buf, "ifconfig tun0 add %s/%d up", astr, TOR_PREFIX_LEN);
-#else
-   sprintf(buf, "ifconfig tun0 inet6 %s/%d up", astr, TOR_PREFIX_LEN);
-#endif
    if (system(buf) == -1)
       log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+#else
+   sprintf(buf, "ifconfig tun0 inet6 %s/%d up", astr, TOR_PREFIX_LEN);
+/*   if (system(buf) == -1)
+      log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));*/
+   int prm = 1;
+   if (ioctl(fd, TUNSIFHEAD, &prm) == -1)
+      perror("ioctl:TUNSIFHEAD"), exit(1);
+   prm = IFF_POINTOPOINT;
+//   prm = IFF_BROADCAST;
+   if (ioctl(fd, TUNSIFMODE, &prm) == -1)
+      perror("ioctl:TUNSIFMODE"), exit(1);
+#endif
 #endif
 
    return fd;
