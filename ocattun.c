@@ -62,7 +62,8 @@ int tun_alloc(char *dev, struct in6_addr addr)
 
 #ifdef linux
    memset(&ifr, 0, sizeof(ifr));
-   ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
+   ifr.ifr_flags = IFF_TUN;
+   //ifr.ifr_flags |= IFF_NO_PI;
    if(*dev)
       strncpy(ifr.ifr_name, dev, IFNAMSIZ);
 
