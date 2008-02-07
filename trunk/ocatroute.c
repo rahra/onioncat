@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <netinet/in.h>
+#include <netinet/ip6.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <sys/select.h>
@@ -86,7 +87,7 @@ void delete_peer(OnionPeer_t *peer)
 }
 
 
-const OnionPeer_t *forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
+const OnionPeer_t *forward_packet(const struct in6_addr *addr, const struct ip6_hdr *buf, int buflen)
 {
    OnionPeer_t *peer;
 
@@ -103,7 +104,7 @@ const OnionPeer_t *forward_packet(const struct in6_addr *addr, const char *buf, 
 }
 
 
-void queue_packet(const struct in6_addr *addr, const char *buf, int buflen)
+void queue_packet(const struct in6_addr *addr, const struct ip6_hdr *buf, int buflen)
 {
    PacketQueue_t *queue;
 
@@ -215,25 +216,27 @@ void hex_code_header(const char *frame, int len, char *buf)
 
 
 // do some packet validation
-int validate_frame(const char *frame, int len)
+int validate_frame(const struct ip6_hdr *ihd, int len)
 {
    char buf[INET6_ADDRSTRLEN];
-   struct ip6_hdr *ihd = (struct ip6_hdr*) (frame + 4);
-   char hexbuf[(IP6HLEN + 4) * 3 + 1];
+   //struct ip6_hdr *ihd = (struct ip6_hdr*) (frame + 4);
+   char hexbuf[IP6HLEN * 3 + 1];
 
-   hex_code_header(frame, len > IP6HLEN + 4 ? IP6HLEN + 4 : len, hexbuf);
+   hex_code_header((char*) ihd, len > IP6HLEN ? IP6HLEN : len, hexbuf);
    log_msg(L_DEBUG, "[validate_frame] header \"%s\"", hexbuf);
 
+   /*
    if (len < IP6HLEN + 4)
    {
       log_msg(L_ERROR, "[validate_frame] frame too short: %d bytes", len);
       return 0;
    }
-   if (/*(buf[2] != (char)0x86) || (buf[3] != (char)0xdd)*/ *((uint16_t*) &frame[2]) != htons(0x86dd))
+   if (*((uint16_t*) &frame[2]) != htons(0x86dd))
    {
       log_msg(L_ERROR, "[validate_frame] ethertype is not IPv6");
       return 0;
    }
+   */
    if (!has_tor_prefix(&ihd->ip6_dst))
    {
       log_msg(L_ERROR, "[validate_frame] destination %s unreachable", inet_ntop(AF_INET6, &ihd->ip6_dst, buf, INET6_ADDRSTRLEN));
@@ -261,10 +264,16 @@ void cleanup_socket(int fd, OnionPeer_t *peer)
 void *socket_receiver(void *p)
 {
    int i, fd, maxfd, len, state, plen, rlen;
-   char buf[FRAME_SIZE];
+   char buf[FRAME_SIZE + 4];
    char addr[INET6_ADDRSTRLEN];
    fd_set rset;
-//   struct ip6_hdr *ihd;
+   struct ip6_hdr *ihd;
+
+#ifndef linux
+   ihd = (struct ip6_hdr*) &buf[4];
+#else
+   ihd = (struct ip6_hdr*) buf;
+#endif
 
    log_msg(L_DEBUG, "[socket_receiver] running");
    for (;;)
@@ -403,7 +412,7 @@ void *socket_receiver(void *p)
             // *** unframed receiver
             // write reordered after IP validation
             // this might happen on linux, see SELECT(2)
-            if ((len = read(fd, buf, FRAME_SIZE)) == -1)
+            if ((len = read(fd, ihd, FRAME_SIZE)) == -1)
             {
                log_msg(L_DEBUG, "[socket_receiver] spurious wakup of %d: \"%s\"", fd, strerror(errno));
                continue;
@@ -419,7 +428,7 @@ void *socket_receiver(void *p)
                continue;
             }
             // check frame
-            plen = validate_frame(buf, len);
+            plen = validate_frame(ihd, len);
             if (vrec_ && !plen)
             {
                log_msg(L_ERROR, "[socket_receiver] dropping frame");
@@ -432,13 +441,24 @@ void *socket_receiver(void *p)
             // set IP address if it is not set yet and frame is valid
             if (plen && !memcmp(&peer_[i].addr, &in6addr_any, sizeof(struct in6_addr)))
             {
-               memcpy(&peer_[i].addr, &((struct ip6_hdr*) (buf + 4))->ip6_src, sizeof(struct in6_addr));
+               memcpy(&peer_[i].addr, &ihd->ip6_src, sizeof(struct in6_addr));
                log_msg(L_NOTICE, "[socket_receiver] incoming connection on %d from %s is now identified", fd,
                      inet_ntop(AF_INET6, &peer_[i].addr, addr, INET6_ADDRSTRLEN));
             }
             pthread_mutex_unlock(&peer_mutex_);
             log_msg(L_DEBUG, "[socket_receiver] writing to tun %d framesize %d", tunfd_[1], len);
-            write(tunfd_[1], buf, len);
+#ifndef linux
+            while (len > 0)
+            {
+               *(((uint32_t*) ihd) - 1) = htonl(AF_INET6);
+               write(tunfd_[1], ((uint32_t*) ihd) - 1, plen + 4 + IP6HLEN);
+               ihd = (char*) ihd + plen + IP6HLEN;
+               len -= plen + IP6HLEN;
+               plen = validate_frame(ihd);
+            }
+#else
+            write(tunfd_[1], ihd, len);
+#endif
          }
       }
    }
@@ -682,8 +702,14 @@ void packet_forwarder(void)
 {
    char buf[FRAME_SIZE];
    char addr[INET6_ADDRSTRLEN];
-   struct ip6_hdr *ihd = (struct ip6_hdr*) &buf[4];
+   struct ip6_hdr *ihd;
    int rlen;
+
+#ifndef linux
+   ihd = (struct ip6_hdr*) &buf[4];
+#else
+   ihd = (struct ip6_hdr*) buf;
+#endif
 
    for (;;)
    {
@@ -691,7 +717,7 @@ void packet_forwarder(void)
       rlen = read(tunfd_[0], buf, FRAME_SIZE);
       log_msg(L_DEBUG, "[packet_forwarder] received on tunfd %d, framesize %d", tunfd_[0], rlen);
 
-      if (!validate_frame(buf, rlen))
+      if (!validate_frame(ihd, rlen))
       {
          log_msg(L_ERROR, "[packet_forwarder] dropping frame");
          continue;
@@ -715,14 +741,14 @@ void packet_forwarder(void)
       }
       */
 
-      if (!forward_packet(&ihd->ip6_dst, buf, rlen))
+      if (!forward_packet(&ihd->ip6_dst, ihd, rlen))
       {
          log_msg(L_NOTICE, "[packet_forwarder] establishing new socks peer");
          //push_socks_connector(&ihd->ip6_dst);
          log_msg(L_DEBUG, "[packet_forwarder] writing %s to socks connector pipe %d", inet_ntop(AF_INET6, &ihd->ip6_dst, addr, INET6_ADDRSTRLEN), cpfd_[1]);
          write(cpfd_[1], &ihd->ip6_dst, sizeof(struct in6_addr));
          log_msg(L_DEBUG, "[packet_forwarder] queuing packet");
-         queue_packet(&ihd->ip6_dst, buf, rlen);
+         queue_packet(&ihd->ip6_dst, ihd, rlen);
       }
    }
 }

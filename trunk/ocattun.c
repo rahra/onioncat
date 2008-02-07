@@ -19,10 +19,18 @@
 #include <arpa/inet.h>
 #include <netinet/ip6.h>
 #include <net/if.h>
+#include <errno.h>
+
+#ifdef linux
 #include <linux/if_tun.h>
+#else
+#include <net/if_tun.h>
+#endif
 
 #include "ocat.h"
 
+
+#ifdef SET_TUN_IP
 /* FIXME: this is defined in linux/ipv6.h but including
  * it conflicts with other headers. */
 struct in6_ifreq 
@@ -31,6 +39,7 @@ struct in6_ifreq
    uint32_t ifr6_prefixlen;
    int ifr6_ifindex;
 };
+#endif
 
 char *tun_dev_ = TUN_DEV;
 
@@ -38,35 +47,37 @@ char *tun_dev_ = TUN_DEV;
 int tun_alloc(char *dev, struct in6_addr addr)
 {
    struct ifreq ifr;
+   int fd;
+#ifdef SET_TUN_IP
+   int sfd;
    struct in6_ifreq ifr6;
-//   struct sockaddr_in6 addr;
-   int fd, sfd;
+#else
+   char astr[INET6_ADDRSTRLEN];
+   char buf[FRAME_SIZE];
+#endif
 
    if( (fd = open(tun_dev_, O_RDWR)) < 0 )
       perror("open tun"), exit(1);
 
+#ifdef linux
    memset(&ifr, 0, sizeof(ifr));
-   ifr.ifr_flags = IFF_TUN /*| IFF_NO_PI*/;
+   ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
    if(*dev)
       strncpy(ifr.ifr_name, dev, IFNAMSIZ);
 
    if(ioctl(fd, TUNSETIFF, (void *) &ifr) < 0)
       perror("TUNSETIFF"), exit(1);
    strcpy(dev, ifr.ifr_name);
+#else
+#endif
 
+#ifdef SET_TUN_IP
    if ((sfd = socket(PF_INET6, SOCK_DGRAM, 0)) < 0)
       perror("socket"), exit(1);
 
    if (ioctl(sfd, SIOCGIFINDEX, &ifr ) < 0)
       perror("SIOCGIFINDEX"), exit(1);
 
-   /*
-   memset(&addr, 0, sizeof(addr));
-   addr.sin6_family = AF_INET6;
-   if (inet_pton(AF_INET6, ipv6, &addr.sin6_addr) < 0)
-      perror("inet_pton"), exit(1);
-
-   ifr6.ifr6_addr = addr.sin6_addr;*/
    ifr6.ifr6_addr = addr;
    ifr6.ifr6_ifindex = ifr.ifr_ifindex;
    ifr6.ifr6_prefixlen = TOR_PREFIX_LEN;
@@ -81,6 +92,17 @@ int tun_alloc(char *dev, struct in6_addr addr)
       perror("SIOCSIFFLAGS"), exit(1);
 
    close(sfd);
+#else
+   inet_ntop(AF_INET6, &addr, astr, INET6_ADDRSTRLEN);
+#ifdef linux
+   sprintf(buf, "ifconfig tun0 add %s/%d up", astr, TOR_PREFIX_LEN);
+#else
+   sprintf(buf, "ifconfig tun0 inet6 %s/%d up", astr, TOR_PREFIX_LEN);
+#endif
+   if (system(buf) == -1)
+      log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+#endif
+
    return fd;
 }              
  
