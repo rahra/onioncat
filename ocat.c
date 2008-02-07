@@ -4,6 +4,9 @@
 #include <string.h>
 #include <stdarg.h>
 #include <arpa/inet.h>
+//#include <netinet/in.h>
+//#include <netinet/ip6.h>
+#include <sys/socket.h>
 #include <net/if.h>
 #include <errno.h>
 #include <time.h>
@@ -44,6 +47,9 @@ void usage(const char *s)
          "   -r                    run as root, i.e. do not change uid/gid\n"
          "   -s <port>             set hidden service virtual port, default = %d\n"
          "   -t <port>             set tor SOCKS port, default = %d\n"
+#ifndef WITHOUT_TUN
+         "   -T <tun_device>       path to tun character device\n"
+#endif
          "   -v                    validate packets from sockets, default = %d\n"
          , s, debug_level_, ocat_listen_port_, ocat_dest_port_, tor_socks_port_, vrec_);
 }
@@ -61,7 +67,7 @@ int main(int argc, char *argv[])
    if (argc < 2)
       usage(argv[0]), exit(1);
 
-   while ((c = getopt(argc, argv, "d:hriol:t:s:")) != -1)
+   while ((c = getopt(argc, argv, "d:hriol:t:T:s:")) != -1)
       switch (c)
       {
          case 'd':
@@ -91,6 +97,12 @@ int main(int argc, char *argv[])
          case 't':
             tor_socks_port_ = atoi(optarg);
             break;
+
+#ifndef WITHOUT_TUN
+         case 'T'
+            tun_dev_ = optarg;
+            break;
+#endif
 
          case 'v':
             vrec_ = 1;

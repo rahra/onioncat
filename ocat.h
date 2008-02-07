@@ -19,6 +19,7 @@
 #define OCAT_DEST_PORT 80
 #define TOR_SOCKS_PORT 9050
 
+
 #define FRAME_SIZE 1504
 #define ONION_NAME_SIZE 23
 
@@ -77,6 +78,11 @@ extern uint16_t ocat_dest_port_;
 extern int vrec_;
 extern int tunfd_[2];
 
+#ifndef WITHOUT_TUN
+#define TUN_DEV "/dev/net/tun"
+extern char *tun_dev_;
+#endif
+
 /* ocatlog.c */
 void log_msg(int, const char *, ...);
 
@@ -90,8 +96,9 @@ int oniontipv6(const char *, struct in6_addr *);
 int has_tor_prefix(const struct in6_addr *);
 
 /* ocattun.c */
-//int tun_alloc(char *, const char *);
+#ifndef WITHOUT_TUN
 int tun_alloc(char *, struct in6_addr);
+#endif
 
 /* ocatroute.c */
 OnionPeer_t *search_peer(const struct in6_addr *);

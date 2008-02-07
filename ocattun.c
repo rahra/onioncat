@@ -32,6 +32,8 @@ struct in6_ifreq
    int ifr6_ifindex;
 };
 
+char *tun_dev_ = TUN_DEV;
+
 
 int tun_alloc(char *dev, struct in6_addr addr)
 {
@@ -40,7 +42,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
 //   struct sockaddr_in6 addr;
    int fd, sfd;
 
-   if( (fd = open("/dev/net/tun", O_RDWR)) < 0 )
+   if( (fd = open(tun_dev_, O_RDWR)) < 0 )
       perror("open tun"), exit(1);
 
    memset(&ifr, 0, sizeof(ifr));
