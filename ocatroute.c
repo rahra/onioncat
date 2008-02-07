@@ -57,7 +57,7 @@ void init_peers(void)
 #ifdef linux
    fhd_key_ = htonl(0x86dd);
 #else
-   fhd_key_ = htonl(AF_INET6);
+   fhd_key_ = htonl(0x1c);
 #endif
 }
 
@@ -110,7 +110,7 @@ void rewrite_framehdr(char *buf, int len)
 
    while(len > 4)
    {
-      if (*fhd != htonl(AF_INET6) && *fhd != htonl(0x86dd))
+      if (*fhd != htonl(0x1c) && *fhd != htonl(0x86dd))
       {
          log_msg(L_DEBUG, "[rewrite_framehdr] frame seems to be fragment");
          return;
