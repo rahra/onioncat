@@ -40,6 +40,9 @@ static PacketQueue_t *queue_ = NULL;
 static pthread_mutex_t queue_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t queue_cond_ = PTHREAD_COND_INITIALIZER;
 
+// frame header of local OS
+static uint32_t fhd_key_;
+
 uint16_t tor_socks_port_ = TOR_SOCKS_PORT;
 uint16_t ocat_listen_port_ = OCAT_LISTEN_PORT;
 uint16_t ocat_dest_port_ = OCAT_DEST_PORT;
@@ -50,6 +53,12 @@ int vrec_ = 0;
 void init_peers(void)
 {
    memset(peer_, 0, sizeof(OnionPeer_t) * MAXPEERS);
+   // FIXME: this initialization should done somewhere else
+#ifdef linux
+   fhd_key_ = htonl(0x86dd);
+#else
+   fhd_key_ = htonl(AF_INET6);
+#endif
 }
 
 
@@ -87,7 +96,43 @@ void delete_peer(OnionPeer_t *peer)
 }
 
 
-const OnionPeer_t *forward_packet(const struct in6_addr *addr, const struct ip6_hdr *buf, int buflen)
+void rewrite_framehdr(char *buf, int len)
+{
+   uint32_t *fhd = (uint32_t*) buf;
+   struct ip6_hdr *ihd;
+   int ofs;
+
+   if (*fhd == fhd_key_)
+   {
+      log_msg(L_DEBUG, "[rewrite_framehdr] frame header already of correct type");
+      return;
+   }
+
+   while(len > 4)
+   {
+      if (*fhd != htonl(AF_INET6) && *fhd != htonl(0x86dd))
+      {
+         log_msg(L_DEBUG, "[rewrite_framehdr] frame seems to be fragment");
+         return;
+      }
+      // replace header type
+      log_msg(L_DEBUG, "[rewrite_framehdr] rewriting");
+      *fhd = fhd_key_;
+      // finding next header
+      if (len < 4 + sizeof(struct ip6_hdr))
+      {
+         log_msg(L_DEBUG, "[rewrite_framehdr] short frag");
+         return;
+      }
+      ihd = (struct ip6_hdr*) (fhd + 1);
+      ofs = 4 + sizeof(struct ip6_hdr) + ihd->ip6_plen;
+      len -= ofs;
+      fhd = (uint32_t*) (buf + ofs);
+   }
+}
+
+
+/*const*/ OnionPeer_t *forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
 {
    OnionPeer_t *peer;
 
@@ -104,7 +149,7 @@ const OnionPeer_t *forward_packet(const struct in6_addr *addr, const struct ip6_
 }
 
 
-void queue_packet(const struct in6_addr *addr, const struct ip6_hdr *buf, int buflen)
+void queue_packet(const struct in6_addr *addr, const char *buf, int buflen)
 {
    PacketQueue_t *queue;
 
@@ -163,6 +208,7 @@ void *packet_dequeuer(void *p)
       for (queue = &queue_; *queue; /*queue = &(*queue)->next*/)
       {
          //FIXME: this could be more performant of locking is done outside of for(...)
+#if 0
          pthread_mutex_lock(&peer_mutex_);
          if ((peer = search_peer(&(*queue)->addr)))
          {
@@ -170,6 +216,9 @@ void *packet_dequeuer(void *p)
             peer->time = time(NULL);
          }
          pthread_mutex_unlock(&peer_mutex_);
+#else 
+         peer = forward_packet(&(*queue)->addr, (*queue)->data, (*queue)->psize);
+#endif
 
          // delete packet from queue if it was sent or is too old
          delay = time(NULL) - (*queue)->time;
@@ -263,17 +312,12 @@ void cleanup_socket(int fd, OnionPeer_t *peer)
 
 void *socket_receiver(void *p)
 {
-   int i, fd, maxfd, len, state, plen, rlen;
-   char buf[FRAME_SIZE + 4];
+   int i, fd, maxfd, len, state, plen;
+   char buf[FRAME_SIZE];
    char addr[INET6_ADDRSTRLEN];
    fd_set rset;
    struct ip6_hdr *ihd;
-
-#ifndef linux
    ihd = (struct ip6_hdr*) &buf[4];
-#else
-   ihd = (struct ip6_hdr*) buf;
-#endif
 
    log_msg(L_DEBUG, "[socket_receiver] running");
    for (;;)
@@ -326,93 +370,10 @@ void *socket_receiver(void *p)
          {
             log_msg(L_DEBUG, "[socket_receiver] reading from %d", fd);
 
-/*          // *** framed receiver
-            // FIXME: needs packet defragmentation
-            if ((len = read(fd, buf, IP6HLEN + 4)) == -1)
-            {
-               log_msg(L_DEBUG, "[socket_receiver] spurious wakup of %d: \"%s\"", fd, strerror(errno));
-               continue;
-            }
-            // handle EOF
-            if (!len)
-            {
-               cleanup_socket(fd, &peer_[i]);
-               continue;
-            }
-            // validate header
-            if (!(plen = validate_frame(buf, len)))
-            {
-               log_msg(L_ERROR, "[socket_receiver] dropping frame");
-               continue;
-            }
-            // read payload
-            if ((rlen = read(fd, &buf[IP6HLEN + 4], plen)) == -1)
-            {
-               log_msg(L_ERROR, "[socket_receiver] error reading packet payload, dropping frame");
-               continue;
-            }
-
-            // forward payload
-            log_msg(L_DEBUG, "[socket_receiver] sending to tun %d framesize %d", tunfd_, len + rlen);
-            write(tunfd_, buf, len + rlen);
-
-            // cleanup on short read => maybe EOF
-            if (rlen < plen)
-            {
-               log_msg(L_DEBUG, "[socket_receiver] short read on %d, %d < %d", fd, rlen, plen);
-               cleanup_socket(fd, &peer_[i]);
-               continue;
-            }
-*/
-
-/*          // *** unframed receiver
-            // this works, but has a problem if more then one frame is readable at the time
-            // and vrec_ is set (packet validation)
-            if ((len = read(fd, buf, FRAME_SIZE)) > 0)
-            {
-               plen = validate_frame(buf, len);
-               if (vrec_ && !plen)
-               {
-                  log_msg(L_ERROR, "[socket_receiver] dropping frame");
-                  continue;
-               }
-               log_msg(L_DEBUG, "[socket_receiver] sending to tun %d framesize %d", tunfd_, len);
-               write(tunfd_, buf, len);
-            }
-
-            // if len == 0 EOF reached => close session
-            if (!len)
-            {
-               log_msg(L_NOTICE, "[socket_receiver] fd %d reached EOF, closing.", fd);
-               close(fd);
-               pthread_mutex_lock(&peer_mutex_);
-               delete_peer(&peer_[i]);
-               pthread_mutex_unlock(&peer_mutex_);
-               continue;
-            }
-            // this might happen on linux, see SELECT(2)
-            else if (len == -1)
-            {
-               log_msg(L_DEBUG, "[socket_receiver] spurious wakup of %d: \"%s\"", fd, strerror(errno));
-               continue;
-            }
-
-            pthread_mutex_lock(&peer_mutex_);
-            // update timestamp
-            peer_[i].time = time(NULL);
-            // set IP address if it has non yet
-            if (plen && !memcmp(&peer_[i].addr, &in6addr_any, sizeof(struct in6_addr)))
-            {
-               memcpy(&peer_[i].addr, &((struct ip6_hdr*) (buf + 4))->ip6_src, sizeof(struct in6_addr));
-               log_msg(L_NOTICE, "[socket_receiver] incoming connection on %d from %s now identified", fd,
-                     inet_ntop(AF_INET6, &peer_[i].addr, buf, FRAME_SIZE));
-            }
-            pthread_mutex_unlock(&peer_mutex_);
-*/
             // *** unframed receiver
             // write reordered after IP validation
             // this might happen on linux, see SELECT(2)
-            if ((len = read(fd, ihd, FRAME_SIZE)) == -1)
+            if ((len = read(fd, buf, FRAME_SIZE)) == -1)
             {
                log_msg(L_DEBUG, "[socket_receiver] spurious wakup of %d: \"%s\"", fd, strerror(errno));
                continue;
@@ -446,19 +407,11 @@ void *socket_receiver(void *p)
                      inet_ntop(AF_INET6, &peer_[i].addr, addr, INET6_ADDRSTRLEN));
             }
             pthread_mutex_unlock(&peer_mutex_);
+            
+            log_msg(L_DEBUG, "[socket_receiver] trying fhdr rewriting");
+            rewrite_framehdr(buf, len);
             log_msg(L_DEBUG, "[socket_receiver] writing to tun %d framesize %d", tunfd_[1], len);
-#ifndef linux
-            while (len > 0)
-            {
-               *(((uint32_t*) ihd) - 1) = htonl(AF_INET6);
-               write(tunfd_[1], ((uint32_t*) ihd) - 1, plen + 4 + IP6HLEN);
-               ihd = (struct ip6_hdr*) ((char*) ihd + plen + IP6HLEN);
-               len -= plen + IP6HLEN;
-               plen = validate_frame(ihd, len);
-            }
-#else
-            write(tunfd_[1], ihd, len);
-#endif
+            write(tunfd_[1], buf, len);
          }
       }
    }
@@ -475,10 +428,6 @@ void init_socket_receiver(void)
 
    if ((rc = pthread_create(&thread, NULL, socket_receiver, NULL)))
       log_msg(L_FATAL, "[init_socket_receiver] could not start socket_receiver thread: \"%s\"", strerror(rc));
-
-/* thread should never terminate
-   if (pthread_detach(thread))
-      log_msg(L_ERROR, "could not detach socket_receiver thread"); */
 }
 
 
@@ -676,28 +625,6 @@ void init_socks_connector(void)
 }
 
 
-/*
-void push_socks_connector(const struct in6_addr *addr)
-{
-   log_msg(L_DEBUG, "[push_socks_connector] writing to socks connector pipe %d", cpfd_[1]);
-   write(cpfd_[1], addr, sizeof(*addr));
-}
-*/
-
-
-/*
-int receive_packet(int fd, char *buf)
-{
-   int rlen;
-
-   rlen = read(fd, buf, FRAME_SIZE);
-   log_msg(L_DEBUG, "read frame with framesize %d", rlen);
-
-   return rlen;
-}
-*/
-
-
 void packet_forwarder(void)
 {
    char buf[FRAME_SIZE];
@@ -705,11 +632,7 @@ void packet_forwarder(void)
    struct ip6_hdr *ihd;
    int rlen;
 
-#ifndef linux
    ihd = (struct ip6_hdr*) &buf[4];
-#else
-   ihd = (struct ip6_hdr*) buf;
-#endif
 
    for (;;)
    {
@@ -717,38 +640,21 @@ void packet_forwarder(void)
       rlen = read(tunfd_[0], buf, FRAME_SIZE);
       log_msg(L_DEBUG, "[packet_forwarder] received on tunfd %d, framesize %d", tunfd_[0], rlen);
 
-      if (!validate_frame(ihd, rlen))
+      if (!validate_frame(ihd, rlen - 4))
       {
          log_msg(L_ERROR, "[packet_forwarder] dropping frame");
          continue;
       }
-      /*
-      // do some packet validation
-      if (*((uint16_t*) &buf[2]) != htons(0x86dd))
-      {
-         log_msg(L_ERROR, "ethertype is not IPv6, dropping packet");
-         continue;
-      }
-      if (!has_tor_prefix(&ihd->ip6_dst))
-      {
-         log_msg(L_ERROR, "destination %s unreachable, dropping packet", inet_ntop(AF_INET6, &ihd->ip6_dst, buf, FRAME_SIZE));
-         continue;
-      }
-      if (!has_tor_prefix(&ihd->ip6_src))
-      {
-         log_msg(L_ERROR, "source address invalid. Remote ocat could not reply, dropping packet");
-         continue;
-      }
-      */
 
-      if (!forward_packet(&ihd->ip6_dst, ihd, rlen))
+      // now forward either directly or to the queue
+      if (!forward_packet(&ihd->ip6_dst, buf, rlen))
       {
          log_msg(L_NOTICE, "[packet_forwarder] establishing new socks peer");
          //push_socks_connector(&ihd->ip6_dst);
          log_msg(L_DEBUG, "[packet_forwarder] writing %s to socks connector pipe %d", inet_ntop(AF_INET6, &ihd->ip6_dst, addr, INET6_ADDRSTRLEN), cpfd_[1]);
          write(cpfd_[1], &ihd->ip6_dst, sizeof(struct in6_addr));
          log_msg(L_DEBUG, "[packet_forwarder] queuing packet");
-         queue_packet(&ihd->ip6_dst, ihd, rlen);
+         queue_packet(&ihd->ip6_dst, buf, rlen);
       }
    }
 }
