@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
             break;
 
 #ifndef WITHOUT_TUN
-         case 'T'
+         case 'T':
             tun_dev_ = optarg;
             break;
 #endif
