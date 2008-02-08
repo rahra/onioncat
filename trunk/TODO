@@ -5,5 +5,10 @@
 * improve getopt() -- currently many things are hardcoded
 //* packets received on sockets should be validated (Ethertype, ip)
 * improve tun header test (check for src and dst ip)
+* generally improve tun opening routine
 * licence
+* socks_connector queue
+* header compression
+* fragment handler
+* packet_forwarder depends on socks_connector, currently possible unclean startup (not dangerous)
 
