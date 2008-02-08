@@ -124,5 +124,34 @@ int tun_alloc(char *dev, struct in6_addr addr)
    return fd;
 }              
  
+
+void test_tun_hdr(void)
+{
+   struct in6_addr addr;
+   char addrstr[INET6_ADDRSTRLEN];
+   char buf[FRAME_SIZE];
+   int rlen;
+
+   if (oniontipv6("aaaaaaaaaaaaaaab", &addr) == -1)
+      log_msg(L_FATAL, "[test_tun_hdr] this should never happen..."), exit(1);
+
+   inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
+   sprintf(buf, "ping6 -c 1 -w 1 %s >/dev/null 2>&1", addrstr);
+   log_msg(L_NOTICE, "[test_tun_hdr] testing tun header: \"%s\"", buf);
+   if (system(buf) == -1)
+      log_msg(L_FATAL, "[test_tun_hdr] test failed: \"%s\"", strerror(errno));
+   rlen = read(tunfd_[0], buf, FRAME_SIZE);
+   log_msg(L_DEBUG, "[test_tun_hdr] read %d bytes from %d, head = 0x%08x", rlen, tunfd_[0], ntohl(*((uint32_t*)buf)));
+
+   if ((buf[0] & 0xf0) == 0x60)
+   {
+      log_msg(L_NOTICE, "[test_tun_hdr] tun doesn't seem to have any frame header");
+      return;
+   }
+   
+   fhd_key_ = *((uint32_t*)buf);
+   log_msg(L_NOTICE, "[test_tun_hdr] using 0x%08x as local frame header", ntohl(fhd_key_));
+}
+
 #endif
 
