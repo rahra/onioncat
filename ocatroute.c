@@ -298,6 +298,11 @@ int validate_frame(const struct ip6_hdr *ihd, int len)
       log_msg(L_ERROR, "[validate_frame] source address invalid. Remote ocat could not reply");
       return 0;
    }
+   if (is_testping(&ihd->ip6_dst))
+   {
+      log_msg(L_DEBUG, "[validate_frame] test ping detected");
+      return 0;
+   }
    return ntohs(ihd->ip6_plen);
 }
 

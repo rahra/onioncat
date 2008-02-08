@@ -105,6 +105,7 @@ int has_tor_prefix(const struct in6_addr *);
 /* ocattun.c */
 #ifndef WITHOUT_TUN
 int tun_alloc(char *, struct in6_addr);
+void test_tun_hdr(void);
 #endif
 
 /* ocatroute.c */
