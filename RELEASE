@@ -1,8 +1,0 @@
-* verion 0.1.1
- - improved interoperability
- - compiles also und FreeBSD 6.1
- - TUN code slightly changed and more generic
- - TUN header rewriting (BSD has different header from linux)
-
-* version 0.1
- - works good under linux, gcc-4.2, linux-2.6.22
