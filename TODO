@@ -4,5 +4,6 @@
 //* garbage collector for session cleanup
 * improve getopt() -- currently many things are hardcoded
 //* packets received on sockets should be validated (Ethertype, ip)
+* improve tun header test (check for src and dst ip)
 * licence
 

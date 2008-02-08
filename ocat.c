@@ -48,6 +48,7 @@ void usage(const char *s)
          "   -s <port>             set hidden service virtual port, default = %d\n"
          "   -t <port>             set tor SOCKS port, default = %d\n"
 #ifndef WITHOUT_TUN
+         "   -p                    test tun header and exit\n"
          "   -T <tun_device>       path to tun character device\n"
 #endif
          "   -v                    validate packets from sockets, default = %d\n"
@@ -62,12 +63,12 @@ int main(int argc, char *argv[])
    int c, runasroot = 0;
    uid_t uid = 504;
    gid_t gid = 504;
-   int urlconv = 0;
+   int urlconv = 0, test_only = 0;
 
    if (argc < 2)
       usage(argv[0]), exit(1);
 
-   while ((c = getopt(argc, argv, "d:hriol:t:T:s:")) != -1)
+   while ((c = getopt(argc, argv, "d:hriopl:t:T:s:")) != -1)
       switch (c)
       {
          case 'd':
@@ -99,6 +100,10 @@ int main(int argc, char *argv[])
             break;
 
 #ifndef WITHOUT_TUN
+         case 'p':
+            test_only = 1;
+            break;
+
          case 'T':
             tun_dev_ = optarg;
             break;
@@ -150,6 +155,9 @@ int main(int argc, char *argv[])
 #ifndef WITHOUT_TUN
    // create TUN device
    tunfd_[0] = tunfd_[1] = tun_alloc(tunname, addr);
+   test_tun_hdr();
+   if (test_only)
+      exit(0);
 #endif
    log_msg(L_NOTICE, "[main] local IP is %s on %s", ip6addr, tunname);
    // start socket receiver thread

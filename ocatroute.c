@@ -40,8 +40,8 @@ static PacketQueue_t *queue_ = NULL;
 static pthread_mutex_t queue_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t queue_cond_ = PTHREAD_COND_INITIALIZER;
 
-// frame header of local OS
-static uint32_t fhd_key_;
+// frame header of local OS in network byte order
+uint32_t fhd_key_ = 0;
 
 uint16_t tor_socks_port_ = TOR_SOCKS_PORT;
 uint16_t ocat_listen_port_ = OCAT_LISTEN_PORT;
@@ -53,12 +53,6 @@ int vrec_ = 0;
 void init_peers(void)
 {
    memset(peer_, 0, sizeof(OnionPeer_t) * MAXPEERS);
-   // FIXME: this initialization should done somewhere else
-#ifdef linux
-   fhd_key_ = htonl(0x86dd);
-#else
-   fhd_key_ = htonl(0x1c);
-#endif
 }
 
 
@@ -93,6 +87,14 @@ OnionPeer_t *get_empty_peer(void)
 void delete_peer(OnionPeer_t *peer)
 {
    memset(peer, 0, sizeof(OnionPeer_t));
+}
+
+
+void mk_ocat_frame(const struct in6_addr *addr, const struct ip6_hdr *ihd, OcatHdr_t *ohd)
+{
+   memcpy(ohd, ihd, sizeof(struct ip6_hdrctl));
+   memcpy(ohd->oh_srcid, (char*)addr + 6, 10);
+   memcpy(ohd + 1, ihd + 1, ihd->ip6_plen);
 }
 
 

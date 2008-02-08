@@ -72,6 +72,12 @@ typedef struct OnionPeer
    int dir;
 } OnionPeer_t;
 
+typedef struct OcatHdr
+{
+   struct ip6_hdrctl oh_ip6hdrctl;
+   char oh_srcid[10];
+} OcatHdr_t;
+
 extern uint16_t tor_socks_port_;
 extern uint16_t ocat_listen_port_;
 extern uint16_t ocat_dest_port_;
@@ -81,6 +87,7 @@ extern int tunfd_[2];
 #ifndef WITHOUT_TUN
 #define TUN_DEV "/dev/net/tun"
 extern char *tun_dev_;
+extern uint32_t fhd_key_;
 #endif
 
 /* ocatlog.c */
