@@ -1,14 +1,12 @@
 #ifndef OCAT_H
 #define OCAT_H
 
-//#define _POSIX_C_SOURCE 199309L
 
 #include <time.h>
 #include <netinet/in.h>
 #include <netinet/ip6.h>
+#include <pthread.h>
 
-
-//#define BUFLEN 64*1024
 
 #define IP6HLEN sizeof(struct ip6_hdr)
 // TOR prefix : FD87:D87E:EB43::/40
@@ -16,6 +14,7 @@
 #define TOR_PREFIX_LEN 48
 #define MAXPEERS 1024
 #define OCAT_LISTEN_PORT 8000
+#define OCAT_CTRL_PORT 8001
 #define OCAT_DEST_PORT 80
 #define TOR_SOCKS_PORT 9050
 
@@ -43,8 +42,13 @@
 
 //#define PEER_CONNECT 0
 #define PEER_ACTIVE 1
+
 #define PEER_INCOMING 0
 #define PEER_OUTGOING 1
+
+#define THREAD_NAME_LEN 11
+//#define MAX_THREADS 8
+
 
 typedef struct PacketQueue
 {
@@ -70,7 +74,17 @@ typedef struct OnionPeer
    time_t time;            //<! timestamp of latest packet
    int state;              //<! status of peer
    int dir;
+   unsigned long out;
+   unsigned long in;
 } OnionPeer_t;
+
+typedef struct OcatThread
+{
+   struct OcatThread *next;
+   pthread_t handle;
+   int id;
+   char name[THREAD_NAME_LEN];
+} OcatThread_t;
 
 typedef struct OcatHdr
 {
@@ -98,7 +112,7 @@ void log_msg(int, const char *, ...);
 void set_ipv6_addr(int, struct in6_addr, int);
 
 /* ocatv6conv.c */
-void ipv6tonion(const struct in6_addr *, char *);
+char *ipv6tonion(const struct in6_addr *, char *);
 int oniontipv6(const char *, struct in6_addr *);
 int has_tor_prefix(const struct in6_addr *);
 
@@ -109,21 +123,33 @@ void test_tun_hdr(void);
 #endif
 
 /* ocatroute.c */
-OnionPeer_t *search_peer(const struct in6_addr *);
-OnionPeer_t *establish_peer(int fd, const struct in6_addr *);
+//OnionPeer_t *search_peer(const struct in6_addr *);
+//OnionPeer_t *establish_peer(int fd, const struct in6_addr *);
 void init_peers(void);
-void init_socket_acceptor(void);
-void init_socket_receiver(void);
-void init_socks_connector(void);
+//void init_socket_acceptor(void);
+//void init_socket_receiver(void);
+//void init_socks_connector(void);
 //void push_socks_connector(const struct in6_addr *);
 //int socks_connect(const char *);
-//void *socket_receiver(void *p);
+void *socket_receiver(void *);
 //void update_peer_time(const OnionPeer_t *);
 //const OnionPeer_t *forward_packet(const struct in6_addr *, const char *, int);
 //void queue_packet(const struct in6_addr *, const char *, int);
-void init_packet_dequeuer(void);
+//void init_packet_dequeuer(void);
 void packet_forwarder(void);
-void init_socket_cleaner(void);
+//void init_socket_cleaner(void);
+void *packet_dequeuer(void *);
+void *socket_acceptor(void *);
+void *socks_connector(void *);
+void *socket_cleaner(void *);
+void *ocat_controller(void *);
+
+
+/* ocatthread.c */
+//void init_threads(void);
+const OcatThread_t *init_ocat_thread(const char *);
+int run_ocat_thread(const char *, void *(*)(void*));
+const OcatThread_t *get_thread(void);
 
 
 #endif

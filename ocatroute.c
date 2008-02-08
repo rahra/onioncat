@@ -144,6 +144,7 @@ void rewrite_framehdr(char *buf, int len)
       log_msg(L_DEBUG, "[forwarding_packet]");
       write(peer->tcpfd, buf, buflen);
       peer->time = time(NULL);
+      peer->out += buflen;
    }
    pthread_mutex_unlock(&peer_mutex_);
 
@@ -186,7 +187,8 @@ void *packet_dequeuer(void *p)
    int rc, timed = 0;
    time_t delay;
 
-   log_msg(L_NOTICE, "[packet_dequeuer] running");
+   (void) init_ocat_thread(p);
+
    for (;;)
    {
       pthread_mutex_lock(&queue_mutex_);
@@ -240,6 +242,7 @@ void *packet_dequeuer(void *p)
 }
 
 
+/*
 void init_packet_dequeuer(void)
 {
    pthread_t thread;
@@ -248,6 +251,7 @@ void init_packet_dequeuer(void)
    if ((rc = pthread_create(&thread, NULL, packet_dequeuer, NULL)))
       log_msg(L_FATAL, "[init_packet_dequeuer] could not start socket_receiver thread: \"%s\"", strerror(rc));
 }
+*/
 
 
 const static char hdigit_[] = "0123456789abcdef";
@@ -326,7 +330,11 @@ void *socket_receiver(void *p)
    struct ip6_hdr *ihd;
    ihd = (struct ip6_hdr*) &buf[4];
 
-   log_msg(L_DEBUG, "[socket_receiver] running");
+   (void) init_ocat_thread(p);
+
+   if (pipe(lpfd_) < 0)
+      log_msg(L_FATAL, "[init_socket_receiver] could not create pipe for socket_receiver: \"%s\"", strerror(errno)), exit(1);
+
    for (;;)
    {
       FD_ZERO(&rset);
@@ -406,6 +414,7 @@ void *socket_receiver(void *p)
             pthread_mutex_lock(&peer_mutex_);
             // update timestamp
             peer_[i].time = time(NULL);
+            peer_[i].in += len;
             // set IP address if it is not set yet and frame is valid
             if (plen && !memcmp(&peer_[i].addr, &in6addr_any, sizeof(struct in6_addr)))
             {
@@ -425,6 +434,7 @@ void *socket_receiver(void *p)
 }
 
 
+/*
 void init_socket_receiver(void)
 {
    pthread_t thread;
@@ -436,6 +446,7 @@ void init_socket_receiver(void)
    if ((rc = pthread_create(&thread, NULL, socket_receiver, NULL)))
       log_msg(L_FATAL, "[init_socket_receiver] could not start socket_receiver thread: \"%s\"", strerror(rc));
 }
+*/
 
 
 void set_nonblock(int fd)
@@ -485,11 +496,32 @@ void insert_peer(int fd, const struct in6_addr *addr)
 
 void *socket_acceptor(void *p)
 {
-//   struct ReceiverInfo *fwinfo;
-//   OnionPeer_t *peer;
    int fd;
+   struct sockaddr_in in;
+
+   (void) init_ocat_thread(p);
 
    log_msg(L_NOTICE, "[socket_acceptor] running");
+
+   memset(&in, 0, sizeof(in));
+   in.sin_family = AF_INET;
+   in.sin_port = htons(ocat_listen_port_);
+   in.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+#ifndef linux
+   in.sin_len = sizeof(in);
+#endif
+
+   if ((sockfd_ = socket(PF_INET, SOCK_STREAM, 0)) < 0)
+      log_msg(L_FATAL, "[init_socket_acceptor] could not create listener socker: \"%s\"", strerror(errno)), exit(1);
+
+   if (bind(sockfd_, (struct sockaddr*) &in, sizeof(struct sockaddr_in)) < 0)
+      log_msg(L_FATAL, "[init_socket_acceptor] could not bind listener: \"%s\"", strerror(errno)), exit(1);
+
+   if (listen(sockfd_, 32) < 0)
+      log_msg(L_FATAL, "[init_socket_acceptor] could not bring listener to listening state: \"%s\"", strerror(errno)), exit(1);
+   
+   log_msg(L_NOTICE, "[init_socket_acceptor] created local listener on port %d", ocat_listen_port_);
+
    for (;;)
    {
       log_msg(L_DEBUG, "[socket acceptor] is accepting further connections");
@@ -504,9 +536,10 @@ void *socket_acceptor(void *p)
 }
 
 
+/*
 void init_socket_acceptor(void)
 {
-   struct sockaddr_in in /*= {AF_INET, htons(ocat_listen_port_), {htonl(INADDR_LOOPBACK)}}*/ ;
+   struct sockaddr_in in;
    pthread_t thread;
    int rc;
 
@@ -532,6 +565,7 @@ void init_socket_acceptor(void)
    if ((rc = pthread_create(&thread, NULL, socket_acceptor, NULL)))
       log_msg(L_FATAL, "[init_socket_acceptor] could not create socket_acceptor: \"%s\"", strerror(rc)), exit(1);
 }
+*/
 
 
 //int socks_connect(const char *onion)
@@ -607,6 +641,11 @@ void *socks_connector(void *p)
    struct in6_addr addr;
    int len;
 
+   (void) init_ocat_thread(p);
+
+   if (pipe(cpfd_) < 0)
+      log_msg(L_FATAL, "[init_socks_connector] could not create pipe for socks_connector: \"%s\"", strerror(errno)), exit(1);
+
    log_msg(L_NOTICE, "[socks_connector] running");
 
    for (;;)
@@ -634,7 +673,7 @@ void *socks_connector(void *p)
    }
 }
 
-
+/*
 void init_socks_connector(void)
 {
    pthread_t thread;
@@ -646,6 +685,7 @@ void init_socks_connector(void)
    if ((rc = pthread_create(&thread, NULL, socks_connector, NULL)))
       log_msg(L_FATAL, "[init_socks_connector] could not start socks_connector thread: \"%s\"", strerror(rc));
 }
+*/
 
 
 void packet_forwarder(void)
@@ -686,17 +726,20 @@ void packet_forwarder(void)
 void *socket_cleaner(void *p)
 {
    int i;
-   log_msg(L_NOTICE, "[socket_cleaner] running");
+
+   (void) init_ocat_thread(p);
+
+   log_msg(L_NOTICE, "running");
    for (;;)
    {
       sleep(CLEANER_WAKEUP);
-      log_msg(L_DEBUG, "[socket_cleaner] wakeup");
+      log_msg(L_DEBUG, "wakeup");
       pthread_mutex_lock(&peer_mutex_);
       for (i = 0; i < MAXPEERS; i++)
       {
          if (peer_[i].state && peer_[i].time + MAX_IDLE_TIME < time(NULL))
          {
-            log_msg(L_NOTICE, "[socket_cleaner] peer %d timed out, closing.", peer_[i].tcpfd);
+            log_msg(L_NOTICE, "peer %d timed out, closing.", peer_[i].tcpfd);
             close(peer_[i].tcpfd);
             delete_peer(&peer_[i]);
          }
@@ -705,7 +748,7 @@ void *socket_cleaner(void *p)
    }
 }
 
-
+/*
 void init_socket_cleaner(void)
 {
    pthread_t thread;
@@ -713,5 +756,105 @@ void init_socket_cleaner(void)
 
    if ((rc = pthread_create(&thread, NULL, socket_cleaner, NULL)))
       log_msg(L_FATAL, "[init_socket_cleaner] could not start thread: \"%s\"", strerror(rc));
+}
+*/
+
+
+void *ocat_controller(void *p)
+{
+   int fd;
+   struct sockaddr_in in;
+   char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[ONION_NAME_SIZE];
+   int rlen, i, cfd;
+
+   (void) init_ocat_thread(p);
+
+   memset(&in, 0, sizeof(in));
+   in.sin_family = AF_INET;
+   in.sin_port = htons(OCAT_CTRL_PORT);
+   in.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+#ifndef linux
+   in.sin_len = sizeof(in);
+#endif
+
+   if ((sockfd_ = socket(PF_INET, SOCK_STREAM, 0)) < 0)
+      log_msg(L_FATAL, "could not create listener socker: \"%s\"", strerror(errno)), exit(1);
+
+   if (bind(sockfd_, (struct sockaddr*) &in, sizeof(struct sockaddr_in)) < 0)
+      log_msg(L_FATAL, "could not bind listener: \"%s\"", strerror(errno)), exit(1);
+
+   if (listen(sockfd_, 5) < 0)
+      log_msg(L_FATAL, "could not bring listener to listening state: \"%s\"", strerror(errno)), exit(1);
+   
+   log_msg(L_NOTICE, "created local listener on port %d", ocat_listen_port_);
+
+   for (;;)
+   {
+      log_msg(L_DEBUG, "accepting connections");
+      if ((fd = accept(sockfd_, NULL, NULL)) < 0)
+         log_msg(L_FATAL, "error in acception: \"%s\"", strerror(errno)), exit(1);
+      log_msg(L_NOTICE, "connection accepted");
+
+      for (;;)
+      {
+         /*
+         for (i = 0; (rlen = read(fd, &buf[i], 1)) > 0; i++)
+            if (buf[i] == '\n')
+            {
+               buf[i] = '\0';
+               break;
+            }
+            */
+
+         write(fd, "> ", 2);
+
+         if ((rlen = read(fd, buf, FRAME_SIZE)) == -1)
+         {
+            log_msg(L_FATAL, "read error on %d: \"%s\", closing", fd, strerror(errno));
+            break;
+         }
+
+         if (!rlen || buf[0] == 4 || !strncmp(buf, "exit", 4) || !strncmp(buf, "quit", 4))
+            break;
+         else if (!strncmp(buf, "status", 6))
+         {
+            pthread_mutex_lock(&peer_mutex_);
+            for (i = 0; i < MAXPEERS; i++)
+               if (peer_[i].state == PEER_ACTIVE)
+               {
+                  sprintf(buf, "[%s]\n fd = %d\n addr = %s\n dir = \"%s\"\n idle = %ld\n bytes_in = %ld\n bytes_out = %ld\n\n",
+                        ipv6tonion(&peer_[i].addr, onionstr), peer_[i].tcpfd,
+                        inet_ntop(AF_INET6, &peer_[i].addr, addrstr, INET6_ADDRSTRLEN),
+                        peer_[i].dir == PEER_INCOMING ? "in" : "out",
+                        time(NULL) - peer_[i].time, peer_[i].in, peer_[i].out);
+                  write(fd, buf, strlen(buf));
+               }
+            pthread_mutex_unlock(&peer_mutex_);
+         }
+         else if (!strncmp(buf, "close ", 6))
+         {
+            cfd = atoi(&buf[6]);
+            pthread_mutex_lock(&peer_mutex_);
+            for (i = 0; i < MAXPEERS; i++)
+               if (peer_[i].tcpfd == cfd)
+               {
+                  log_msg(L_NOTICE, "close request for %d", cfd);
+                  close(cfd);
+                  delete_peer(&peer_[i]);
+                  break;
+               }
+            pthread_mutex_unlock(&peer_mutex_);
+         }
+         else
+         {
+            strcpy(buf, "unknown command\n");
+            write(fd, buf, strlen(buf));
+         }
+      }
+      log_msg(L_NOTICE, "closing session %d", fd);
+      close(fd);
+   }
+
+   return NULL;
 }
 

@@ -6,7 +6,7 @@ TARGET = ocat
 
 all: $(TARGET)
 
-ocat: ocatroute.o ocattun.o ocatv6conv.o ocatlog.o
+ocat: ocatroute.o ocattun.o ocatv6conv.o ocatlog.o ocatthread.o
 
 clean:
 	rm -f *.o $(TARGET)

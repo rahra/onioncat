@@ -85,10 +85,10 @@ int oniontipv6(const char *onion, struct in6_addr *ip6)
 }
 
 
-void ipv6tonion(const struct in6_addr *ip6, char *onion)
+char *ipv6tonion(const struct in6_addr *ip6, char *onion)
 {
    int i;
-   char bin[16];
+   char bin[16], *r = onion;
 
    memcpy(bin, (char*) ip6 + 6, 16);
 
@@ -105,5 +105,6 @@ void ipv6tonion(const struct in6_addr *ip6, char *onion)
       */
    }
    *onion = '\0';
+   return r;
 }
 

@@ -122,6 +122,8 @@ int main(int argc, char *argv[])
    if (!argv[optind])
       usage(argv[0]), exit(1);
 
+   (void) init_ocat_thread("main");
+
    if (urlconv == 2)
    {
       if (inet_pton(AF_INET6, argv[optind], &addr) <= 0)
@@ -160,19 +162,18 @@ int main(int argc, char *argv[])
       exit(0);
 #endif
    log_msg(L_NOTICE, "[main] local IP is %s on %s", ip6addr, tunname);
-   // start socket receiver thread
-   init_socket_receiver();
-   // create listening socket and start socket acceptor
-   init_socket_acceptor();
-   // starting socket cleaner
-   init_socket_cleaner();
 
-/*   // create socks connector thread
-   init_socks_connector();
-   // start packet dequeuer
-   init_packet_dequeuer();
-*/
-   
+
+   // start socket receiver thread
+   //init_socket_receiver();
+   run_ocat_thread("receiver", socket_receiver);
+   // create listening socket and start socket acceptor
+   //init_socket_acceptor();
+   run_ocat_thread("acceptor", socket_acceptor);
+   // starting socket cleaner
+   //init_socket_cleaner();
+   run_ocat_thread("cleaner", socket_cleaner);
+
    if (!runasroot && !getuid())
    {
       log_msg(L_NOTICE, "[main] running as root, changing uid/gid to %d/%d", uid, gid);
@@ -184,9 +185,13 @@ int main(int argc, char *argv[])
    log_msg(L_NOTICE, "[main] uid/gid = %d/%d", getuid(), getgid());
 
    // create socks connector thread
-   init_socks_connector();
+   //init_socks_connector();
+   run_ocat_thread("connector", socks_connector);
    // start packet dequeuer
-   init_packet_dequeuer();
+   //init_packet_dequeuer();
+   run_ocat_thread("dequeuer", packet_dequeuer);
+
+   run_ocat_thread("controller", ocat_controller);
 
    // start forwarding packets from tunnel
    log_msg(L_NOTICE, "[main] starting packet forwarder");
