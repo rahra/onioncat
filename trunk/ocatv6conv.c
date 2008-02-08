@@ -20,6 +20,13 @@ static const char BASE32[] = "abcdefghijklmnopqrstuvwxyz234567";
 static const char tor_prefix_[] = TOR_PREFIX;
 
 
+int is_testping(const struct in6_addr *addr)
+{
+   char to[10] = {0,0,0,0,0,0,0,0,0,1};
+   return memcmp((char*) addr + 6, to, 10) == 0;
+}
+
+
 int has_tor_prefix(const struct in6_addr *addr)
 {
    return memcmp(addr, tor_prefix_, 6) == 0;

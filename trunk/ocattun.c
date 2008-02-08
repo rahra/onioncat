@@ -57,6 +57,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
    char buf[FRAME_SIZE];
 #endif
 
+	log_msg(L_DEBUG, "opening tun \"%s\"", tun_dev_);
    if( (fd = open(tun_dev_, O_RDWR)) < 0 )
       perror("open tun"), exit(1);
 
@@ -108,9 +109,6 @@ int tun_alloc(char *dev, struct in6_addr addr)
    if (system(buf) == -1)
       log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
 #else
-   sprintf(buf, "ifconfig tun0 inet6 %s/%d up", astr, TOR_PREFIX_LEN);
-/*   if (system(buf) == -1)
-      log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));*/
    int prm = 1;
    if (ioctl(fd, TUNSIFHEAD, &prm) == -1)
       perror("ioctl:TUNSIFHEAD"), exit(1);
@@ -118,6 +116,12 @@ int tun_alloc(char *dev, struct in6_addr addr)
 //   prm = IFF_BROADCAST;
    if (ioctl(fd, TUNSIFMODE, &prm) == -1)
       perror("ioctl:TUNSIFMODE"), exit(1);
+
+   sprintf(buf, "ifconfig tun0 inet6 %s/%d up", astr, TOR_PREFIX_LEN);
+   log_msg(L_DEBUG, "setting IP on tun: \"%s\"", buf);
+   if (system(buf) == -1)
+      log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+
 #endif
 #endif
 
@@ -136,8 +140,15 @@ void test_tun_hdr(void)
       log_msg(L_FATAL, "[test_tun_hdr] this should never happen..."), exit(1);
 
    inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
+#ifdef linux
    sprintf(buf, "ping6 -c 1 -w 1 %s >/dev/null 2>&1", addrstr);
+#else
+   //sprintf(buf, "ping6 -c 1 %s >/dev/null 2>&1", addrstr);
+   sprintf(buf, "ping6 -c 1 %s", addrstr);
+#endif
    log_msg(L_NOTICE, "[test_tun_hdr] testing tun header: \"%s\"", buf);
+   // FIXME: This is somehow an unclean try to wait for ifconfig to finish
+   sleep(1);
    if (system(buf) == -1)
       log_msg(L_FATAL, "[test_tun_hdr] test failed: \"%s\"", strerror(errno));
    rlen = read(tunfd_[0], buf, FRAME_SIZE);
