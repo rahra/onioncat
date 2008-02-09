@@ -67,16 +67,18 @@ typedef struct SocksHdr
    struct in_addr addr;
 } SocksHdr_t;
 
-typedef struct OnionPeer
+typedef struct OcatPeer
 {
    struct in6_addr addr;   //<! remote address of peer
    int tcpfd;              //<! remote file descriptor
    time_t time;            //<! timestamp of latest packet
+   time_t sdelay;          //<! connection setup delay
+   time_t otime;           //<! opening time
    int state;              //<! status of peer
    int dir;
    unsigned long out;
    unsigned long in;
-} OnionPeer_t;
+} OcatPeer_t;
 
 typedef struct OcatThread
 {
