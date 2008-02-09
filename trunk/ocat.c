@@ -4,8 +4,6 @@
 #include <string.h>
 #include <stdarg.h>
 #include <arpa/inet.h>
-//#include <netinet/in.h>
-//#include <netinet/ip6.h>
 #include <sys/socket.h>
 #include <net/if.h>
 #include <errno.h>
@@ -18,22 +16,6 @@
 int tunfd_[2] = {0, 1};
 
 extern int debug_level_;
-
-
-/*
-void print_v6_hd(FILE *out, const struct ip6_hdr *ihd)
-{
-   char asip[32], adip[32];
-   char onion[32];
-
-   inet_ntop(AF_INET6, &ihd->ip6_src, asip, 32);
-   inet_ntop(AF_INET6, &ihd->ip6_dst, adip, 32);
-   fprintf(out, "playload: %d\nsrcip: %s\ndstip: %s\n", ntohs(ihd->ip6_ctlun.ip6_un1.ip6_un1_plen), asip, adip);
-   ipv6tonion(&ihd->ip6_dst, onion);
-   fprintf(out, "dst onion: %s\n", onion);
-   fprintf(out, "\n");
-}
-*/
 
 
 void usage(const char *s)
@@ -154,24 +136,25 @@ int main(int argc, char *argv[])
 
    // init peer structure
    init_peers();
+
 #ifndef WITHOUT_TUN
    // create TUN device
    tunfd_[0] = tunfd_[1] = tun_alloc(tunname, addr);
+#ifdef TEST_TUN_HDR
    test_tun_hdr();
    if (test_only)
       exit(0);
 #endif
-   log_msg(L_NOTICE, "[main] local IP is %s on %s", ip6addr, tunname);
+#endif
 
+   log_msg(L_NOTICE, "local IP is %s on %s", ip6addr, tunname);
+   log_msg(L_DEBUG, "tun frameheader = 0x%08x", ntohl(fhd_key_));
 
    // start socket receiver thread
-   //init_socket_receiver();
    run_ocat_thread("receiver", socket_receiver);
    // create listening socket and start socket acceptor
-   //init_socket_acceptor();
    run_ocat_thread("acceptor", socket_acceptor);
    // starting socket cleaner
-   //init_socket_cleaner();
    run_ocat_thread("cleaner", socket_cleaner);
 
    if (!runasroot && !getuid())
@@ -185,10 +168,8 @@ int main(int argc, char *argv[])
    log_msg(L_NOTICE, "[main] uid/gid = %d/%d", getuid(), getgid());
 
    // create socks connector thread
-   //init_socks_connector();
    run_ocat_thread("connector", socks_connector);
    // start packet dequeuer
-   //init_packet_dequeuer();
    run_ocat_thread("dequeuer", packet_dequeuer);
 
    run_ocat_thread("controller", ocat_controller);

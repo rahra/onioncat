@@ -31,7 +31,7 @@ static int lpfd_[2];
 // used for internal communication
 static int cpfd_[2];
 // array of active peers
-static OnionPeer_t peer_[MAXPEERS];
+static OcatPeer_t peer_[MAXPEERS];
 // mutex for locking array of peers
 pthread_mutex_t peer_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 // packet queue pointer
@@ -52,11 +52,11 @@ int vrec_ = 0;
 
 void init_peers(void)
 {
-   memset(peer_, 0, sizeof(OnionPeer_t) * MAXPEERS);
+   memset(peer_, 0, sizeof(OcatPeer_t) * MAXPEERS);
 }
 
 
-OnionPeer_t *search_peer(const struct in6_addr *addr)
+OcatPeer_t *search_peer(const struct in6_addr *addr)
 {
    int i;
 
@@ -72,7 +72,7 @@ OnionPeer_t *search_peer(const struct in6_addr *addr)
 }
 
 
-OnionPeer_t *get_empty_peer(void)
+OcatPeer_t *get_empty_peer(void)
 {
    int i;
 
@@ -84,9 +84,9 @@ OnionPeer_t *get_empty_peer(void)
 }
 
 
-void delete_peer(OnionPeer_t *peer)
+void delete_peer(OcatPeer_t *peer)
 {
-   memset(peer, 0, sizeof(OnionPeer_t));
+   memset(peer, 0, sizeof(OcatPeer_t));
 }
 
 
@@ -134,15 +134,16 @@ void rewrite_framehdr(char *buf, int len)
 }
 
 
-/*const*/ OnionPeer_t *forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
+/*const*/ OcatPeer_t *forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
 {
-   OnionPeer_t *peer;
+   OcatPeer_t *peer;
 
    pthread_mutex_lock(&peer_mutex_);
    if ((peer = search_peer(addr)))
    {
       log_msg(L_DEBUG, "[forwarding_packet]");
-      write(peer->tcpfd, buf, buflen);
+      if (write(peer->tcpfd, buf, buflen) != buflen)
+         log_msg(L_ERROR, "could not write %d bytes to peer %d", buflen, peer->tcpfd);
       peer->time = time(NULL);
       peer->out += buflen;
    }
@@ -182,7 +183,7 @@ void queue_packet(const struct in6_addr *addr, const char *buf, int buflen)
 void *packet_dequeuer(void *p)
 {
    PacketQueue_t **queue, *fqueue;
-   OnionPeer_t *peer;
+   OcatPeer_t *peer;
    struct timespec ts;
    int rc, timed = 0;
    time_t delay;
@@ -211,18 +212,7 @@ void *packet_dequeuer(void *p)
       log_msg(L_DEBUG, "[packet_dequeuer] starting dequeuing");
       for (queue = &queue_; *queue; /*queue = &(*queue)->next*/)
       {
-         //FIXME: this could be more performant of locking is done outside of for(...)
-#if 0
-         pthread_mutex_lock(&peer_mutex_);
-         if ((peer = search_peer(&(*queue)->addr)))
-         {
-            write(peer->tcpfd, (*queue)->data, (*queue)->psize);
-            peer->time = time(NULL);
-         }
-         pthread_mutex_unlock(&peer_mutex_);
-#else 
          peer = forward_packet(&(*queue)->addr, (*queue)->data, (*queue)->psize);
-#endif
 
          // delete packet from queue if it was sent or is too old
          delay = time(NULL) - (*queue)->time;
@@ -302,16 +292,18 @@ int validate_frame(const struct ip6_hdr *ihd, int len)
       log_msg(L_ERROR, "[validate_frame] source address invalid. Remote ocat could not reply");
       return 0;
    }
+#ifdef TEST_TUN_HDR
    if (is_testping(&ihd->ip6_dst))
    {
       log_msg(L_DEBUG, "[validate_frame] test ping detected");
       return 0;
    }
+#endif
    return ntohs(ihd->ip6_plen);
 }
 
 
-void cleanup_socket(int fd, OnionPeer_t *peer)
+void cleanup_socket(int fd, OcatPeer_t *peer)
 {
    log_msg(L_NOTICE, "[cleanup_socket] fd %d reached EOF, closing.", fd);
    close(fd);
@@ -427,7 +419,8 @@ void *socket_receiver(void *p)
             log_msg(L_DEBUG, "[socket_receiver] trying fhdr rewriting");
             rewrite_framehdr(buf, len);
             log_msg(L_DEBUG, "[socket_receiver] writing to tun %d framesize %d", tunfd_[1], len);
-            write(tunfd_[1], buf, len);
+            if (write(tunfd_[1], buf, len) != len)
+               log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len, tunfd_[1]);
          }
       }
    }
@@ -455,20 +448,21 @@ void set_nonblock(int fd)
 
    if ((flags = fcntl(fd, F_GETFL, 0)) == -1)
    {
-      log_msg(L_ERROR, "[set_nonblock] could not get socket flags for %d: \"%s\"", fd, strerror(errno));
+      log_msg(L_ERROR, "could not get socket flags for %d: \"%s\"", fd, strerror(errno));
       flags = 0;
    }
 
-   log_msg(L_DEBUG, "[set_nonblock] O_NONBLOCK currently is %x", flags & O_NONBLOCK);
+   log_msg(L_DEBUG, "O_NONBLOCK currently is %x", flags & O_NONBLOCK);
 
-   if ((fcntl(socket, F_SETFL, flags | O_NONBLOCK)) == -1)
+   //if ((fcntl(socket, F_SETFL, flags | O_NONBLOCK)) == -1)
+   if ((fcntl(fd, F_SETFL, flags | O_NONBLOCK)) == -1)
       log_msg(L_ERROR, "[set_nonblock] could not set O_NONBLOCK for %d: \"%s\"", fd, strerror(errno));
 }
 
 
-void insert_peer(int fd, const struct in6_addr *addr)
+OcatPeer_t *insert_peer(int fd, const struct in6_addr *addr)
 {
-   OnionPeer_t *peer;
+   OcatPeer_t *peer;
 
    log_msg(L_DEBUG, "[inserting_peer] %d", fd);
 
@@ -478,7 +472,7 @@ void insert_peer(int fd, const struct in6_addr *addr)
    peer = get_empty_peer();
    peer->tcpfd = fd;
    peer->state = PEER_ACTIVE;
-   peer->time = time(NULL);
+   peer->otime = peer->time = time(NULL);
    if (addr)
    {
       memcpy(&peer->addr, addr, sizeof(struct in6_addr));
@@ -490,7 +484,10 @@ void insert_peer(int fd, const struct in6_addr *addr)
 
    // wake up socket_receiver
    log_msg(L_DEBUG, "[inser_peer] waking up socket_receiver");
-   write(lpfd_[1], &fd, 1);
+   if (write(lpfd_[1], &fd, 1) != 1)
+      log_msg(L_FATAL, "couldn't write to socket_receiver pipe: \"%s\"", strerror(errno));
+
+   return peer;
 }
 
 
@@ -572,9 +569,10 @@ void init_socket_acceptor(void)
 int socks_connect(const struct in6_addr *addr)
 {
    struct sockaddr_in in /* = {AF_INET, htons(tor_socks_port_), {htonl(INADDR_LOOPBACK)}}*/;
-   int fd;
+   int fd, t;
    char buf[FRAME_SIZE], onion[ONION_NAME_SIZE];
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
+   OcatPeer_t *ohd;
 
    log_msg(L_DEBUG, "[socks_connect] called");
 
@@ -582,7 +580,7 @@ int socks_connect(const struct in6_addr *addr)
    in.sin_family = AF_INET;
    in.sin_port = htons(tor_socks_port_);
    in.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-#ifndef linux
+#ifndef __linux__
    in.sin_len = sizeof(in);
 #endif
 
@@ -594,12 +592,14 @@ int socks_connect(const struct in6_addr *addr)
    if ((fd = socket(PF_INET, SOCK_STREAM, 0)) < 0)
       return E_SOCKS_SOCK;
 
+   t = time(NULL);
    if (connect(fd, (struct sockaddr*) &in, sizeof(in)) < 0)
    {
       log_msg(L_ERROR, "[socks_connect] connect() failed");
       close(fd);
       return E_SOCKS_CONN;
    }
+   t = time(NULL) - t;
 
    log_msg(L_DEBUG, "[socks_connect] connect()");
 
@@ -610,7 +610,8 @@ int socks_connect(const struct in6_addr *addr)
    strcpy(buf + sizeof(SocksHdr_t), "tor6");
    strcpy(buf + sizeof(SocksHdr_t) + 5, onion);
 
-   write(fd, shdr, sizeof(SocksHdr_t) + strlen(onion) + 6);
+   if (write(fd, shdr, sizeof(SocksHdr_t) + strlen(onion) + 6) != sizeof(SocksHdr_t) + strlen(onion) + 6)
+      log_msg(L_ERROR, "couldn't write %d bytes to SOCKS connection %d", sizeof(SocksHdr_t) + strlen(onion) + 6, fd);
    log_msg(L_DEBUG, "[socks_connect] connect request sent");
 
    if (read(fd, shdr, sizeof(SocksHdr_t)) < sizeof(SocksHdr_t))
@@ -629,7 +630,10 @@ int socks_connect(const struct in6_addr *addr)
    }
    log_msg(L_NOTICE, "[socks_connect] connection to %s successfully opened on fd %d", onion, fd);
 
-   insert_peer(fd, addr);
+   ohd = insert_peer(fd, addr);
+   pthread_mutex_lock(&peer_mutex_);
+   ohd->sdelay = t;
+   pthread_mutex_unlock(&peer_mutex_);
 
    return fd;
 }
@@ -637,7 +641,7 @@ int socks_connect(const struct in6_addr *addr)
 
 void *socks_connector(void *p)
 {
-   OnionPeer_t *peer;
+   OcatPeer_t *peer;
    struct in6_addr addr;
    int len;
 
@@ -673,20 +677,6 @@ void *socks_connector(void *p)
    }
 }
 
-/*
-void init_socks_connector(void)
-{
-   pthread_t thread;
-   int rc;
-
-   if (pipe(cpfd_) < 0)
-      log_msg(L_FATAL, "[init_socks_connector] could not create pipe for socks_connector: \"%s\"", strerror(errno)), exit(1);
-
-   if ((rc = pthread_create(&thread, NULL, socks_connector, NULL)))
-      log_msg(L_FATAL, "[init_socks_connector] could not start socks_connector thread: \"%s\"", strerror(rc));
-}
-*/
-
 
 void packet_forwarder(void)
 {
@@ -715,7 +705,8 @@ void packet_forwarder(void)
          log_msg(L_NOTICE, "[packet_forwarder] establishing new socks peer");
          //push_socks_connector(&ihd->ip6_dst);
          log_msg(L_DEBUG, "[packet_forwarder] writing %s to socks connector pipe %d", inet_ntop(AF_INET6, &ihd->ip6_dst, addr, INET6_ADDRSTRLEN), cpfd_[1]);
-         write(cpfd_[1], &ihd->ip6_dst, sizeof(struct in6_addr));
+         if (write(cpfd_[1], &ihd->ip6_dst, sizeof(struct in6_addr)) != sizeof(struct in6_addr))
+            log_msg(L_ERROR, "couldn't write %d bytes to SOCKS connector pipe %d", sizeof(struct in6_addr), cpfd_[1]);
          log_msg(L_DEBUG, "[packet_forwarder] queuing packet");
          queue_packet(&ihd->ip6_dst, buf, rlen);
       }
@@ -748,24 +739,14 @@ void *socket_cleaner(void *p)
    }
 }
 
-/*
-void init_socket_cleaner(void)
-{
-   pthread_t thread;
-   int rc;
-
-   if ((rc = pthread_create(&thread, NULL, socket_cleaner, NULL)))
-      log_msg(L_FATAL, "[init_socket_cleaner] could not start thread: \"%s\"", strerror(rc));
-}
-*/
-
 
 void *ocat_controller(void *p)
 {
    int fd;
    struct sockaddr_in in;
-   char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[ONION_NAME_SIZE];
+   char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[ONION_NAME_SIZE], timestr[32];
    int rlen, i, cfd;
+   struct tm *tm;
 
    (void) init_ocat_thread(p);
 
@@ -797,16 +778,8 @@ void *ocat_controller(void *p)
 
       for (;;)
       {
-         /*
-         for (i = 0; (rlen = read(fd, &buf[i], 1)) > 0; i++)
-            if (buf[i] == '\n')
-            {
-               buf[i] = '\0';
-               break;
-            }
-            */
-
-         write(fd, "> ", 2);
+         if (write(fd, "> ", 2) != 2)
+            log_msg(L_ERROR, "couldn't write %d bytes to control socket %d", 2, fd);
 
          if ((rlen = read(fd, buf, FRAME_SIZE)) == -1)
          {
@@ -822,12 +795,15 @@ void *ocat_controller(void *p)
             for (i = 0; i < MAXPEERS; i++)
                if (peer_[i].state == PEER_ACTIVE)
                {
-                  sprintf(buf, "[%s]\n fd = %d\n addr = %s\n dir = \"%s\"\n idle = %ld\n bytes_in = %ld\n bytes_out = %ld\n\n",
+                  tm = localtime(&peer_[i].otime);
+                  strftime(timestr, 32, "%c", tm);
+                  sprintf(buf, "[%s]\n fd = %d\n addr = %s\n dir = \"%s\"\n idle = %lds\n bytes_in = %ld\n bytes_out = %ld\n setup_delay = %lds\n opening_time = \"%s\"\n",
                         ipv6tonion(&peer_[i].addr, onionstr), peer_[i].tcpfd,
                         inet_ntop(AF_INET6, &peer_[i].addr, addrstr, INET6_ADDRSTRLEN),
                         peer_[i].dir == PEER_INCOMING ? "in" : "out",
-                        time(NULL) - peer_[i].time, peer_[i].in, peer_[i].out);
-                  write(fd, buf, strlen(buf));
+                        time(NULL) - peer_[i].time, peer_[i].in, peer_[i].out, peer_[i].sdelay, timestr);
+                  if (write(fd, buf, strlen(buf)) != strlen(buf))
+                     log_msg(L_ERROR, "couldn't write %d bytes to control socket %d", strlen(buf), fd);
                }
             pthread_mutex_unlock(&peer_mutex_);
          }
@@ -848,7 +824,8 @@ void *ocat_controller(void *p)
          else
          {
             strcpy(buf, "unknown command\n");
-            write(fd, buf, strlen(buf));
+            if (write(fd, buf, strlen(buf)) != strlen(buf))
+               log_msg(L_ERROR, "couldn't write %d bytes to control socket %d", strlen(buf), fd);
          }
       }
       log_msg(L_NOTICE, "closing session %d", fd);
