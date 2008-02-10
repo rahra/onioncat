@@ -40,6 +40,13 @@ static PacketQueue_t *queue_ = NULL;
 static pthread_mutex_t queue_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t queue_cond_ = PTHREAD_COND_INITIALIZER;
 
+// SOCKS connector queue vars
+static SocksQueue_t *socks_queue_ = NULL;
+static int socks_queue_cnt_ = 0;
+static int socks_cth_cnt_ = 0;
+static pthread_mutex_t socks_queue_mutex_ = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t socks_queue_cond_ = PTHREAD_COND_INITIALIZER;
+
 // frame header of local OS in network byte order
 uint32_t fhd_key_ = 0;
 
@@ -89,13 +96,14 @@ void delete_peer(OcatPeer_t *peer)
    memset(peer, 0, sizeof(OcatPeer_t));
 }
 
-
+/*
 void mk_ocat_frame(const struct in6_addr *addr, const struct ip6_hdr *ihd, OcatHdr_t *ohd)
 {
    memcpy(ohd, ihd, sizeof(struct ip6_hdrctl));
    memcpy(ohd->oh_srcid, (char*)addr + 6, 10);
    memcpy(ohd + 1, ihd + 1, ihd->ip6_plen);
 }
+*/
 
 
 void rewrite_framehdr(char *buf, int len)

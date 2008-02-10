@@ -47,7 +47,6 @@
 #define PEER_OUTGOING 1
 
 #define THREAD_NAME_LEN 11
-//#define MAX_THREADS 8
 
 
 typedef struct PacketQueue
@@ -88,11 +87,33 @@ typedef struct OcatThread
    char name[THREAD_NAME_LEN];
 } OcatThread_t;
 
+typedef struct SocksQueue
+{
+   struct SocksQueue *next;
+   struct in6_addr addr;
+} SocksQueue_t;
+
+// next header value for ocat internal use (RFC3692)
+#define OCAT_NEXT_HEADER 254
+
 typedef struct OcatHdr
 {
-   struct ip6_hdrctl oh_ip6hdrctl;
-   char oh_srcid[10];
+   uint16_t oh_plen;
+   uint8_t oh_nxt;
+/*   struct ip6_hdrctl oh_ip6hdrctl;
+   char oh_srcid[10];*/
 } OcatHdr_t;
+
+
+#define OCAT_CTL_SRC 1
+#define OCAT_CTL_EREQ 2
+#define OCAT_CTL_ERES 3
+
+typedef struct OcatCtrlHdr
+{
+   uint8_t oct_type;
+   char oct_srcid[10];
+} OcatCtrlHdr_t;
 
 extern uint16_t tor_socks_port_;
 extern uint16_t ocat_listen_port_;
