@@ -1,0 +1,14 @@
+//* IPv6 adresses are not checked for their validity
+* frame checking may be improved
+//* garbage collector for packet queue missing
+//* garbage collector for session cleanup
+* improve getopt() -- currently many things are hardcoded
+//* packets received on sockets should be validated (Ethertype, ip)
+* improve tun header test (check for src and dst ip)
+* generally improve tun opening routine
+* licence
+* socks_connector queue
+* header compression
+* fragment handler
+* packet_forwarder depends on socks_connector, currently possible unclean startup (not dangerous)
+
