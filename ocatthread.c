@@ -16,8 +16,8 @@
 
 // global thread id var and mutex for thread initializiation
 static int thread_id_ = 0;
-static pthread_mutex_t thread_mutex_ = PTHREAD_MUTEX_INITIALIZER;
-static OcatThread_t *octh_ = NULL;
+pthread_mutex_t thread_mutex_ = PTHREAD_MUTEX_INITIALIZER;
+OcatThread_t *octh_ = NULL;
 
 /*
 void init_threads(void)
@@ -45,6 +45,14 @@ const OcatThread_t *init_ocat_thread(const char *name)
 
    log_msg(L_NOTICE, "running");
    return th;
+}
+
+
+
+void *thread_run(void *p)
+{
+   (void) init_ocat_thread(p);
+   return NULL;
 }
 
 
