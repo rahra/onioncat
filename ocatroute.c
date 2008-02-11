@@ -456,15 +456,15 @@ void *socket_acceptor(void *p)
 #endif
 
    if ((sockfd_ = socket(PF_INET, SOCK_STREAM, 0)) < 0)
-      log_msg(L_FATAL, "[init_socket_acceptor] could not create listener socker: \"%s\"", strerror(errno)), exit(1);
+      log_msg(L_FATAL, "could not create listener socker: \"%s\"", strerror(errno)), exit(1);
 
    if (bind(sockfd_, (struct sockaddr*) &in, sizeof(struct sockaddr_in)) < 0)
-      log_msg(L_FATAL, "[init_socket_acceptor] could not bind listener: \"%s\"", strerror(errno)), exit(1);
+      log_msg(L_FATAL, "could not bind listener: \"%s\"", strerror(errno)), exit(1);
 
    if (listen(sockfd_, 32) < 0)
-      log_msg(L_FATAL, "[init_socket_acceptor] could not bring listener to listening state: \"%s\"", strerror(errno)), exit(1);
+      log_msg(L_FATAL, "could not bring listener to listening state: \"%s\"", strerror(errno)), exit(1);
    
-   log_msg(L_NOTICE, "[init_socket_acceptor] created local listener on port %d", ocat_listen_port_);
+   log_msg(L_NOTICE, "created local listener %d on port %d", sockfd_, ocat_listen_port_);
 
    for (;;)
    {
@@ -472,7 +472,7 @@ void *socket_acceptor(void *p)
       if ((fd = accept(sockfd_, NULL, NULL)) < 0)
          perror("onion_receiver:accept"), exit(1);
 
-      log_msg(L_NOTICE, "[socket acceptor] connection accepted on listener");
+      log_msg(L_NOTICE, "connection %d accepted on listener %d", fd, sockfd_);
       insert_peer(fd, NULL);
    }
 
@@ -602,30 +602,41 @@ void *socks_connector(void *p)
                break;
       }
       while (!(*squeue));
+
+      // spawn spare thread if there is no one left
       (*squeue)->state = SOCKS_CONNECTING;
       socks_connect_cnt_++;
       if (socks_thread_cnt_ <= socks_connect_cnt_)
          run_ocat_thread("connector", socks_connector);
       pthread_mutex_unlock(&socks_queue_mutex_);
 
+      // search for existing peer
       pthread_mutex_lock(&peer_mutex_);
       peer = search_peer(&(*squeue)->addr);
       pthread_mutex_unlock(&peer_mutex_);
 
+      // connect via SOCKS if no peer exists
       if (!peer)
          for (i = 0, ps = -1; i < SOCKS_MAX_RETRY && ps < 0; i++)
             ps = socks_connect(&(*squeue)->addr);
       else
          log_msg(L_NOTICE, "peer already exists, ignoring");
 
+      // remove request from queue after connect
       log_msg(L_NOTICE, "removing from SOCKS queue");
       pthread_mutex_lock(&socks_queue_mutex_);
       sq = *squeue;
       *squeue = (*squeue)->next;
       free(sq);
       socks_connect_cnt_--;
+
+      // if there are more threads then pending connections
+      // terminate thread
       if (socks_connect_cnt_ < socks_thread_cnt_ - 1)
+      {
+         socks_thread_cnt_--;
          run = 0;
+      }
       pthread_mutex_unlock(&socks_queue_mutex_);
    }
    return NULL;
@@ -700,7 +711,7 @@ void *socket_cleaner(void *p)
 
 void *ocat_controller(void *p)
 {
-   int fd;
+   int fd, sfd;
    struct sockaddr_in in;
    char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[ONION_NAME_SIZE], timestr[32];
    int rlen, i, cfd;
@@ -715,23 +726,23 @@ void *ocat_controller(void *p)
    in.sin_len = sizeof(in);
 #endif
 
-   if ((sockfd_ = socket(PF_INET, SOCK_STREAM, 0)) < 0)
+   if ((sfd = socket(PF_INET, SOCK_STREAM, 0)) < 0)
       log_msg(L_FATAL, "could not create listener socker: \"%s\"", strerror(errno)), exit(1);
 
-   if (bind(sockfd_, (struct sockaddr*) &in, sizeof(struct sockaddr_in)) < 0)
+   if (bind(sfd, (struct sockaddr*) &in, sizeof(struct sockaddr_in)) < 0)
       log_msg(L_FATAL, "could not bind listener: \"%s\"", strerror(errno)), exit(1);
 
-   if (listen(sockfd_, 5) < 0)
+   if (listen(sfd, 5) < 0)
       log_msg(L_FATAL, "could not bring listener to listening state: \"%s\"", strerror(errno)), exit(1);
    
-   log_msg(L_NOTICE, "created local listener on port %d", ocat_listen_port_);
+   log_msg(L_NOTICE, "created local listener %d on port %d", sfd, ocat_listen_port_);
 
    for (;;)
    {
-      log_msg(L_DEBUG, "accepting connections");
-      if ((fd = accept(sockfd_, NULL, NULL)) < 0)
+      log_msg(L_DEBUG, "accepting connections on %d", sfd);
+      if ((fd = accept(sfd, NULL, NULL)) < 0)
          log_msg(L_FATAL, "error in acception: \"%s\"", strerror(errno)), exit(1);
-      log_msg(L_NOTICE, "connection accepted");
+      log_msg(L_NOTICE, "connection %d accepted on %d", fd, sfd);
 
       for (;;)
       {
