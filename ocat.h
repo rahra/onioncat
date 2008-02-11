@@ -48,6 +48,9 @@
 
 #define THREAD_NAME_LEN 11
 
+#define SOCKS_CONNECTING 1
+#define SOCKS_MAX_RETRY 3
+
 
 typedef struct PacketQueue
 {
@@ -91,6 +94,8 @@ typedef struct SocksQueue
 {
    struct SocksQueue *next;
    struct in6_addr addr;
+   int state;
+//   int retry;
 } SocksQueue_t;
 
 // next header value for ocat internal use (RFC3692)
