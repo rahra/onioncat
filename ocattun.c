@@ -92,6 +92,9 @@ int tun_alloc(char *dev, struct in6_addr addr)
 
 #ifdef TEST_TUN_HDR
 
+/*! This is a test function which detects the frame
+ *  header of the local OS by sending a ping into
+ *  the tun by a call to system("ping6..."). */
 void test_tun_hdr(void)
 {
    struct in6_addr addr;

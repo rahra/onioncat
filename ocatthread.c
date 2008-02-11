@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <errno.h>
+#include <signal.h>
 
 #include "ocat.h"
 
@@ -19,21 +20,16 @@ static int thread_id_ = 0;
 pthread_mutex_t thread_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 OcatThread_t *octh_ = NULL;
 
-/*
-void init_threads(void)
-{
-   memset(octh_, 0, sizeof(OcatThread_t) * MAX_THREADS);
-}
-*/
-
 
 const OcatThread_t *init_ocat_thread(const char *name)
 {
    OcatThread_t *th;
 
+   // get memory for the ocat internal thread structure
    if (!(th = malloc(sizeof(OcatThread_t))))
       return NULL;
 
+   // init ocat thread structure
    pthread_mutex_lock(&thread_mutex_);
    th->id = thread_id_++;
    strncpy(th->name, name, THREAD_NAME_LEN);
@@ -43,7 +39,6 @@ const OcatThread_t *init_ocat_thread(const char *name)
    octh_ = th;
    pthread_mutex_unlock(&thread_mutex_);
 
-   log_msg(L_NOTICE, "running");
    return th;
 }
 
@@ -51,7 +46,34 @@ const OcatThread_t *init_ocat_thread(const char *name)
 
 void *thread_run(void *p)
 {
-   (void) init_ocat_thread(p);
+   OcatThread_t **tl;
+   void *r;
+   sigset_t ss;
+
+   // block all signals for the thread
+   sigfillset(&ss);
+   pthread_sigmask(SIG_BLOCK, &ss, NULL);
+
+   // init internal ocat thread structure
+   (void) init_ocat_thread(((OcatThread_t *)p)->name);
+
+   // call thread entry function
+   log_msg(L_NOTICE, "running");
+   r = ((OcatThread_t*)p)->entry(NULL);
+   log_msg(L_NOTICE, "terminating");
+
+   pthread_mutex_lock(&thread_mutex_);
+   for (tl = &octh_; *tl; tl = &(*tl)->next)
+      if ((*tl)->handle == ((OcatThread_t*)p)->handle)
+         break;
+   free(p);
+   if ((p = *tl))
+   {
+      *tl = (*tl)->next;
+      free(p);
+   }
+   pthread_mutex_unlock(&thread_mutex_);
+
    return NULL;
 }
 
@@ -59,11 +81,28 @@ void *thread_run(void *p)
 int run_ocat_thread(const char *name, void *(*thfunc)(void*))
 {
    int rc;
-   pthread_t th;
+   OcatThread_t *th;
+
+   // we need a helper structure on startup.
+   // this is because pthread_create pushes only one arg.
+   // the helper struct is freed again from the thread
+   // (within thread_run()).
+   if (!(th = malloc(sizeof(OcatThread_t))))
+   {
+      rc = errno;
+      log_msg(L_FATAL, "could not create thread %s: \"%s\"", name, strerror(errno));
+      return rc;
+   }
+
+   strncpy(th->name, name, THREAD_NAME_LEN);
+   th->entry = thfunc;
 
    log_msg(L_DEBUG, "starting [%s]", name);
-   if ((rc = pthread_create(&th, NULL, thfunc, (void*) name)))
+   if ((rc = pthread_create(&th->handle, NULL, thread_run, th)))
+   {
       log_msg(L_FATAL, "could not start thread %s: \"%s\"", name, strerror(rc));
+      free(th);
+   }
 
    return rc;
 }
