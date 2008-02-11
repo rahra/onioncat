@@ -800,6 +800,7 @@ void *ocat_controller(void *p)
    char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[ONION_NAME_SIZE], timestr[32];
    int rlen, i, cfd;
    struct tm *tm;
+   OcatThread_t *th;
 
    (void) init_ocat_thread(p);
 
@@ -873,6 +874,23 @@ void *ocat_controller(void *p)
                   break;
                }
             pthread_mutex_unlock(&peer_mutex_);
+         }
+         else if (!strncmp(buf, "threads", 7))
+         {
+            pthread_mutex_lock(&thread_mutex_);
+            for (th = octh_; th; th = th->next)
+            {
+               sprintf(buf, "%2d: %s\n", th->id, th->name);
+               if (write(fd, buf, strlen(buf)) != strlen(buf))
+                  log_msg(L_ERROR, "couldn't write %d bytes to control socket %d", strlen(buf), fd);
+            }
+            pthread_mutex_unlock(&thread_mutex_);
+         }
+         else if (!strncmp(buf, "terminate", 9))
+         {
+            log_msg(L_NOTICE, "terminate request from control port");
+            //FIXME: fds should be closed properly
+            exit(0);
          }
          else
          {

@@ -132,6 +132,9 @@ extern char *tun_dev_;
 extern uint32_t fhd_key_;
 #endif
 
+extern pthread_mutex_t thread_mutex_;
+extern OcatThread_t *octh_;
+
 /* ocatlog.c */
 void log_msg(int, const char *, ...);
 
