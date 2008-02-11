@@ -104,6 +104,7 @@ int main(int argc, char *argv[])
    if (!argv[optind])
       usage(argv[0]), exit(1);
 
+   // init main thread
    (void) init_ocat_thread("main");
 
    if (urlconv == 2)
@@ -171,7 +172,7 @@ int main(int argc, char *argv[])
    run_ocat_thread("connector", socks_connector);
    // start packet dequeuer
    run_ocat_thread("dequeuer", packet_dequeuer);
-
+   // start controller socket thread
    run_ocat_thread("controller", ocat_controller);
 
    // start forwarding packets from tunnel

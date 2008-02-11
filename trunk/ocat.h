@@ -88,6 +88,7 @@ typedef struct OcatThread
    pthread_t handle;
    int id;
    char name[THREAD_NAME_LEN];
+   void *(*entry)(void*);
 } OcatThread_t;
 
 typedef struct SocksQueue
