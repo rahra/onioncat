@@ -11,3 +11,6 @@ ocat: ocatroute.o ocattun.o ocatv6conv.o ocatlog.o ocatthread.o
 clean:
 	rm -f *.o $(TARGET)
 
+install:
+	install $(TARGET) /usr/local/bin
+

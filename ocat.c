@@ -20,7 +20,9 @@ extern int debug_level_;
 
 void usage(const char *s)
 {
-   fprintf(stderr, "usage: %s [OPTIONS] <onion_hostname>\n"
+   fprintf(stderr, 
+         "onioncat (c) Bernhard R. Fischer -- compiled %s %s\n"
+         "usage: %s [OPTIONS] <onion_hostname>\n"
          "   -h                    display usage message\n"
          "   -d <n>                set debug level to n, default = %d\n"
          "   -i <onion_hostname>   convert onion hostname to IPv6 and exit\n"
@@ -34,7 +36,7 @@ void usage(const char *s)
          "   -T <tun_device>       path to tun character device\n"
 #endif
          "   -v                    validate packets from sockets, default = %d\n"
-         , s, debug_level_, ocat_listen_port_, ocat_dest_port_, tor_socks_port_, vrec_);
+         , __DATE__, __TIME__, s, debug_level_, ocat_listen_port_, ocat_dest_port_, tor_socks_port_, vrec_);
 }
 
 
@@ -134,6 +136,8 @@ int main(int argc, char *argv[])
       printf("%s\n", ip6addr);
       exit(0);
    }
+
+   log_msg(L_NOTICE, "onioncat (c) Bernhard R. Fischer -- compiled %s %s", __DATE__, __TIME__);
 
    // init peer structure
    init_peers();
