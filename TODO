@@ -1,14 +1,15 @@
-//* IPv6 adresses are not checked for their validity
 * frame checking may be improved
-//* garbage collector for packet queue missing
-//* garbage collector for session cleanup
 * improve getopt() -- currently many things are hardcoded
-//* packets received on sockets should be validated (Ethertype, ip)
 * improve tun header test (check for src and dst ip)
 * generally improve tun opening routine
 * licence
-* socks_connector queue
 * header compression
 * fragment handler
-* packet_forwarder depends on socks_connector, currently possible unclean startup (not dangerous)
+* log levels and log output are currently somehow random
+//* IPv6 adresses are not checked for their validity
+//* garbage collector for packet queue missing
+//* garbage collector for session cleanup
+//* packets received on sockets should be validated (Ethertype, ip)
+//* socks_connector queue
+//* packet_forwarder depends on socks_connector, currently possible unclean startup (not dangerous) -- socks connector now is multi-threaded and not blocking on a pipe, hence, this error _should_ (i'm currently not sure) not occur anymore.
 
