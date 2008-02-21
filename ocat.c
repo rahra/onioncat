@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -5,10 +7,12 @@
 #include <stdarg.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
-#include <net/if.h>
 #include <errno.h>
 #include <time.h>
 #include <pthread.h>
+#ifdef HAVE_NET_IF_H
+#include <net/if.h>
+#endif
 
 #include "ocat.h"
 
