@@ -7,6 +7,8 @@
 
 #ifndef WITHOUT_TUN
 
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,15 +18,23 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <netinet/ip6.h>
-#include <net/if.h>
 #include <errno.h>
-
-#ifdef linux
+#include <arpa/inet.h>
+/*
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#ifdef HAVE_NETINET_IP6_H
+#include <netinet/ip6.h>
+#endif
+*/
+#ifdef HAVE_NET_IF_H
+#include <net/if.h>
+#endif
+#ifdef HAVE_LINUX_IF_TUN_H
 #include <linux/if_tun.h>
-#else
+#endif
+#ifdef HAVE_NET_IF_TUN_H
 #include <net/if_tun.h>
 #endif
 
@@ -106,7 +116,7 @@ void test_tun_hdr(void)
       log_msg(L_FATAL, "[test_tun_hdr] this should never happen..."), exit(1);
 
    inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
-#ifdef linux
+#ifdef __linux__
    sprintf(buf, "ping6 -c 1 -w 1 %s >/dev/null 2>&1", addrstr);
 #else
    //sprintf(buf, "ping6 -c 1 %s >/dev/null 2>&1", addrstr);

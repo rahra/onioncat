@@ -6,14 +6,16 @@
  *  @version 2008/02/03-01
  */
 
+#include "config.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <pthread.h>
-#include <netinet/in.h>
-#include <netinet/ip6.h>
+//#include <netinet/in.h>
+//#include <netinet/ip6.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <sys/select.h>
@@ -451,7 +453,7 @@ void *socket_acceptor(void *p)
    in.sin_family = AF_INET;
    in.sin_port = htons(ocat_listen_port_);
    in.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-#ifndef linux
+#ifdef HAVE_SIN_LEN
    in.sin_len = sizeof(in);
 #endif
 
@@ -494,7 +496,7 @@ int socks_connect(const struct in6_addr *addr)
    in.sin_family = AF_INET;
    in.sin_port = htons(tor_socks_port_);
    in.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-#ifndef __linux__
+#ifdef HAVE_SIN_LEN
    in.sin_len = sizeof(in);
 #endif
 
@@ -722,7 +724,7 @@ void *ocat_controller(void *p)
    in.sin_family = AF_INET;
    in.sin_port = htons(OCAT_CTRL_PORT);
    in.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-#ifndef linux
+#ifdef HAVE_SIN_LEN
    in.sin_len = sizeof(in);
 #endif
 

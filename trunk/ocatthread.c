@@ -6,6 +6,8 @@
  *  @version 2008/02/03-01
  */
 
+#include "config.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <pthread.h>

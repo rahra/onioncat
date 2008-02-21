@@ -3,9 +3,15 @@
 
 
 #include <time.h>
+#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
+#endif
+#ifdef HAVE_NETINET_IP6_H
 #include <netinet/ip6.h>
+#endif
 #include <pthread.h>
+
+#include "config.h"
 
 
 #define IP6HLEN sizeof(struct ip6_hdr)
@@ -121,7 +127,8 @@ typedef struct OcatCtrlHdr
    char oct_srcid[10];
 } OcatCtrlHdr_t;
 
-#ifdef __CYGWIN__
+//#ifdef __CYGWIN__
+#ifndef HAVE_STRUCT_IP6_HDR
 struct ip6_hdr
   {
     union
