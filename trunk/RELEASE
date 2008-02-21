@@ -1,4 +1,5 @@
-* 
+*
+ - socket connecter now multi-threaded (connect() blocks until connect)
  - local controller socket available: commands: status, close, exit, quit
  - thread start routine modularized
  - logging improved
