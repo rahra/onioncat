@@ -12,4 +12,5 @@
 //* packets received on sockets should be validated (Ethertype, ip)
 //* socks_connector queue
 //* packet_forwarder depends on socks_connector, currently possible unclean startup (not dangerous) -- socks connector now is multi-threaded and not blocking on a pipe, hence, this error _should_ (i'm currently not sure) not occur anymore.
+* interaction with OS routing table to be able to forward packets to "foreign" networks beside the TOR prefix
 
