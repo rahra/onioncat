@@ -1,6 +1,7 @@
 #ifndef OCAT_H
 #define OCAT_H
 
+#define PEERLIST
 
 #include <time.h>
 #ifdef HAVE_NETINET_IN_H
@@ -77,6 +78,7 @@ typedef struct SocksHdr
 
 typedef struct OcatPeer
 {
+   struct OcatPeer *next;
    struct in6_addr addr;   //<! remote address of peer
    int tcpfd;              //<! remote file descriptor
    time_t time;            //<! timestamp of latest packet
