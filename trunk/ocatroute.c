@@ -30,7 +30,11 @@ static int sockfd_;
 // used for internal communication
 static int lpfd_[2];
 // array of active peers
+#ifndef PEERLIST
 static OcatPeer_t peer_[MAXPEERS];
+#else
+static OcatPeer_t *peer_ = NULL;
+#endif
 // mutex for locking array of peers
 pthread_mutex_t peer_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 // packet queue pointer
@@ -59,12 +63,15 @@ int vrec_ = 0;
 
 void init_peers(void)
 {
+#ifndef PEERLIST
    memset(peer_, 0, sizeof(OcatPeer_t) * MAXPEERS);
+#endif
 }
 
 
 OcatPeer_t *search_peer(const struct in6_addr *addr)
 {
+#ifndef PEERLIST
    int i;
 
    for (i = 0; i < MAXPEERS; i++)
@@ -76,11 +83,20 @@ OcatPeer_t *search_peer(const struct in6_addr *addr)
       return NULL;
 
    return &peer_[i];
+#else
+   OcatPeer_t *peer;
+
+   for (peer = peer_; peer; peer = peer->next)
+      if (!memcmp(addr, &peer->addr, sizeof(struct in6_addr)))
+         return peer;
+   return NULL;
+#endif
 }
 
 
 OcatPeer_t *get_empty_peer(void)
 {
+#ifndef PEERLIST
    int i;
 
    for (i = 0; i < MAXPEERS; i++)
@@ -88,12 +104,36 @@ OcatPeer_t *get_empty_peer(void)
          return &peer_[i];
 
    return NULL;
+#else
+   OcatPeer_t *peer;
+
+   if (!(peer = calloc(1, sizeof(OcatPeer_t))))
+      log_msg(L_ERROR, "cannot get memory for new peer: %s", strerror(errno));
+   else
+   {
+      peer->next = peer_;
+      peer_ = peer;
+   }
+
+   return peer;  
+#endif
 }
 
 
 void delete_peer(OcatPeer_t *peer)
 {
+#ifndef PEERLIST
    memset(peer, 0, sizeof(OcatPeer_t));
+#else
+   OcatPeer_t **p;
+   for (p = &peer_; *p; p = &(*p)->next)
+      if (*p == peer)
+      {
+         *p = peer->next;
+         free(peer);
+         return;
+      }
+#endif
 }
 
 
@@ -287,12 +327,17 @@ void cleanup_socket(int fd, OcatPeer_t *peer)
 
 void *socket_receiver(void *p)
 {
-   int i, fd, maxfd, len, state, plen;
+   int fd, maxfd, len, state, plen;
    char buf[FRAME_SIZE];
    char addr[INET6_ADDRSTRLEN];
    fd_set rset;
    struct ip6_hdr *ihd;
    ihd = (struct ip6_hdr*) &buf[4];
+#ifdef PEERLIST
+   OcatPeer_t *peer;
+#else
+   int i;
+#endif
 
    if (pipe(lpfd_) < 0)
       log_msg(L_FATAL, "[init_socket_receiver] could not create pipe for socket_receiver: \"%s\"", strerror(errno)), exit(1);
@@ -305,6 +350,7 @@ void *socket_receiver(void *p)
 
       // create set for all available peers to read
       pthread_mutex_lock(&peer_mutex_);
+#ifndef PEERLIST
       for (i = 0; i < MAXPEERS; i++)
       {
          // only select active peers
@@ -316,6 +362,19 @@ void *socket_receiver(void *p)
          if (fd > maxfd)
             maxfd = fd;
       }
+#else
+      for (peer = peer_; peer; peer = peer->next)
+      {
+         // only select active peers
+         if (peer->state != PEER_ACTIVE)
+            continue;
+         if ((fd = peer->tcpfd) >= FD_SETSIZE)
+            log_msg(L_FATAL, "%d >= FD_SETIZE(%d)", fd, FD_SETSIZE), exit(1);
+         FD_SET(fd, &rset);
+         if (fd > maxfd)
+            maxfd = fd;
+      }
+#endif
       pthread_mutex_unlock(&peer_mutex_);
 
       log_msg(L_DEBUG, "[socket_receiver] is selecting...");
@@ -333,11 +392,20 @@ void *socket_receiver(void *p)
       }
 
       //FIXME: should only run until num select returned
+#ifndef PEERLIST
       for (i = 0; i < MAXPEERS; i++)
+#else
+      for (peer = peer_; peer; peer = peer->next)
+#endif
       {
          pthread_mutex_lock(&peer_mutex_);
+#ifndef PEERLIST
          state = peer_[i].state;
          fd = peer_[i].tcpfd;
+#else
+         state = peer->state;
+         fd = peer->tcpfd;
+#endif
          pthread_mutex_unlock(&peer_mutex_);
 
          if (state != PEER_ACTIVE)
@@ -361,7 +429,11 @@ void *socket_receiver(void *p)
                log_msg(L_NOTICE, "[socket_receiver] fd %d reached EOF, closing.", fd);
                close(fd);
                pthread_mutex_lock(&peer_mutex_);
+#ifndef PEERLIST
                delete_peer(&peer_[i]);
+#else
+               delete_peer(peer);
+#endif
                pthread_mutex_unlock(&peer_mutex_);
                continue;
             }
@@ -374,6 +446,7 @@ void *socket_receiver(void *p)
             }
 
             pthread_mutex_lock(&peer_mutex_);
+#ifndef PEERLIST
             // update timestamp
             peer_[i].time = time(NULL);
             peer_[i].in += len;
@@ -384,6 +457,18 @@ void *socket_receiver(void *p)
                log_msg(L_NOTICE, "[socket_receiver] incoming connection on %d from %s is now identified", fd,
                      inet_ntop(AF_INET6, &peer_[i].addr, addr, INET6_ADDRSTRLEN));
             }
+#else
+            // update timestamp
+            peer->time = time(NULL);
+            peer->in += len;
+            // set IP address if it is not set yet and frame is valid
+            if (plen && !memcmp(&peer->addr, &in6addr_any, sizeof(struct in6_addr)))
+            {
+               memcpy(&peer->addr, &ihd->ip6_src, sizeof(struct in6_addr));
+               log_msg(L_NOTICE, "[socket_receiver] incoming connection on %d from %s is now identified", fd,
+                     inet_ntop(AF_INET6, &peer->addr, addr, INET6_ADDRSTRLEN));
+            }
+#endif
             pthread_mutex_unlock(&peer_mutex_);
             
             log_msg(L_DEBUG, "[socket_receiver] trying fhdr rewriting");
@@ -422,7 +507,12 @@ OcatPeer_t *insert_peer(int fd, const struct in6_addr *addr)
    set_nonblock(fd);
 
    pthread_mutex_lock(&peer_mutex_);
-   peer = get_empty_peer();
+   if (!(peer = get_empty_peer()))
+   {
+      pthread_mutex_unlock(&peer_mutex_);
+      log_msg(L_ERROR, "could not get new empty peer");
+      return NULL;
+   }
    peer->tcpfd = fd;
    peer->state = PEER_ACTIVE;
    peer->otime = peer->time = time(NULL);
@@ -690,13 +780,18 @@ void packet_forwarder(void)
 
 void *socket_cleaner(void *p)
 {
+#ifndef PEERLIST
    int i;
+#else
+   OcatPeer_t *peer;
+#endif
 
    for (;;)
    {
       sleep(CLEANER_WAKEUP);
       log_msg(L_DEBUG, "wakeup");
       pthread_mutex_lock(&peer_mutex_);
+#ifndef PEERLIST
       for (i = 0; i < MAXPEERS; i++)
       {
          if (peer_[i].state && peer_[i].time + MAX_IDLE_TIME < time(NULL))
@@ -706,6 +801,17 @@ void *socket_cleaner(void *p)
             delete_peer(&peer_[i]);
          }
       }
+#else
+      for (peer = peer_; peer; peer = peer->next)
+      {
+         if (peer->state && peer->time + MAX_IDLE_TIME < time(NULL))
+         {
+            log_msg(L_NOTICE, "peer %d timed out, closing.", peer->tcpfd);
+            close(peer->tcpfd);
+            delete_peer(peer);
+         }
+      }
+#endif
       pthread_mutex_unlock(&peer_mutex_);
    }
 }
@@ -716,9 +822,14 @@ void *ocat_controller(void *p)
    int fd, sfd;
    struct sockaddr_in in;
    char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[ONION_NAME_SIZE], timestr[32];
-   int rlen, i, cfd;
+   int rlen, cfd;
    struct tm *tm;
    OcatThread_t *th;
+#ifndef PEERLIST
+   int i;
+#else
+   OcatPeer_t *peer;
+#endif
 
    memset(&in, 0, sizeof(in));
    in.sin_family = AF_INET;
@@ -762,6 +873,7 @@ void *ocat_controller(void *p)
          else if (!strncmp(buf, "status", 6))
          {
             pthread_mutex_lock(&peer_mutex_);
+#ifndef PEERLIST
             for (i = 0; i < MAXPEERS; i++)
                if (peer_[i].state == PEER_ACTIVE)
                {
@@ -775,12 +887,28 @@ void *ocat_controller(void *p)
                   if (write(fd, buf, strlen(buf)) != strlen(buf))
                      log_msg(L_ERROR, "couldn't write %d bytes to control socket %d", strlen(buf), fd);
                }
+#else
+            for (peer = peer_; peer; peer = peer->next)
+               if (peer->state == PEER_ACTIVE)
+               {
+                  tm = localtime(&peer->otime);
+                  strftime(timestr, 32, "%c", tm);
+                  sprintf(buf, "[%s]\n fd = %d\n addr = %s\n dir = \"%s\"\n idle = %lds\n bytes_in = %ld\n bytes_out = %ld\n setup_delay = %lds\n opening_time = \"%s\"\n",
+                        ipv6tonion(&peer->addr, onionstr), peer->tcpfd,
+                        inet_ntop(AF_INET6, &peer->addr, addrstr, INET6_ADDRSTRLEN),
+                        peer->dir == PEER_INCOMING ? "in" : "out",
+                        time(NULL) - peer->time, peer->in, peer->out, peer->sdelay, timestr);
+                  if (write(fd, buf, strlen(buf)) != strlen(buf))
+                     log_msg(L_ERROR, "couldn't write %d bytes to control socket %d", strlen(buf), fd);
+               }
+#endif
             pthread_mutex_unlock(&peer_mutex_);
          }
          else if (!strncmp(buf, "close ", 6))
          {
             cfd = atoi(&buf[6]);
             pthread_mutex_lock(&peer_mutex_);
+#ifndef PEERLIST
             for (i = 0; i < MAXPEERS; i++)
                if (peer_[i].tcpfd == cfd)
                {
@@ -789,6 +917,16 @@ void *ocat_controller(void *p)
                   delete_peer(&peer_[i]);
                   break;
                }
+#else
+            for (peer = peer_; peer; peer = peer->next)
+               if (peer->tcpfd == cfd)
+               {
+                  log_msg(L_NOTICE, "close request for %d", cfd);
+                  close(cfd);
+                  delete_peer(peer);
+                  break;
+               }
+#endif
             pthread_mutex_unlock(&peer_mutex_);
          }
          else if (!strncmp(buf, "threads", 7))
