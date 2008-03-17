@@ -1,8 +1,6 @@
 #ifndef OCAT_H
 #define OCAT_H
 
-#define PEERLIST
-
 #include <time.h>
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
