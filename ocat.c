@@ -143,9 +143,6 @@ int main(int argc, char *argv[])
 
    log_msg(L_NOTICE, "onioncat (c) Bernhard R. Fischer -- compiled %s %s", __DATE__, __TIME__);
 
-   // init peer structure
-   init_peers();
-
 #ifndef WITHOUT_TUN
    // create TUN device
    tunfd_[0] = tunfd_[1] = tun_alloc(tunname, addr);
