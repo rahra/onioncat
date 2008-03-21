@@ -350,19 +350,20 @@ void *socket_receiver(void *p)
 
          if (FD_ISSET(fd, &rset))
          {
-            log_msg(L_DEBUG, "[socket_receiver] reading from %d", fd);
+            log_msg(L_DEBUG, "reading from %d", fd);
 
             // read/append data to peer's fragment buffer
             if ((len = read(fd, peer->fragbuf + peer->fraglen, FRAME_SIZE - 4 - peer->fraglen)) == -1)
             {
                // this might happen on linux, see SELECT(2)
-               log_msg(L_DEBUG, "[socket_receiver] spurious wakup of %d: \"%s\"", fd, strerror(errno));
+               log_msg(L_DEBUG, "spurious wakup of %d: \"%s\"", fd, strerror(errno));
                continue;
             }
+            log_msg(L_DEBUG, "received %d bytes on %d", len, fd);
             // if len == 0 EOF reached => close session
             if (!len)
             {
-               log_msg(L_NOTICE, "[socket_receiver] fd %d reached EOF, closing.", fd);
+               log_msg(L_NOTICE, "fd %d reached EOF, closing.", fd);
                close(fd);
                pthread_mutex_lock(&peer_mutex_);
                delete_peer(peer);
@@ -383,7 +384,7 @@ void *socket_receiver(void *p)
                plen = validate_frame((struct ip6_hdr*) peer->fragbuf, peer->fraglen);
                if (vrec_ && !plen)
                {
-                  log_msg(L_ERROR, "[socket_receiver] dropping frame");
+                  log_msg(L_ERROR, "dropping frame");
                   break;
                }
 
@@ -396,12 +397,12 @@ void *socket_receiver(void *p)
                if (plen && !memcmp(&peer->addr, &in6addr_any, sizeof(struct in6_addr)))
                {
                   memcpy(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src, sizeof(struct in6_addr));
-                  log_msg(L_NOTICE, "[socket_receiver] incoming connection on %d from %s is now identified", fd,
+                  log_msg(L_NOTICE, "incoming connection on %d from %s is now identified", fd,
                         inet_ntop(AF_INET6, &peer->addr, addr, INET6_ADDRSTRLEN));
                }
                pthread_mutex_unlock(&peer_mutex_);
             
-               log_msg(L_DEBUG, "[socket_receiver] writing to tun %d framesize %d", tunfd_[1], len + 4);
+               log_msg(L_DEBUG, "writing to tun %d framesize %d", tunfd_[1], len + 4);
                if (write(tunfd_[1], &peer->fraghdr, len + 4) != (len + 4))
                   log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len + 4, tunfd_[1]);
 
@@ -411,7 +412,10 @@ void *socket_receiver(void *p)
                pthread_mutex_unlock(&peer_mutex_);
 
                if (peer->fraglen)
+               {
+                  log_msg(L_DEBUG, "moving fragment. fragsize %d", peer->fraglen);
                   memmove(peer->fragbuf, peer->fragbuf + len, FRAME_SIZE - 4 - len);
+               }
             }
          }
       }
