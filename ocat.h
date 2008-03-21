@@ -24,7 +24,8 @@
 #define TOR_SOCKS_PORT 9050
 
 
-#define FRAME_SIZE 1504
+//#define FRAME_SIZE 1504
+#define FRAME_SIZE 16440
 #define ONION_NAME_SIZE 23
 
 #define DEQUEUER_WAKEUP 3
@@ -86,6 +87,9 @@ typedef struct OcatPeer
    int dir;
    unsigned long out;
    unsigned long in;
+   uint32_t fraghdr;
+   char fragbuf[FRAME_SIZE - 4];
+   int fraglen;
 } OcatPeer_t;
 
 typedef struct OcatThread
