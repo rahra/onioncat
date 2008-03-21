@@ -76,6 +76,7 @@ OcatPeer_t *get_empty_peer(void)
       log_msg(L_ERROR, "cannot get memory for new peer: %s", strerror(errno));
    else
    {
+      peer->fraghdr = fhd_key_;
       peer->next = peer_;
       peer_ = peer;
    }
@@ -292,14 +293,14 @@ void *socket_receiver(void *p)
    char buf[FRAME_SIZE];
    char addr[INET6_ADDRSTRLEN];
    fd_set rset;
-   struct ip6_hdr *ihd;
-   ihd = (struct ip6_hdr*) &buf[4];
+   //struct ip6_hdr *ihd;
+   //ihd = (struct ip6_hdr*) &buf[4];
    OcatPeer_t *peer;
 
    if (pipe(lpfd_) < 0)
       log_msg(L_FATAL, "[init_socket_receiver] could not create pipe for socket_receiver: \"%s\"", strerror(errno)), exit(1);
 
-   *((uint32_t*) buf) = fhd_key_;
+   //*((uint32_t*) buf) = fhd_key_;
 
    for (;;)
    {
@@ -332,7 +333,7 @@ void *socket_receiver(void *p)
       // thread woke up because of internal pipe read => restart selection
       if (FD_ISSET(lpfd_[0], &rset))
       {
-         read(lpfd_[0], ihd, FRAME_SIZE - 4);
+         read(lpfd_[0], buf, FRAME_SIZE - 4);
          continue;
       }
 
@@ -351,11 +352,10 @@ void *socket_receiver(void *p)
          {
             log_msg(L_DEBUG, "[socket_receiver] reading from %d", fd);
 
-            // *** unframed receiver
-            // write reordered after IP validation
-            // this might happen on linux, see SELECT(2)
-            if ((len = read(fd, ihd, FRAME_SIZE - 4)) == -1)
+            // read/append data to peer's fragment buffer
+            if ((len = read(fd, peer->fragbuf + peer->fraglen, FRAME_SIZE - 4 - peer->fraglen)) == -1)
             {
+               // this might happen on linux, see SELECT(2)
                log_msg(L_DEBUG, "[socket_receiver] spurious wakup of %d: \"%s\"", fd, strerror(errno));
                continue;
             }
@@ -369,33 +369,50 @@ void *socket_receiver(void *p)
                pthread_mutex_unlock(&peer_mutex_);
                continue;
             }
-            // check frame
-            plen = validate_frame(ihd, len);
-            if (vrec_ && !plen)
-            {
-               log_msg(L_ERROR, "[socket_receiver] dropping frame");
-               continue;
-            }
 
             pthread_mutex_lock(&peer_mutex_);
+            peer->fraglen += len;
             // update timestamp
             peer->time = time(NULL);
             peer->in += len;
-            // set IP address if it is not set yet and frame is valid
-            if (plen && !memcmp(&peer->addr, &in6addr_any, sizeof(struct in6_addr)))
-            {
-               memcpy(&peer->addr, &ihd->ip6_src, sizeof(struct in6_addr));
-               log_msg(L_NOTICE, "[socket_receiver] incoming connection on %d from %s is now identified", fd,
-                     inet_ntop(AF_INET6, &peer->addr, addr, INET6_ADDRSTRLEN));
-            }
             pthread_mutex_unlock(&peer_mutex_);
+               
+            while (peer->fraglen >= IP6HLEN)
+            {
+               // check frame
+               plen = validate_frame((struct ip6_hdr*) peer->fragbuf, peer->fraglen);
+               if (vrec_ && !plen)
+               {
+                  log_msg(L_ERROR, "[socket_receiver] dropping frame");
+                  break;
+               }
+
+               len = plen + IP6HLEN;
+               if (peer->fraglen < len)
+                  break;
+
+               pthread_mutex_lock(&peer_mutex_);
+               // set IP address if it is not set yet and frame is valid
+               if (plen && !memcmp(&peer->addr, &in6addr_any, sizeof(struct in6_addr)))
+               {
+                  memcpy(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src, sizeof(struct in6_addr));
+                  log_msg(L_NOTICE, "[socket_receiver] incoming connection on %d from %s is now identified", fd,
+                        inet_ntop(AF_INET6, &peer->addr, addr, INET6_ADDRSTRLEN));
+               }
+               pthread_mutex_unlock(&peer_mutex_);
             
-/*            log_msg(L_DEBUG, "[socket_receiver] trying fhdr rewriting");
-            rewrite_framehdr(buf, len);*/
-            len += 4;
-            log_msg(L_DEBUG, "[socket_receiver] writing to tun %d framesize %d", tunfd_[1], len);
-            if (write(tunfd_[1], buf, len) != len)
-               log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len, tunfd_[1]);
+               log_msg(L_DEBUG, "[socket_receiver] writing to tun %d framesize %d", tunfd_[1], len + 4);
+               if (write(tunfd_[1], &peer->fraghdr, len + 4) != (len + 4))
+                  log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len + 4, tunfd_[1]);
+
+
+               pthread_mutex_lock(&peer_mutex_);
+               peer->fraglen -= len;
+               pthread_mutex_unlock(&peer_mutex_);
+
+               if (peer->fraglen)
+                  memmove(peer->fragbuf, peer->fragbuf + len, FRAME_SIZE - 4 - len);
+            }
          }
       }
    }
