@@ -96,7 +96,7 @@ void delete_peer(OcatPeer_t *peer)
       }
 }
 
-
+/*
 void rewrite_framehdr(char *buf, int len)
 {
    uint32_t *fhd = (uint32_t*) buf;
@@ -131,6 +131,7 @@ void rewrite_framehdr(char *buf, int len)
       fhd = (uint32_t*) (buf + ofs);
    }
 }
+*/
 
 
 /*const*/ OcatPeer_t *forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
@@ -298,6 +299,8 @@ void *socket_receiver(void *p)
    if (pipe(lpfd_) < 0)
       log_msg(L_FATAL, "[init_socket_receiver] could not create pipe for socket_receiver: \"%s\"", strerror(errno)), exit(1);
 
+   *((uint32_t*) buf) = fhd_key_;
+
    for (;;)
    {
       FD_ZERO(&rset);
@@ -329,7 +332,7 @@ void *socket_receiver(void *p)
       // thread woke up because of internal pipe read => restart selection
       if (FD_ISSET(lpfd_[0], &rset))
       {
-         read(lpfd_[0], buf, FRAME_SIZE);
+         read(lpfd_[0], ihd, FRAME_SIZE - 4);
          continue;
       }
 
@@ -351,7 +354,7 @@ void *socket_receiver(void *p)
             // *** unframed receiver
             // write reordered after IP validation
             // this might happen on linux, see SELECT(2)
-            if ((len = read(fd, buf, FRAME_SIZE)) == -1)
+            if ((len = read(fd, ihd, FRAME_SIZE - 4)) == -1)
             {
                log_msg(L_DEBUG, "[socket_receiver] spurious wakup of %d: \"%s\"", fd, strerror(errno));
                continue;
@@ -387,8 +390,9 @@ void *socket_receiver(void *p)
             }
             pthread_mutex_unlock(&peer_mutex_);
             
-            log_msg(L_DEBUG, "[socket_receiver] trying fhdr rewriting");
-            rewrite_framehdr(buf, len);
+/*            log_msg(L_DEBUG, "[socket_receiver] trying fhdr rewriting");
+            rewrite_framehdr(buf, len);*/
+            len += 4;
             log_msg(L_DEBUG, "[socket_receiver] writing to tun %d framesize %d", tunfd_[1], len);
             if (write(tunfd_[1], buf, len) != len)
                log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len, tunfd_[1]);
@@ -683,12 +687,12 @@ void packet_forwarder(void)
       }
 
       // now forward either directly or to the queue
-      if (!forward_packet(&ihd->ip6_dst, buf, rlen))
+      if (!forward_packet(&ihd->ip6_dst, buf + 4, rlen - 4))
       {
          log_msg(L_NOTICE, "[packet_forwarder] establishing new socks peer");
          socks_queue(&ihd->ip6_dst);
          log_msg(L_DEBUG, "[packet_forwarder] queuing packet");
-         queue_packet(&ihd->ip6_dst, buf, rlen);
+         queue_packet(&ihd->ip6_dst, buf + 4, rlen - 4);
       }
    }
 }
