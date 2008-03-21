@@ -68,6 +68,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
       perror("TUNSETIFF"), exit(1);
    strcpy(dev, ifr.ifr_name);
    sprintf(buf, "ifconfig tun0 add %s/%d up", astr, TOR_PREFIX_LEN);
+   log_msg(L_NOTICE, "configuring tun IP: \"%s\"", buf);
    if (system(buf) == -1)
       log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
    // set tun frame header to ethertype IPv6
