@@ -402,7 +402,7 @@ void *socket_receiver(void *p)
                }
                pthread_mutex_unlock(&peer_mutex_);
             
-               log_msg(L_DEBUG, "writing to tun %d framesize %d", tunfd_[1], len + 4);
+               log_msg(L_DEBUG, "writing to tun %d framesize %d + 4", tunfd_[1], len);
                if (write(tunfd_[1], &peer->fraghdr, len + 4) != (len + 4))
                   log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len + 4, tunfd_[1]);
 
@@ -699,20 +699,20 @@ void packet_forwarder(void)
          continue;
       }
 
-      log_msg(L_DEBUG, "[packet_forwarder] received on tunfd %d, framesize %d", tunfd_[0], rlen);
+      log_msg(L_DEBUG, "received on tunfd %d, framesize %d + 4", tunfd_[0], rlen - 4);
 
       if (!validate_frame(ihd, rlen - 4))
       {
-         log_msg(L_ERROR, "[packet_forwarder] dropping frame");
+         log_msg(L_ERROR, "dropping frame");
          continue;
       }
 
       // now forward either directly or to the queue
       if (!forward_packet(&ihd->ip6_dst, buf + 4, rlen - 4))
       {
-         log_msg(L_NOTICE, "[packet_forwarder] establishing new socks peer");
+         log_msg(L_NOTICE, "establishing new socks peer");
          socks_queue(&ihd->ip6_dst);
-         log_msg(L_DEBUG, "[packet_forwarder] queuing packet");
+         log_msg(L_DEBUG, "queuing packet");
          queue_packet(&ihd->ip6_dst, buf + 4, rlen - 4);
       }
    }
