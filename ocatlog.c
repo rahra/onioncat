@@ -36,7 +36,7 @@ void log_msg(int lf, const char *fmt, ...)
       strftime(timestr, 32, "%c", tm);
 
    pthread_mutex_lock(&log_mutex_);
-   fprintf(out, "%s [%d:%-*s] %6s ", timestr, th->id, THREAD_NAME_LEN - 1, th->name, flty_[lf]);
+   fprintf(out, "%s [%d:%-*s:%6s] ", timestr, th->id, THREAD_NAME_LEN - 1, th->name, flty_[lf]);
 
    va_start(ap, fmt);
    vfprintf(out, fmt, ap);
