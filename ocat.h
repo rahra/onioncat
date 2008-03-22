@@ -25,7 +25,9 @@
 
 
 //#define FRAME_SIZE 1504
-#define FRAME_SIZE 16440
+//#define FRAME_SIZE 16440
+// should be able to keep one maximum size ipv6-packet: 2^16 + 40 + 4
+#define FRAME_SIZE 65580
 #define ONION_NAME_SIZE 23
 
 #define DEQUEUER_WAKEUP 3
