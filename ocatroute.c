@@ -16,10 +16,14 @@
 #include <pthread.h>
 //#include <netinet/in.h>
 //#include <netinet/ip6.h>
+//#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <sys/select.h>
+#include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <linux/sockios.h>
 
 #include "ocat.h"
 
@@ -55,6 +59,11 @@ uint16_t ocat_listen_port_ = OCAT_LISTEN_PORT;
 uint16_t ocat_dest_port_ = OCAT_DEST_PORT;
 
 int vrec_ = 0;
+
+#define SNDBUF
+#ifdef SNDBUF
+int snd_buf_size_ = 0;
+#endif
 
 
 //k
@@ -120,21 +129,52 @@ void delete_peer(OcatPeer_t *peer)
 int forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
 {
    OcatPeer_t *peer;
+   int len;
 
    pthread_mutex_lock(&peer_mutex_);
    if ((peer = search_peer(addr)))
-   {
       pthread_mutex_lock(&peer->mutex);
-      log_msg(L_DEBUG, "forwarding %d bytes to TCP fd %d", buflen, peer->tcpfd);
-      if (write(peer->tcpfd, buf, buflen) != buflen)
-         log_msg(L_ERROR, "could not write %d bytes to peer %d", buflen, peer->tcpfd);
-      peer->time = time(NULL);
-      peer->out += buflen;
-      pthread_mutex_unlock(&peer->mutex);
-   }
    pthread_mutex_unlock(&peer_mutex_);
 
-   return peer != NULL;
+   if (!peer)
+   {
+      log_msg(L_DEBUG, "no peer for forwarding");
+      return E_FWD_NOPEER;
+   }
+
+   log_msg(L_DEBUG, "forwarding %d bytes to TCP fd %d", buflen, peer->tcpfd);
+
+#ifdef SNDBUF
+   if (ioctl(peer->tcpfd, SIOCOUTQ, &len) != -1)
+   {
+      if (snd_buf_size_ - len < buflen)
+      {
+         log_msg(L_ERROR, "OUTQ too less space, dropping packet");
+         pthread_mutex_unlock(&peer->mutex);
+         return E_FWD_NOBUF;
+      }
+   }
+   else
+      log_msg(L_ERROR, "could not get OUTQ size: \"%s\"", strerror(errno));
+#endif
+
+   if ((len = write(peer->tcpfd, buf, buflen)) == -1)
+   {
+      log_msg(L_ERROR, "could not write %d bytes to peer %d: \"%s\", dropping", buflen, peer->tcpfd, strerror(errno));
+   }
+   else
+   {
+      if (len != buflen)
+      {
+         // FIXME: there should be sender frag handling!
+         log_msg(L_ERROR, "could not write %d bytes to peer %d, %d bytes written", buflen, peer->tcpfd, len);
+      }
+      peer->time = time(NULL);
+      peer->out += len;
+   }
+   pthread_mutex_unlock(&peer->mutex);
+
+   return 0;
 }
 
 
@@ -201,7 +241,7 @@ void *packet_dequeuer(void *p)
 
          // delete packet from queue if it was sent or is too old
          delay = time(NULL) - (*queue)->time;
-         if (rc || (delay > MAX_QUEUE_DELAY))
+         if (!rc || (delay > MAX_QUEUE_DELAY))
          {
             fqueue = *queue;
             *queue = (*queue)->next;
@@ -473,6 +513,17 @@ void *socket_receiver(void *p)
 void set_nonblock(int fd)
 {
    long flags;
+
+#ifdef SNDBUF
+   if (!snd_buf_size_)
+   {
+      flags = sizeof(snd_buf_size_);
+      if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &snd_buf_size_, (socklen_t*) &flags) == -1)
+         log_msg(L_FATAL, "could not get TCP send buffer size: \"%s\"", strerror(errno));
+      else
+         log_msg(L_DEBUG, "SO_SNDBF = %d", snd_buf_size_);
+   }
+#endif
 
    if ((flags = fcntl(fd, F_GETFL, 0)) == -1)
    {
@@ -762,7 +813,7 @@ void packet_forwarder(void)
       }
 
       // now forward either directly or to the queue
-      if (!forward_packet(&ihd->ip6_dst, buf + 4, rlen - 4))
+      if (forward_packet(&ihd->ip6_dst, buf + 4, rlen - 4) == E_FWD_NOPEER)
       {
          log_msg(L_NOTICE, "establishing new socks peer");
          socks_queue(&ihd->ip6_dst);
@@ -794,9 +845,14 @@ void *socket_cleaner(void *ptr)
             close(peer->tcpfd);
             pthread_mutex_unlock(&peer->mutex);
             delete_peer(peer);
-            continue;
+            if (!(*p))
+            {
+               log_msg(L_DEBUG, "last peer in list deleted, breaking loop");
+               break;
+            }
          }
-         pthread_mutex_unlock(&(*p)->mutex);
+         else
+            pthread_mutex_unlock(&(*p)->mutex);
       }
       pthread_mutex_unlock(&peer_mutex_);
    }

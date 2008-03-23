@@ -48,6 +48,9 @@
 #define E_SOCKS_REQ -3
 #define E_SOCKS_RQFAIL -4
 
+#define E_FWD_NOPEER -1
+#define E_FWD_NOBUF -2
+
 //#define PEER_CONNECT 0
 #define PEER_ACTIVE 1
 
