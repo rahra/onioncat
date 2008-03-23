@@ -79,19 +79,20 @@ typedef struct SocksHdr
 
 typedef struct OcatPeer
 {
-   struct OcatPeer *next;
-   struct in6_addr addr;   //<! remote address of peer
-   int tcpfd;              //<! remote file descriptor
-   time_t time;            //<! timestamp of latest packet
-   time_t sdelay;          //<! connection setup delay
-   time_t otime;           //<! opening time
-   int state;              //<! status of peer
-   int dir;
-   unsigned long out;
-   unsigned long in;
-   uint32_t fraghdr;
-   char fragbuf[FRAME_SIZE - 4];
-   int fraglen;
+   struct OcatPeer *next;  //!< pointer to next peer in list
+   struct in6_addr addr;   //!< remote address of peer
+   int tcpfd;              //!< remote file descriptor
+   time_t time;            //!< timestamp of latest packet
+   time_t sdelay;          //!< connection setup delay
+   time_t otime;           //!< opening time
+   int state;              //!< status of peer
+   int dir;                //!< direction this session was opened
+   unsigned long out;      //!< bytes output
+   unsigned long in;       //!< bytes input
+   uint32_t fraghdr;       //!< local tun frame header
+   char fragbuf[FRAME_SIZE - 4]; //!< (de)frag buffer
+   int fraglen;            //!< current frag buffer size
+   pthread_mutex_t mutex;  //!< mutex for thread locking
 } OcatPeer_t;
 
 typedef struct OcatThread
@@ -195,30 +196,16 @@ void test_tun_hdr(void);
 #endif
 
 /* ocatroute.c */
-//OnionPeer_t *search_peer(const struct in6_addr *);
-//OnionPeer_t *establish_peer(int fd, const struct in6_addr *);
 void init_peers(void);
-//void init_socket_acceptor(void);
-//void init_socket_receiver(void);
-//void init_socks_connector(void);
-//void push_socks_connector(const struct in6_addr *);
-//int socks_connect(const char *);
 void *socket_receiver(void *);
-//void update_peer_time(const OnionPeer_t *);
-//const OnionPeer_t *forward_packet(const struct in6_addr *, const char *, int);
-//void queue_packet(const struct in6_addr *, const char *, int);
-//void init_packet_dequeuer(void);
 void packet_forwarder(void);
-//void init_socket_cleaner(void);
 void *packet_dequeuer(void *);
 void *socket_acceptor(void *);
 void *socks_connector(void *);
 void *socket_cleaner(void *);
 void *ocat_controller(void *);
 
-
 /* ocatthread.c */
-//void init_threads(void);
 const OcatThread_t *init_ocat_thread(const char *);
 int run_ocat_thread(const char *, void *(*)(void*));
 const OcatThread_t *get_thread(void);
