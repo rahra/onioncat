@@ -29,6 +29,7 @@ void usage(const char *s)
          "usage: %s [OPTIONS] <onion_hostname>\n"
          "   -h                    display usage message\n"
          "   -d <n>                set debug level to n, default = %d\n"
+         "   -g <group>            change GID to group, default = \"%s\"\n"
          "   -i <onion_hostname>   convert onion hostname to IPv6 and exit\n"
          "   -l <port>             set ocat listen port, default = %d\n"
          "   -o <ipv6_addr>        convert IPv6 address to onion url and exit\n"
@@ -37,10 +38,15 @@ void usage(const char *s)
          "   -t <port>             set tor SOCKS port, default = %d\n"
 #ifndef WITHOUT_TUN
          "   -p                    test tun header and exit\n"
-         "   -T <tun_device>       path to tun character device\n"
+         "   -T <tun_device>       path to tun character device, default = \"%s\"\n"
 #endif
+         "   -u <user>             change UID to user, default = \"%s\"\n"
          "   -v                    validate packets from sockets, default = %d\n"
-         , __DATE__, __TIME__, s, debug_level_, ocat_listen_port_, ocat_dest_port_, tor_socks_port_, vrec_);
+         , __DATE__, __TIME__, s, debug_level_, OCAT_GNAME, ocat_listen_port_, ocat_dest_port_, tor_socks_port_, 
+#ifndef WITHOUT_TUN
+         TUN_DEV,
+#endif
+         OCAT_UNAME, vrec_);
 }
 
 
@@ -49,8 +55,8 @@ int main(int argc, char *argv[])
    char tunname[IFNAMSIZ] = "", onion[ONION_NAME_SIZE], *s, ip6addr[INET6_ADDRSTRLEN];
    struct in6_addr addr;
    int c, runasroot = 0;
-   uid_t uid = 504;
-   gid_t gid = 504;
+   uid_t uid = OCAT_UID;
+   gid_t gid = OCAT_GID;
    int urlconv = 0, test_only = 0;
 
    if (argc < 2)

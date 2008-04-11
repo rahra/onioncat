@@ -22,6 +22,10 @@
 #define OCAT_CTRL_PORT 8001
 #define OCAT_DEST_PORT 80
 #define TOR_SOCKS_PORT 9050
+#define OCAT_UNAME "tor"
+#define OCAT_UID 112
+#define OCAT_GNAME "tor"
+#define OCAT_GID 116
 
 
 //#define FRAME_SIZE 1504
