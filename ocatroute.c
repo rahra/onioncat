@@ -14,16 +14,15 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <pthread.h>
-//#include <netinet/in.h>
-//#include <netinet/ip6.h>
-//#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <sys/select.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#ifdef HAVE_LINUX_SOCKIOS_H
 #include <linux/sockios.h>
+#endif
 
 #include "ocat.h"
 
@@ -66,7 +65,6 @@ int snd_buf_size_ = 0;
 #endif
 
 
-//k
 OcatPeer_t *search_peer(const struct in6_addr *addr)
 {
    OcatPeer_t *peer;
@@ -78,7 +76,6 @@ OcatPeer_t *search_peer(const struct in6_addr *addr)
 }
 
 
-//k
 OcatPeer_t *get_empty_peer(void)
 {
    int rc;
@@ -105,7 +102,6 @@ OcatPeer_t *get_empty_peer(void)
 }
 
 
-//k
 void delete_peer(OcatPeer_t *peer)
 {
    int rc;
@@ -125,7 +121,6 @@ void delete_peer(OcatPeer_t *peer)
 }
 
 
-//k
 int forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
 {
    OcatPeer_t *peer;
@@ -178,7 +173,6 @@ int forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
 }
 
 
-//k
 void queue_packet(const struct in6_addr *addr, const char *buf, int buflen)
 {
    PacketQueue_t *queue;
@@ -206,11 +200,9 @@ void queue_packet(const struct in6_addr *addr, const char *buf, int buflen)
 }
 
 
-//k
 void *packet_dequeuer(void *p)
 {
    PacketQueue_t **queue, *fqueue;
-//   OcatPeer_t *peer;
    struct timespec ts;
    int rc, timed = 0;
    time_t delay;
@@ -274,7 +266,6 @@ void hex_code_header(const char *frame, int len, char *buf)
 
 
 // do some packet validation
-//k
 int validate_frame(const struct ip6_hdr *ihd, int len)
 {
    char buf[INET6_ADDRSTRLEN];
@@ -308,7 +299,6 @@ int validate_frame(const struct ip6_hdr *ihd, int len)
 }
 
 
-//k
 void cleanup_socket(int fd, OcatPeer_t *peer)
 {
    log_msg(L_NOTICE, "fd %d reached EOF, closing.", fd);
@@ -319,21 +309,16 @@ void cleanup_socket(int fd, OcatPeer_t *peer)
 }
 
 
-//k
 void *socket_receiver(void *p)
 {
    int maxfd, len, plen;
    char buf[FRAME_SIZE];
    char addr[INET6_ADDRSTRLEN];
    fd_set rset;
-   //struct ip6_hdr *ihd;
-   //ihd = (struct ip6_hdr*) &buf[4];
    OcatPeer_t *peer;
 
    if (pipe(lpfd_) < 0)
       log_msg(L_FATAL, "could not create pipe for socket_receiver: \"%s\"", strerror(errno)), exit(1);
-
-   //*((uint32_t*) buf) = fhd_key_;
 
    for (;;)
    {
@@ -377,9 +362,6 @@ void *socket_receiver(void *p)
          maxfd--;
       }
 
-      //FIXME: should only run until num select returned
-      //for (peer = peer_; peer; peer = peer->next)
-
       peer = NULL;
       while (maxfd)
       {
@@ -397,9 +379,6 @@ void *socket_receiver(void *p)
          pthread_mutex_lock(&peer->mutex);
          pthread_mutex_unlock(&peer_mutex_);
 
-         //state = peer->state;
-         //fd = peer->tcpfd;
-
          if (peer->state != PEER_ACTIVE)
          {
             pthread_mutex_unlock(&peer->mutex);
@@ -413,103 +392,87 @@ void *socket_receiver(void *p)
          }
 
          maxfd--;
+         log_msg(L_DEBUG, "reading from %d", peer->tcpfd);
 
-         //if (FD_ISSET(fd, &rset))
-         //{
-            log_msg(L_DEBUG, "reading from %d", peer->tcpfd);
+         // read/append data to peer's fragment buffer
+         if ((len = read(peer->tcpfd, peer->fragbuf + peer->fraglen, FRAME_SIZE - 4 - peer->fraglen)) == -1)
+         {
+            // this might happen on linux, see SELECT(2)
+            log_msg(L_DEBUG, "spurious wakup of %d: \"%s\"", peer->tcpfd, strerror(errno));
+            pthread_mutex_unlock(&peer->mutex);
+            continue;
+         }
+         log_msg(L_DEBUG, "received %d bytes on %d", len, peer->tcpfd);
+         // if len == 0 EOF reached => close session
+         if (!len)
+         {
+            log_msg(L_NOTICE, "fd %d reached EOF, closing.", peer->tcpfd);
+            close(peer->tcpfd);
+            pthread_mutex_unlock(&peer->mutex);
+            pthread_mutex_lock(&peer_mutex_);
+            delete_peer(peer);
+            pthread_mutex_unlock(&peer_mutex_);
+            continue;
+         }
 
-            // read/append data to peer's fragment buffer
-            if ((len = read(peer->tcpfd, peer->fragbuf + peer->fraglen, FRAME_SIZE - 4 - peer->fraglen)) == -1)
-            {
-               // this might happen on linux, see SELECT(2)
-               log_msg(L_DEBUG, "spurious wakup of %d: \"%s\"", peer->tcpfd, strerror(errno));
-               pthread_mutex_unlock(&peer->mutex);
-               continue;
-            }
-            log_msg(L_DEBUG, "received %d bytes on %d", len, peer->tcpfd);
-            // if len == 0 EOF reached => close session
-            if (!len)
-            {
-               log_msg(L_NOTICE, "fd %d reached EOF, closing.", peer->tcpfd);
-               close(peer->tcpfd);
-               pthread_mutex_unlock(&peer->mutex);
-               pthread_mutex_lock(&peer_mutex_);
-               delete_peer(peer);
-               pthread_mutex_unlock(&peer_mutex_);
-               continue;
-            }
-
-            //pthread_mutex_lock(&peer_mutex_);
-            peer->fraglen += len;
-            // update timestamp
-            peer->time = time(NULL);
-            peer->in += len;
-            //pthread_mutex_unlock(&peer_mutex_);
+         peer->fraglen += len;
+         // update timestamp
+         peer->time = time(NULL);
+         peer->in += len;
                
-            while (peer->fraglen >= IP6HLEN)
+         while (peer->fraglen >= IP6HLEN)
+         {
+            // check frame
+            plen = validate_frame((struct ip6_hdr*) peer->fragbuf, peer->fraglen);
+
+            if (!plen)
             {
-               // check frame
-               plen = validate_frame((struct ip6_hdr*) peer->fragbuf, peer->fraglen);
+               log_msg(L_DEBUG, "FRAGBUF RESET!");
+               peer->fraglen = 0;
+               break;
+            }
 
-               // <FIXME> sometimes defragmentation looses sync due to currently unknown bug!
-               if (!plen)
-               {
-                  log_msg(L_DEBUG, "FRAGBUF RESET!");
-                  //pthread_mutex_lock(&peer_mutex_);
-                  peer->fraglen = 0;
-                  //pthread_mutex_unlock(&peer_mutex_);
-                  break;
-               }
-               // </FIXME>
+            if (vrec_ && !plen)
+            {
+               log_msg(L_ERROR, "dropping frame");
+               break;
+            }
 
-               if (vrec_ && !plen)
-               {
-                  log_msg(L_ERROR, "dropping frame");
-                  break;
-               }
+            len = plen + IP6HLEN;
+            if (peer->fraglen < len)
+            {
+               log_msg(L_DEBUG, "keeping %d bytes frag", peer->fraglen);
+               break;
+            }
 
-               len = plen + IP6HLEN;
-               if (peer->fraglen < len)
-               {
-                  log_msg(L_DEBUG, "keeping %d bytes frag", peer->fraglen);
-                  break;
-               }
-
-               //pthread_mutex_lock(&peer_mutex_);
-               // set IP address if it is not set yet and frame is valid
-               if (plen && !memcmp(&peer->addr, &in6addr_any, sizeof(struct in6_addr)))
-               {
-                  memcpy(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src, sizeof(struct in6_addr));
-                  log_msg(L_NOTICE, "incoming connection on %d from %s is now identified", peer->tcpfd,
-                        inet_ntop(AF_INET6, &peer->addr, addr, INET6_ADDRSTRLEN));
-               }
-               //pthread_mutex_unlock(&peer_mutex_);
+            // set IP address if it is not set yet and frame is valid
+            if (plen && !memcmp(&peer->addr, &in6addr_any, sizeof(struct in6_addr)))
+            {
+               memcpy(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src, sizeof(struct in6_addr));
+               log_msg(L_NOTICE, "incoming connection on %d from %s is now identified", peer->tcpfd,
+                  inet_ntop(AF_INET6, &peer->addr, addr, INET6_ADDRSTRLEN));
+            }
             
-               log_msg(L_DEBUG, "writing to tun %d framesize %d + 4", tunfd_[1], len);
-               if (write(tunfd_[1], &peer->fraghdr, len + 4) != (len + 4))
-                  log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len + 4, tunfd_[1]);
+            log_msg(L_DEBUG, "writing to tun %d framesize %d + 4", tunfd_[1], len);
+            if (write(tunfd_[1], &peer->fraghdr, len + 4) != (len + 4))
+               log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len + 4, tunfd_[1]);
 
+            peer->fraglen -= len;
 
-               //pthread_mutex_lock(&peer_mutex_);
-               peer->fraglen -= len;
-               //pthread_mutex_unlock(&peer_mutex_);
-
-               if (peer->fraglen)
-               {
-                  log_msg(L_DEBUG, "moving fragment. fragsize %d", peer->fraglen);
-                  memmove(peer->fragbuf, peer->fragbuf + len, FRAME_SIZE - 4 - len);
-               }
-               else
-                  log_msg(L_DEBUG, "fragbuf empty");
-            } // while (peer->fraglen >= IP6HLEN)
-         //}
+            if (peer->fraglen)
+            {
+               log_msg(L_DEBUG, "moving fragment. fragsize %d", peer->fraglen);
+               memmove(peer->fragbuf, peer->fragbuf + len, FRAME_SIZE - 4 - len);
+            }
+            else
+               log_msg(L_DEBUG, "fragbuf empty");
+         } // while (peer->fraglen >= IP6HLEN)
          pthread_mutex_unlock(&peer->mutex);
       } // while (maxfd)
    } // for (;;)
 }
 
 
-//k
 void set_nonblock(int fd)
 {
    long flags;
@@ -537,7 +500,6 @@ void set_nonblock(int fd)
 }
 
 
-//k
 int insert_peer(int fd, const struct in6_addr *addr, time_t dly)
 {
    OcatPeer_t *peer;
@@ -578,7 +540,6 @@ int insert_peer(int fd, const struct in6_addr *addr, time_t dly)
 }
 
 
-//k
 void *socket_acceptor(void *p)
 {
    int fd;
@@ -617,14 +578,12 @@ void *socket_acceptor(void *p)
 }
 
 
-//k
 int socks_connect(const struct in6_addr *addr)
 {
    struct sockaddr_in in;
    int fd, t;
    char buf[FRAME_SIZE], onion[ONION_NAME_SIZE];
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
-//   OcatPeer_t *ohd;
 
    log_msg(L_DEBUG, "[socks_connect] called");
 
@@ -688,7 +647,6 @@ int socks_connect(const struct in6_addr *addr)
 }
 
 
-//k
 void socks_queue(const struct in6_addr *addr)
 {
    SocksQueue_t *squeue;
@@ -714,7 +672,6 @@ void socks_queue(const struct in6_addr *addr)
 }
 
 
-//k
 void *socks_connector(void *p)
 {
    OcatPeer_t *peer;
@@ -780,7 +737,6 @@ void *socks_connector(void *p)
 }
 
 
-//k
 void packet_forwarder(void)
 {
    char buf[FRAME_SIZE];
@@ -824,7 +780,6 @@ void packet_forwarder(void)
 }
 
 
-//k
 void *socket_cleaner(void *ptr)
 {
    OcatPeer_t *peer, **p;

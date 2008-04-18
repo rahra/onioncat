@@ -29,7 +29,6 @@ void log_msg(int lf, const char *fmt, ...)
    if (debug_level_ < lf || lf < 0)
       return;
 
-   //th = get_thread();
    t = time(NULL);
    tm = localtime(&t);
    if (tm)

@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.61)
-AC_INIT([onioncat], [0.1.2], [eagle@cypherpunk.at])
+AC_INIT([onioncat], [0.1.4], [eagle@cypherpunk.at])
 AM_INIT_AUTOMAKE([-Wall -Werror])
 AC_CONFIG_SRCDIR([ocatroute.c])
 AC_CONFIG_HEADER([config.h])
@@ -20,7 +20,7 @@ AC_CHECK_LIB([rt], [clock_gettime])
 # Checks for header files.
 #AC_HEADER_STDC
 #AC_CHECK_HEADERS([arpa/inet.h fcntl.h netinet/in.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h])
-AC_CHECK_HEADERS([netinet/in.h netinet/ip6.h netinet/in6.h net/if.h linux/if_tun.h net/if_tun.h])
+AC_CHECK_HEADERS([netinet/in.h netinet/ip6.h netinet/in6.h net/if.h linux/if_tun.h net/if_tun.h  linux/sockios.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST

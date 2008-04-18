@@ -20,14 +20,6 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <arpa/inet.h>
-/*
-#ifdef HAVE_NETINET_IN_H
-#include <netinet/in.h>
-#endif
-#ifdef HAVE_NETINET_IP6_H
-#include <netinet/ip6.h>
-#endif
-*/
 #ifdef HAVE_NET_IF_H
 #include <net/if.h>
 #endif

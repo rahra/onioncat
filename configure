@@ -4096,7 +4096,8 @@ done
 
 
 
-for ac_header in netinet/in.h netinet/ip6.h netinet/in6.h net/if.h linux/if_tun.h net/if_tun.h
+
+for ac_header in netinet/in.h netinet/ip6.h netinet/in6.h net/if.h linux/if_tun.h net/if_tun.h  linux/sockios.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
 if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
