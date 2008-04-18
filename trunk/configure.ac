@@ -4,8 +4,8 @@
 AC_PREREQ(2.61)
 AC_INIT([onioncat], [0.1.4], [eagle@cypherpunk.at])
 AM_INIT_AUTOMAKE([-Wall -Werror])
-AC_CONFIG_SRCDIR([ocatroute.c])
-AC_CONFIG_HEADER([config.h])
+#AC_CONFIG_SRCDIR([ocatroute.c])
+AC_CONFIG_HEADERS([config.h])
 
 AC_SUBST([CFLAGS], [-Wall])
 
@@ -65,5 +65,5 @@ AC_CHECK_MEMBER([struct sockaddr_in.sin_len],
 #AC_FUNC_VPRINTF
 #AC_CHECK_FUNCS([clock_gettime memset select socket strchr strerror])
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile])
 AC_OUTPUT
