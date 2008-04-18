@@ -14,23 +14,24 @@
 
 
 #define IP6HLEN sizeof(struct ip6_hdr)
-// TOR prefix : FD87:D87E:EB43::/40
+//! TOR prefix: FD87:D87E:EB43::/48
 #define TOR_PREFIX {0xfd,0x87,0xd8,0x7e,0xeb,0x43}
 #define TOR_PREFIX_LEN 48
 #define MAXPEERS 1024
+//! Local listening port for incoming connections from TOR.
 #define OCAT_LISTEN_PORT 8000
+//! Local control port for querying status information.
 #define OCAT_CTRL_PORT 8001
+//! Virtual destination port for hidden services
 #define OCAT_DEST_PORT 80
+//! SOCKS port of TOR proxy
 #define TOR_SOCKS_PORT 9050
 #define OCAT_UNAME "tor"
 #define OCAT_UID 112
-#define OCAT_GNAME "tor"
-#define OCAT_GID 116
+//#define OCAT_GNAME "tor"
+//#define OCAT_GID 116
 
-
-//#define FRAME_SIZE 1504
-//#define FRAME_SIZE 16440
-// should be able to keep one maximum size ipv6-packet: 2^16 + 40 + 4
+//! Maximum frame (packet) size, should be able to keep one maximum size ipv6-packet: 2^16 + 40 + 4
 #define FRAME_SIZE 65580
 #define ONION_NAME_SIZE 23
 
@@ -38,6 +39,7 @@
 //! maximum number a packet stays in queue
 #define MAX_QUEUE_DELAY 10
 
+//! Maximum idle time for a peer, after that time the peer is closed.
 #define MAX_IDLE_TIME 120
 #define CLEANER_WAKEUP 10
 
@@ -116,9 +118,10 @@ typedef struct SocksQueue
    struct SocksQueue *next;
    struct in6_addr addr;
    int state;
-//   int retry;
 } SocksQueue_t;
 
+
+/*
 // next header value for ocat internal use (RFC3692)
 #define OCAT_NEXT_HEADER 254
 
@@ -126,8 +129,8 @@ typedef struct OcatHdr
 {
    uint16_t oh_plen;
    uint8_t oh_nxt;
-/*   struct ip6_hdrctl oh_ip6hdrctl;
-   char oh_srcid[10];*/
+//   struct ip6_hdrctl oh_ip6hdrctl;
+//   char oh_srcid[10];
 } OcatHdr_t;
 
 
@@ -140,8 +143,9 @@ typedef struct OcatCtrlHdr
    uint8_t oct_type;
    char oct_srcid[10];
 } OcatCtrlHdr_t;
+*/
 
-//#ifdef __CYGWIN__
+
 #ifndef HAVE_STRUCT_IP6_HDR
 struct ip6_hdr
   {
@@ -150,15 +154,15 @@ struct ip6_hdr
    struct ip6_hdrctl
      {
        uint32_t ip6_un1_flow;   /* 4 bits version, 8 bits TC,
-               20 bits flow-ID */
+                                   20 bits flow-ID */
        uint16_t ip6_un1_plen;   /* payload length */
        uint8_t  ip6_un1_nxt;    /* next header */
        uint8_t  ip6_un1_hlim;   /* hop limit */
      } ip6_un1;
-   uint8_t ip6_un2_vfc;       /* 4 bits version, top 4 bits tclass */
+   uint8_t ip6_un2_vfc;         /* 4 bits version, top 4 bits tclass */
       } ip6_ctlun;
-    struct in6_addr ip6_src;      /* source address */
-    struct in6_addr ip6_dst;      /* destination address */
+    struct in6_addr ip6_src;    /* source address */
+    struct in6_addr ip6_dst;    /* destination address */
   };
 
 #define ip6_vfc   ip6_ctlun.ip6_un2_vfc

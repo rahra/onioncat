@@ -7,6 +7,8 @@
 #include <stdarg.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <pwd.h>
 #include <errno.h>
 #include <time.h>
 #include <pthread.h>
@@ -29,7 +31,6 @@ void usage(const char *s)
          "usage: %s [OPTIONS] <onion_hostname>\n"
          "   -h                    display usage message\n"
          "   -d <n>                set debug level to n, default = %d\n"
-         "   -g <group>            change GID to group, default = \"%s\"\n"
          "   -i <onion_hostname>   convert onion hostname to IPv6 and exit\n"
          "   -l <port>             set ocat listen port, default = %d\n"
          "   -o <ipv6_addr>        convert IPv6 address to onion url and exit\n"
@@ -42,7 +43,7 @@ void usage(const char *s)
 #endif
          "   -u <user>             change UID to user, default = \"%s\"\n"
          "   -v                    validate packets from sockets, default = %d\n"
-         , __DATE__, __TIME__, s, debug_level_, OCAT_GNAME, ocat_listen_port_, ocat_dest_port_, tor_socks_port_, 
+         , __DATE__, __TIME__, s, debug_level_, ocat_listen_port_, ocat_dest_port_, tor_socks_port_, 
 #ifndef WITHOUT_TUN
          TUN_DEV,
 #endif
@@ -55,14 +56,14 @@ int main(int argc, char *argv[])
    char tunname[IFNAMSIZ] = "", onion[ONION_NAME_SIZE], *s, ip6addr[INET6_ADDRSTRLEN];
    struct in6_addr addr;
    int c, runasroot = 0;
-   uid_t uid = OCAT_UID;
-   gid_t gid = OCAT_GID;
+   char *usrname = OCAT_UNAME;
+   struct passwd *pwd;
    int urlconv = 0, test_only = 0;
 
    if (argc < 2)
       usage(argv[0]), exit(1);
 
-   while ((c = getopt(argc, argv, "d:hriopl:t:T:s:")) != -1)
+   while ((c = getopt(argc, argv, "d:hriopl:t:T:s:u:")) != -1)
       switch (c)
       {
          case 'd':
@@ -103,6 +104,10 @@ int main(int argc, char *argv[])
             break;
 #endif
 
+         case 'u':
+            usrname = optarg;
+            break;
+
          case 'v':
             vrec_ = 1;
             break;
@@ -135,9 +140,9 @@ int main(int argc, char *argv[])
    if ((s = strchr(onion, '.')))
          *s = '\0';
    if (strlen(onion) != 16)
-      log_msg(L_ERROR, "[main] parameter seems not to be valid onion hostname"), exit(1);
+      log_msg(L_ERROR, "parameter seems not to be valid onion hostname"), exit(1);
    if (oniontipv6(onion, &addr) == -1)
-      log_msg(L_ERROR, "[main] parameter seems not to be valid onion hostname"), exit(1);
+      log_msg(L_ERROR, "parameter seems not to be valid onion hostname"), exit(1);
 
    inet_ntop(AF_INET6, &addr, ip6addr, INET6_ADDRSTRLEN);
 
@@ -171,13 +176,17 @@ int main(int argc, char *argv[])
 
    if (!runasroot && !getuid())
    {
-      log_msg(L_NOTICE, "[main] running as root, changing uid/gid to %d/%d", uid, gid);
-      if (setgid(gid))
-         log_msg(L_ERROR, "[main] could not change gid: \"%s\"", strerror(errno));
-      if (setuid(uid))
-         log_msg(L_ERROR, "[main] could not change uid: \"%d\"", strerror(errno));
+      errno = 0;
+      if (!(pwd = getpwnam(usrname)))
+         log_msg(L_FATAL, "can't get information for user \"%s\": \"%s\"", usrname, errno ? strerror(errno) : "user not found"), exit(1);
+
+      log_msg(L_NOTICE, "running as root, changing uid/gid to %s (uid %d/gid %d)", usrname, pwd->pw_uid, pwd->pw_gid);
+      if (setgid(pwd->pw_gid))
+         log_msg(L_ERROR, "could not change gid: \"%s\"", strerror(errno)), exit(1);
+      if (setuid(pwd->pw_uid))
+         log_msg(L_ERROR, "could not change uid: \"%d\"", strerror(errno)), exit(1);
    }
-   log_msg(L_NOTICE, "[main] uid/gid = %d/%d", getuid(), getgid());
+   log_msg(L_DEBUG, "uid/gid = %d/%d", getuid(), getgid());
 
    // create socks connector thread
    run_ocat_thread("connector", socks_connector);
@@ -187,7 +196,7 @@ int main(int argc, char *argv[])
    run_ocat_thread("controller", ocat_controller);
 
    // start forwarding packets from tunnel
-   log_msg(L_NOTICE, "[main] starting packet forwarder");
+   log_msg(L_NOTICE, "starting packet forwarder");
    packet_forwarder();
 
    return 0;
