@@ -30,6 +30,7 @@ void usage(const char *s)
          "onioncat (c) Bernhard R. Fischer -- compiled %s %s\n"
          "usage: %s [OPTIONS] <onion_hostname>\n"
          "   -h                    display usage message\n"
+         "   -C                    disable local controller interface\n"
          "   -d <n>                set debug level to n, default = %d\n"
          "   -i <onion_hostname>   convert onion hostname to IPv6 and exit\n"
          "   -l <port>             set ocat listen port, default = %d\n"
@@ -58,14 +59,18 @@ int main(int argc, char *argv[])
    int c, runasroot = 0;
    char *usrname = OCAT_UNAME;
    struct passwd *pwd;
-   int urlconv = 0, test_only = 0;
+   int urlconv = 0, test_only = 0, controller = 1;
 
    if (argc < 2)
       usage(argv[0]), exit(1);
 
-   while ((c = getopt(argc, argv, "d:hriopl:t:T:s:u:")) != -1)
+   while ((c = getopt(argc, argv, "Cd:hriopl:t:T:s:u:")) != -1)
       switch (c)
       {
+         case 'C':
+            controller = 0;
+            break;
+
          case 'd':
             debug_level_ = atoi(optarg);
             break;
@@ -168,11 +173,11 @@ int main(int argc, char *argv[])
    log_msg(L_DEBUG, "tun frameheader = 0x%08x", ntohl(fhd_key_));
 
    // start socket receiver thread
-   run_ocat_thread("receiver", socket_receiver);
+   run_ocat_thread("receiver", socket_receiver, NULL);
    // create listening socket and start socket acceptor
-   run_ocat_thread("acceptor", socket_acceptor);
+   run_ocat_thread("acceptor", socket_acceptor, NULL);
    // starting socket cleaner
-   run_ocat_thread("cleaner", socket_cleaner);
+   run_ocat_thread("cleaner", socket_cleaner, NULL);
 
    if (!runasroot && !getuid())
    {
@@ -189,11 +194,12 @@ int main(int argc, char *argv[])
    log_msg(L_DEBUG, "uid/gid = %d/%d", getuid(), getgid());
 
    // create socks connector thread
-   run_ocat_thread("connector", socks_connector);
+   run_ocat_thread("connector", socks_connector, NULL);
    // start packet dequeuer
-   run_ocat_thread("dequeuer", packet_dequeuer);
+   run_ocat_thread("dequeuer", packet_dequeuer, NULL);
    // start controller socket thread
-   run_ocat_thread("controller", ocat_controller);
+   if (controller)
+      run_ocat_thread("controller", ocat_controller, NULL);
 
    // start forwarding packets from tunnel
    log_msg(L_NOTICE, "starting packet forwarder");

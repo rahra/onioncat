@@ -45,7 +45,6 @@ const OcatThread_t *init_ocat_thread(const char *name)
 }
 
 
-
 void *thread_run(void *p)
 {
    OcatThread_t **tl;
@@ -61,7 +60,7 @@ void *thread_run(void *p)
 
    // call thread entry function
    log_msg(L_NOTICE, "running");
-   r = ((OcatThread_t*)p)->entry(NULL);
+   r = ((OcatThread_t*)p)->entry(((OcatThread_t*)p)->parm);
    log_msg(L_NOTICE, "terminating");
 
    pthread_mutex_lock(&thread_mutex_);
@@ -80,7 +79,7 @@ void *thread_run(void *p)
 }
 
 
-int run_ocat_thread(const char *name, void *(*thfunc)(void*))
+int run_ocat_thread(const char *name, void *(*thfunc)(void*), void *parm)
 {
    int rc;
    OcatThread_t *th;
@@ -97,7 +96,9 @@ int run_ocat_thread(const char *name, void *(*thfunc)(void*))
    }
 
    strncpy(th->name, name, THREAD_NAME_LEN);
+   th->name[THREAD_NAME_LEN - 1] = '\0';
    th->entry = thfunc;
+   th->parm = parm;
 
    log_msg(L_DEBUG, "starting [%s]", name);
    if ((rc = pthread_create(&th->handle, NULL, thread_run, th)))
