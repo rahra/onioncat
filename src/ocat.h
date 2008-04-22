@@ -111,6 +111,7 @@ typedef struct OcatThread
    int id;
    char name[THREAD_NAME_LEN];
    void *(*entry)(void*);
+   void *parm;
 } OcatThread_t;
 
 typedef struct SocksQueue
@@ -218,7 +219,7 @@ void *ocat_controller(void *);
 
 /* ocatthread.c */
 const OcatThread_t *init_ocat_thread(const char *);
-int run_ocat_thread(const char *, void *(*)(void*));
+int run_ocat_thread(const char *, void *(*)(void*), void*);
 const OcatThread_t *get_thread(void);
 
 

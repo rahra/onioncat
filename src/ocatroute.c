@@ -28,7 +28,9 @@
 
 
 // file descriptor of tcp listener
-static int sockfd_;
+static int sockfd_[2];
+// file descriptors of control port
+static int ctrlfd_[2];
 // file descriptors of socket_receiver pipe
 // used for internal communication
 static int lpfd_[2];
@@ -56,6 +58,7 @@ uint32_t fhd_key_ = 0;
 uint16_t tor_socks_port_ = TOR_SOCKS_PORT;
 uint16_t ocat_listen_port_ = OCAT_LISTEN_PORT;
 uint16_t ocat_dest_port_ = OCAT_DEST_PORT;
+uint16_t ocat_ctrl_port_ = OCAT_CTRL_PORT;
 
 int vrec_ = 0;
 
@@ -540,40 +543,133 @@ int insert_peer(int fd, const struct in6_addr *addr, time_t dly)
 }
 
 
-void *socket_acceptor(void *p)
+int insert_anon_peer(int fd)
+{
+   return insert_peer(fd, NULL, 0);
+}
+
+
+int create_listener(struct sockaddr *addr, int sock_len)
+{
+   int family;
+   int fd;
+
+   switch (addr->sa_family)
+   {
+      case AF_INET:
+         family = PF_INET;
+         break;
+      case AF_INET6:
+         family = PF_INET6;
+         break;
+      default:
+         log_msg(L_FATAL, "unknown address family %d", addr->sa_family);
+         return -1;
+   }
+
+   if ((fd = socket(family, SOCK_STREAM, 0)) < 0)
+   {
+      log_msg(L_FATAL, "could not create listener socker: \"%s\"", strerror(errno));
+      return -1;
+   }
+
+   if (bind(fd, addr, sock_len) < 0)
+   {
+      log_msg(L_FATAL, "could not bind listener %d: \"%s\"", fd, strerror(errno));
+      close(fd);
+      return -1;
+   }
+
+   if (listen(fd, 32) < 0)
+   {
+      log_msg(L_FATAL, "could not bring listener %d to listening state: \"%s\"", fd, strerror(errno));
+      close(fd);
+      return -1;
+   }
+
+   log_msg(L_NOTICE, "created listener, fd = %d", fd);
+   return fd;
+}
+
+
+/** run_local_listeners(...) is a generic socket acceptor for
+ *  local TCP ports (IPv4+IPv6).
+ *  Every time a connection comes in the function action_accept is
+ *  called with the incoming file descriptor as parameter.
+ */
+int run_local_listeners(short port, int *sockfd, int (action_accept)(int))
 {
    int fd;
    struct sockaddr_in in;
+   struct sockaddr_in6 in6;
+   fd_set rset;
+   int maxfd, i;
 
    memset(&in, 0, sizeof(in));
+   memset(&in6, 0, sizeof(in6));
+
    in.sin_family = AF_INET;
-   in.sin_port = htons(ocat_listen_port_);
+   in.sin_port = htons(port);
    in.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+   in6.sin6_family = AF_INET6;
+   in6.sin6_port = htons(port);
+   memcpy(&in6.sin6_addr.s6_addr, &in6addr_loopback, sizeof(in6addr_loopback));
+
 #ifdef HAVE_SIN_LEN
    in.sin_len = sizeof(in);
+   in6.sin6_len = sizeof(in6);
 #endif
 
-   if ((sockfd_ = socket(PF_INET, SOCK_STREAM, 0)) < 0)
-      log_msg(L_FATAL, "could not create listener socker: \"%s\"", strerror(errno)), exit(1);
+   log_msg(L_DEBUG, "creating IPv4 listener");
+   if ((sockfd[0] = create_listener((struct sockaddr*) &in, sizeof(in))) == -1)
+      log_msg(L_FATAL, "exiting"), exit(1);
 
-   if (bind(sockfd_, (struct sockaddr*) &in, sizeof(struct sockaddr_in)) < 0)
-      log_msg(L_FATAL, "could not bind listener: \"%s\"", strerror(errno)), exit(1);
-
-   if (listen(sockfd_, 32) < 0)
-      log_msg(L_FATAL, "could not bring listener to listening state: \"%s\"", strerror(errno)), exit(1);
-   
-   log_msg(L_NOTICE, "created local listener %d on port %d", sockfd_, ocat_listen_port_);
+   log_msg(L_DEBUG, "creating IPv6 listener");
+   if ((sockfd[1] = create_listener((struct sockaddr*) &in6, sizeof(in6))) == -1)
+      log_msg(L_FATAL, "exiting"), exit(1);
 
    for (;;)
    {
-      log_msg(L_DEBUG, "[socket acceptor] is accepting further connections");
-      if ((fd = accept(sockfd_, NULL, NULL)) < 0)
-         perror("onion_receiver:accept"), exit(1);
+      log_msg(L_DEBUG, "setting up fd_set");
+      FD_ZERO(&rset);
+      FD_SET(sockfd[0], &rset);
+      FD_SET(sockfd[1], &rset);
 
-      log_msg(L_NOTICE, "connection %d accepted on listener %d", fd, sockfd_);
-      insert_peer(fd, NULL, 0);
+      maxfd = sockfd[0] > sockfd[1] ? sockfd[0] : sockfd[1];
+      log_msg(L_DEBUG, "selecting locally (maxfd = %d)", maxfd);
+      if ((maxfd = select(maxfd + 1, &rset, NULL, NULL, NULL)) == -1)
+      {
+         log_msg(L_DEBUG, "select returned: \"%s\"", strerror(errno));
+         continue;
+      }
+      log_msg(L_DEBUG, "select returned %d fds ready", maxfd);
+
+      for (i = 0; maxfd && (i < 2); i++)
+      {
+         log_msg(L_DEBUG, "checking fd %d (maxfd = %d, i = %d)", sockfd[i], maxfd, i);
+         if (!FD_ISSET(sockfd[i], &rset))
+            continue;
+         maxfd--;
+         log_msg(L_DEBUG, "accepting connection on %d", sockfd[i]);
+         if ((fd = accept(sockfd[i], NULL, NULL)) < 0)
+         {
+            log_msg(L_ERROR, "error accepting connection on %d: \"%s\"", sockfd[i], strerror(errno));
+            // FIXME: there should be additional error handling!
+            continue;
+         }
+
+         log_msg(L_NOTICE, "connection %d accepted on listener %d", fd, sockfd[i]);
+         (void) action_accept(fd);
+      }
    }
+   return 0;
+}
 
+
+void *socket_acceptor(void *p)
+{
+   run_local_listeners(ocat_listen_port_, sockfd_, insert_anon_peer);
    return NULL;
 }
 
@@ -701,7 +797,7 @@ void *socks_connector(void *p)
       (*squeue)->state = SOCKS_CONNECTING;
       socks_connect_cnt_++;
       if (socks_thread_cnt_ <= socks_connect_cnt_)
-         run_ocat_thread("connector", socks_connector);
+         run_ocat_thread("connector", socks_connector, NULL);
       pthread_mutex_unlock(&socks_queue_mutex_);
 
       // search for existing peer
@@ -814,115 +910,144 @@ void *socket_cleaner(void *ptr)
 }
 
 
-void *ocat_controller(void *p)
+void _remtr(char *s)
 {
-   int fd, sfd;
-   struct sockaddr_in in;
+   if (!s[0])
+      return;
+   if (s[strlen(s) - 1] != '\n' && s[strlen(s) - 1] != '\r')
+      return;
+   s[strlen(s) - 1] = '\0';
+   _remtr(s);
+}
+
+
+/**! ctrl_handler handles connections to local control port.
+ *   @param p void* typcasted to int contains fd of connected socket.
+ *   @return Currently always returns NULL.
+ */
+// FIXME: ctrl_handler probably is not thread-safe.
+void *ctrl_handler(void *p)
+{
+
+   int fd;
+   FILE *ff;
    char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[ONION_NAME_SIZE], timestr[32];
    int rlen, cfd;
    struct tm *tm;
    OcatThread_t *th;
    OcatPeer_t *peer;
 
-   memset(&in, 0, sizeof(in));
-   in.sin_family = AF_INET;
-   in.sin_port = htons(OCAT_CTRL_PORT);
-   in.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-#ifdef HAVE_SIN_LEN
-   in.sin_len = sizeof(in);
-#endif
+   if ((rlen = pthread_detach(pthread_self())))
+      log_msg(L_ERROR, "thread couldn't self-detach: \"%s\"", strerror(rlen));
+   log_msg(L_DEBUG, "thread detached");
 
-   if ((sfd = socket(PF_INET, SOCK_STREAM, 0)) < 0)
-      log_msg(L_FATAL, "could not create listener socker: \"%s\"", strerror(errno)), exit(1);
-
-   if (bind(sfd, (struct sockaddr*) &in, sizeof(struct sockaddr_in)) < 0)
-      log_msg(L_FATAL, "could not bind listener: \"%s\"", strerror(errno)), exit(1);
-
-   if (listen(sfd, 5) < 0)
-      log_msg(L_FATAL, "could not bring listener to listening state: \"%s\"", strerror(errno)), exit(1);
-   
-   log_msg(L_NOTICE, "created local listener %d on port %d", sfd, ocat_listen_port_);
+   fd = (int) p;
+   if (!(ff = fdopen(fd, "r+")))
+   {
+      log_msg(L_ERROR, "could not open %d for writing", fd);
+      return NULL;
+   }
+   log_msg(L_DEBUG, "fd %d fdopen'ed", fd);
 
    for (;;)
    {
-      log_msg(L_DEBUG, "accepting connections on %d", sfd);
-      if ((fd = accept(sfd, NULL, NULL)) < 0)
-         log_msg(L_FATAL, "error in acception: \"%s\"", strerror(errno)), exit(1);
-      log_msg(L_NOTICE, "connection %d accepted on %d", fd, sfd);
-
-      for (;;)
+      fprintf(ff, "> ");
+      if (!fgets(buf, FRAME_SIZE, ff))
       {
-         if (write(fd, "> ", 2) != 2)
-            log_msg(L_ERROR, "couldn't write %d bytes to control socket %d", 2, fd);
-
-         if ((rlen = read(fd, buf, FRAME_SIZE)) == -1)
-         {
-            log_msg(L_FATAL, "read error on %d: \"%s\", closing", fd, strerror(errno));
-            break;
-         }
-
-         if (!rlen || buf[0] == 4 || !strncmp(buf, "exit", 4) || !strncmp(buf, "quit", 4))
-            break;
-         else if (!strncmp(buf, "status", 6))
-         {
-            pthread_mutex_lock(&peer_mutex_);
-            for (peer = peer_; peer; peer = peer->next)
-               if (peer->state == PEER_ACTIVE)
-               {
-                  tm = localtime(&peer->otime);
-                  strftime(timestr, 32, "%c", tm);
-                  sprintf(buf, "[%s]\n fd = %d\n addr = %s\n dir = \"%s\"\n idle = %lds\n bytes_in = %ld\n bytes_out = %ld\n setup_delay = %lds\n opening_time = \"%s\"\n",
-                        ipv6tonion(&peer->addr, onionstr), peer->tcpfd,
-                        inet_ntop(AF_INET6, &peer->addr, addrstr, INET6_ADDRSTRLEN),
-                        peer->dir == PEER_INCOMING ? "in" : "out",
-                        time(NULL) - peer->time, peer->in, peer->out, peer->sdelay, timestr);
-                  if (write(fd, buf, strlen(buf)) != strlen(buf))
-                     log_msg(L_ERROR, "couldn't write %d bytes to control socket %d", strlen(buf), fd);
-               }
-            pthread_mutex_unlock(&peer_mutex_);
-         }
-         else if (!strncmp(buf, "close ", 6))
-         {
-            cfd = atoi(&buf[6]);
-            pthread_mutex_lock(&peer_mutex_);
-            for (peer = peer_; peer; peer = peer->next)
-               if (peer->tcpfd == cfd)
-               {
-                  log_msg(L_NOTICE, "close request for %d", cfd);
-                  close(cfd);
-                  delete_peer(peer);
-                  break;
-               }
-            pthread_mutex_unlock(&peer_mutex_);
-         }
-         else if (!strncmp(buf, "threads", 7))
-         {
-            pthread_mutex_lock(&thread_mutex_);
-            for (th = octh_; th; th = th->next)
-            {
-               sprintf(buf, "%2d: %s\n", th->id, th->name);
-               if (write(fd, buf, strlen(buf)) != strlen(buf))
-                  log_msg(L_ERROR, "couldn't write %d bytes to control socket %d", strlen(buf), fd);
-            }
-            pthread_mutex_unlock(&thread_mutex_);
-         }
-         else if (!strncmp(buf, "terminate", 9))
-         {
-            log_msg(L_NOTICE, "terminate request from control port");
-            //FIXME: fds should be closed properly
-            exit(0);
-         }
-         else
-         {
-            strcpy(buf, "unknown command\n");
-            if (write(fd, buf, strlen(buf)) != strlen(buf))
-               log_msg(L_ERROR, "couldn't write %d bytes to control socket %d", strlen(buf), fd);
-         }
+         if (!feof(ff))
+            log_msg(L_ERROR, "error reading from %d");
+         break;
       }
-      log_msg(L_NOTICE, "closing session %d", fd);
-      close(fd);
+      // remove trailing \r\n character
+      _remtr(buf);
+      // continue if string now is empty
+      if (!buf[0])
+         continue;
+
+      // "exit"/"quit" => terminate thread
+      if (buf[0] == 4 || !strncmp(buf, "exit", 4) || !strncmp(buf, "quit", 4))
+         break;
+      // "status"
+      else if (!strncmp(buf, "status", 6))
+      {
+         pthread_mutex_lock(&peer_mutex_);
+         for (peer = peer_; peer; peer = peer->next)
+            if (peer->state == PEER_ACTIVE)
+            {
+               tm = localtime(&peer->otime);
+               strftime(timestr, 32, "%c", tm);
+               fprintf(ff, "[%s]\n fd = %d\n addr = %s\n dir = \"%s\"\n idle = %lds\n bytes_in = %ld\n bytes_out = %ld\n setup_delay = %lds\n opening_time = \"%s\"\n",
+                     ipv6tonion(&peer->addr, onionstr), peer->tcpfd,
+                     inet_ntop(AF_INET6, &peer->addr, addrstr, INET6_ADDRSTRLEN),
+                     peer->dir == PEER_INCOMING ? "in" : "out",
+                     time(NULL) - peer->time, peer->in, peer->out, peer->sdelay, timestr);
+            }
+         pthread_mutex_unlock(&peer_mutex_);
+      }
+      else if (!strncmp(buf, "close ", 6))
+      {
+         cfd = atoi(&buf[6]);
+         pthread_mutex_lock(&peer_mutex_);
+         for (peer = peer_; peer; peer = peer->next)
+            if (peer->tcpfd == cfd)
+            {
+               log_msg(L_NOTICE, "close request for %d", cfd);
+               close(cfd);
+               delete_peer(peer);
+               break;
+            }
+         if (!peer)
+         {
+            log_msg(L_NOTICE, "no peer with fd %d exists\n", cfd);
+            fprintf(ff, "no peer with fd %d exists\n", cfd);
+         }
+         pthread_mutex_unlock(&peer_mutex_);
+      }
+      else if (!strncmp(buf, "threads", 7))
+      {
+         pthread_mutex_lock(&thread_mutex_);
+         for (th = octh_; th; th = th->next)
+            fprintf(ff, "%2d: %s\n", th->id, th->name);
+         pthread_mutex_unlock(&thread_mutex_);
+      }
+      else if (!strncmp(buf, "terminate", 9))
+      {
+         log_msg(L_NOTICE, "terminate request from control port");
+         //FIXME: fds should be closed properly
+         exit(0);
+      }
+      else if (!strncmp(buf, "fds", 3))
+      {
+         fprintf(ff, "acceptor sockets: %d/%d\nconntroller sockets: %d/%d\n", sockfd_[0], sockfd_[1], ctrlfd_[0], ctrlfd_[1]);
+      }
+      else if (!strncmp(buf, "help", 4))
+      {
+         fprintf(ff, "commands:\nexit\nquit\nterminate\nclose <n>\nstatus\nthreads\nfds\n");
+      }
+      else
+      {
+         fprintf(ff, "unknown command: \"%s\"\n", buf);
+      }
    }
 
+   log_msg(L_NOTICE, "closing session %d", fd);
+   if (fclose(ff) == EOF)
+      log_msg(L_ERROR, "error closing control stream: \"%s\"", strerror(errno));
+   // fclose also closes the fd according to the man page
+
+   return NULL;
+}
+
+
+int run_ctrl_handler(int fd)
+{
+   return (int) run_ocat_thread("ctrl_handler", ctrl_handler, (void*) fd);
+}
+
+
+void *ocat_controller(void *p)
+{
+   run_local_listeners(ocat_ctrl_port_, ctrlfd_, run_ctrl_handler);
    return NULL;
 }
 
