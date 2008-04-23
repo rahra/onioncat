@@ -62,7 +62,6 @@ uint16_t ocat_ctrl_port_ = OCAT_CTRL_PORT;
 
 int vrec_ = 0;
 
-//#define SNDBUF
 #ifdef SNDBUF
 int snd_buf_size_ = 0;
 #endif
@@ -154,10 +153,11 @@ int forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
    }
    else
       log_msg(L_ERROR, "could not get OUTQ size: \"%s\"", strerror(errno));
-#endif
 
-   //if ((len = write(peer->tcpfd, buf, buflen)) == -1)
+   if ((len = write(peer->tcpfd, buf, buflen)) == -1)
+#else
    if ((len = send(peer->tcpfd, buf, buflen, MSG_DONTWAIT)) == -1)
+#endif
    {
       log_msg(L_ERROR, "could not write %d bytes to peer %d: \"%s\", dropping", buflen, peer->tcpfd, strerror(errno));
    }

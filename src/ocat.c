@@ -27,7 +27,7 @@ extern int debug_level_;
 void usage(const char *s)
 {
    fprintf(stderr, 
-         "onioncat (c) Bernhard R. Fischer -- compiled %s %s\n"
+         "%s (c) Bernhard R. Fischer -- compiled %s %s\n"
          "usage: %s [OPTIONS] <onion_hostname>\n"
          "   -h                    display usage message\n"
          "   -C                    disable local controller interface\n"
@@ -44,7 +44,7 @@ void usage(const char *s)
 #endif
          "   -u <user>             change UID to user, default = \"%s\"\n"
          "   -v                    validate packets from sockets, default = %d\n"
-         , __DATE__, __TIME__, s, debug_level_, ocat_listen_port_, ocat_dest_port_, tor_socks_port_, 
+         , PACKAGE_STRING, __DATE__, __TIME__, s, debug_level_, ocat_listen_port_, ocat_dest_port_, tor_socks_port_, 
 #ifndef WITHOUT_TUN
          TUN_DEV,
 #endif
@@ -157,7 +157,7 @@ int main(int argc, char *argv[])
       exit(0);
    }
 
-   log_msg(L_NOTICE, "onioncat (c) Bernhard R. Fischer -- compiled %s %s", __DATE__, __TIME__);
+   log_msg(L_NOTICE, "%s (c) Bernhard R. Fischer -- compiled %s %s", PACKAGE_STRING, __DATE__, __TIME__);
 
 #ifndef WITHOUT_TUN
    // create TUN device
