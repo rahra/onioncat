@@ -1,3 +1,4 @@
+* replace clock_gettime() by time(), no accuracy needed
 * frame checking may be improved
 * improve getopt() -- currently many things are hardcoded
 * improve tun header test (check for src and dst ip)
