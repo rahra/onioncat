@@ -20,7 +20,19 @@ AC_CHECK_LIB([rt], [clock_gettime])
 # Checks for header files.
 #AC_HEADER_STDC
 #AC_CHECK_HEADERS([arpa/inet.h fcntl.h netinet/in.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h])
-AC_CHECK_HEADERS([netinet/in.h netinet/ip6.h netinet/in6.h net/if.h linux/if_tun.h net/if_tun.h  linux/sockios.h])
+AC_CHECK_HEADERS([sys/types.h sys/socket.h netinet/in.h netinet/ip6.h netinet/in6.h net/if.h linux/if_tun.h net/if_tun.h linux/sockios.h], [], [],
+[[
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+]]
+)
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -34,6 +46,9 @@ AC_C_CONST
 
 AC_CHECK_TYPES([struct ip6_hdr], , ,
 [
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif

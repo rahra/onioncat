@@ -143,7 +143,7 @@ int forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
    log_msg(L_DEBUG, "forwarding %d bytes to TCP fd %d", buflen, peer->tcpfd);
 
 #ifdef SNDBUF
-   if (ioctl(peer->tcpfd, SIOCOUTQ, &len) != -1)
+   if (ioctl(peer->tcpfd, TIOCOUTQ, &len) != -1)
    {
       if (snd_buf_size_ - len < buflen)
       {
