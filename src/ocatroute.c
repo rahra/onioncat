@@ -698,7 +698,7 @@ int socks_connect(const struct in6_addr *addr)
    char buf[FRAME_SIZE], onion[ONION_NAME_SIZE];
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
 
-   log_msg(L_DEBUG, "[socks_connect] called");
+   log_msg(L_DEBUG, "called");
 
    memset(&in, 0, sizeof(in));
    in.sin_family = AF_INET;
@@ -709,7 +709,7 @@ int socks_connect(const struct in6_addr *addr)
 #endif
 
    ipv6tonion(addr, onion);
-   strcat(onion, ".onion");
+   strlcat(onion, ".onion", sizeof(onion));
 
    log_msg(L_NOTICE, "trying to connecto to \"%s\" [%s]", onion, inet_ntop(AF_INET6, addr, buf, FRAME_SIZE));
 

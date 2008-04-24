@@ -222,6 +222,10 @@ const OcatThread_t *init_ocat_thread(const char *);
 int run_ocat_thread(const char *, void *(*)(void*), void*);
 const OcatThread_t *get_thread(void);
 
+/* ocatcompat.c */
+#ifndef HAVE_STRLCAT
+size_t strlcat(char *, const char *, size_t);
+#endif
 
 #endif
 

@@ -79,6 +79,8 @@ AC_CHECK_MEMBER([struct sockaddr_in.sin_len],
 #AC_FUNC_STRFTIME
 #AC_FUNC_VPRINTF
 #AC_CHECK_FUNCS([clock_gettime memset select socket strchr strerror])
+AC_CHECK_FUNCS([strlcat])
 
 AC_CONFIG_FILES([Makefile src/Makefile])
 AC_OUTPUT
+
