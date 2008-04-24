@@ -15,7 +15,7 @@ AC_PROG_CC
 
 # Checks for libraries.
 AC_CHECK_LIB([pthread], [pthread_create])
-AC_CHECK_LIB([rt], [clock_gettime])
+#AC_CHECK_LIB([rt], [clock_gettime])
 
 # Checks for header files.
 #AC_HEADER_STDC

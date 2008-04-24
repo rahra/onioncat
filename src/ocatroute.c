@@ -16,6 +16,7 @@
 #include <pthread.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <sys/time.h>
 #include <sys/select.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -208,6 +209,7 @@ void *packet_dequeuer(void *p)
 {
    PacketQueue_t **queue, *fqueue;
    struct timespec ts;
+   struct timeval tv;
    int rc, timed = 0;
    time_t delay;
 
@@ -216,7 +218,21 @@ void *packet_dequeuer(void *p)
       pthread_mutex_lock(&queue_mutex_);
       if (timed)
       {
+#ifdef USE_CLOCK_GETTIME
          clock_gettime(CLOCK_REALTIME, &ts);
+#else
+          // replaced clock_gettime() due to portability issues
+         if (gettimeofday(&tv, NULL) == -1)
+         {
+            log_msg(L_ERROR, "couldn't gettime: \"%s\"", strerror(errno));
+            memset(&tv, 0, sizeof(tv));
+         }
+         else
+         {
+            ts.tv_sec = tv.tv_sec;
+            ts.tv_nsec = tv.tv_usec * 1000;
+         }
+#endif
          ts.tv_sec += DEQUEUER_WAKEUP;
          log_msg(L_DEBUG, "timed conditional wait...");
          rc = pthread_cond_timedwait(&queue_cond_, &queue_mutex_, &ts);
