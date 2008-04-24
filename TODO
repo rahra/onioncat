@@ -1,4 +1,4 @@
-* replace clock_gettime() by time(), no accuracy needed
+* replace all socket write()s by send()
 * frame checking may be improved
 * improve getopt() -- currently many things are hardcoded
 * improve tun header test (check for src and dst ip)
@@ -15,4 +15,4 @@
 //* packets received on sockets should be validated (Ethertype, ip)
 //* socks_connector queue
 //* packet_forwarder depends on socks_connector, currently possible unclean startup (not dangerous) -- socks connector now is multi-threaded and not blocking on a pipe, hence, this error _should_ (i'm currently not sure) not occur anymore.
-
+//* replace clock_gettime() by time(), no accuracy needed
