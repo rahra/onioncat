@@ -84,7 +84,7 @@ typedef struct SocksHdr
    char cmd;
    uint16_t port;
    struct in_addr addr;
-} SocksHdr_t;
+} __attribute__ ((packed)) SocksHdr_t;
 
 typedef struct OcatPeer
 {
@@ -226,6 +226,17 @@ const OcatThread_t *get_thread(void);
 #ifndef HAVE_STRLCAT
 size_t strlcat(char *, const char *, size_t);
 #endif
+
+/* ocatpeer.c */
+OcatPeer_t *get_first_peer(void);
+OcatPeer_t **get_first_peer_ptr(void);
+int lock_peers(void);
+int unlock_peers(void);
+int lock_peer(OcatPeer_t *);
+int unlock_peer(OcatPeer_t *);
+OcatPeer_t *search_peer(const struct in6_addr *);
+OcatPeer_t *get_empty_peer(void);
+void delete_peer(OcatPeer_t *);
 
 #endif
 
