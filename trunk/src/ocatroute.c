@@ -35,10 +35,6 @@ static int ctrlfd_[2];
 // file descriptors of socket_receiver pipe
 // used for internal communication
 static int lpfd_[2];
-// array of active peers
-static OcatPeer_t *peer_ = NULL;
-// mutex for locking array of peers
-pthread_mutex_t peer_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 // packet queue pointer
 static PacketQueue_t *queue_ = NULL;
 // mutex and condition variable for packet queue
@@ -68,71 +64,15 @@ int snd_buf_size_ = 0;
 #endif
 
 
-OcatPeer_t *search_peer(const struct in6_addr *addr)
-{
-   OcatPeer_t *peer;
-
-   for (peer = peer_; peer; peer = peer->next)
-      if (!memcmp(addr, &peer->addr, sizeof(struct in6_addr)))
-         return peer;
-   return NULL;
-}
-
-
-OcatPeer_t *get_empty_peer(void)
-{
-   int rc;
-   OcatPeer_t *peer;
-
-   if (!(peer = calloc(1, sizeof(OcatPeer_t))))
-   {
-      log_msg(L_ERROR, "cannot get memory for new peer: \"%s\"", strerror(errno));
-      return NULL;
-   }
-
-   peer->fraghdr = fhd_key_;
-   if ((rc = pthread_mutex_init(&peer->mutex, NULL)))
-   {
-      log_msg(L_FATAL, "cannot init new peer mutex: \"%s\"", strerror(rc));
-      free(peer);
-      return NULL;
-   }
-
-   peer->next = peer_;
-   peer_ = peer;
-
-   return peer;  
-}
-
-
-void delete_peer(OcatPeer_t *peer)
-{
-   int rc;
-   OcatPeer_t **p;
-
-   for (p = &peer_; *p; p = &(*p)->next)
-      if (*p == peer)
-      {
-         pthread_mutex_lock(&peer->mutex);
-         *p = peer->next;
-         pthread_mutex_unlock(&peer->mutex);
-         if ((rc = pthread_mutex_destroy(&peer->mutex)))
-            log_msg(L_FATAL, "cannot destroy mutex: \"%s\"", strerror(rc));
-         free(peer);
-         return;
-      }
-}
-
-
 int forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
 {
    OcatPeer_t *peer;
    int len;
 
-   pthread_mutex_lock(&peer_mutex_);
+   lock_peers();
    if ((peer = search_peer(addr)))
-      pthread_mutex_lock(&peer->mutex);
-   pthread_mutex_unlock(&peer_mutex_);
+      lock_peer(peer);
+   unlock_peers();
 
    if (!peer)
    {
@@ -148,7 +88,7 @@ int forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
       if (snd_buf_size_ - len < buflen)
       {
          log_msg(L_ERROR, "OUTQ too less space, dropping packet");
-         pthread_mutex_unlock(&peer->mutex);
+         unlock_peer(peer);
          return E_FWD_NOBUF;
       }
    }
@@ -172,7 +112,7 @@ int forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
       peer->time = time(NULL);
       peer->out += len;
    }
-   pthread_mutex_unlock(&peer->mutex);
+   unlock_peer(peer);
 
    return 0;
 }
@@ -323,9 +263,9 @@ void cleanup_socket(int fd, OcatPeer_t *peer)
 {
    log_msg(L_NOTICE, "fd %d reached EOF, closing.", fd);
    close(fd);
-   pthread_mutex_lock(&peer_mutex_);
+   lock_peers();
    delete_peer(peer);
-   pthread_mutex_unlock(&peer_mutex_);
+   unlock_peers();
 }
 
 
@@ -347,14 +287,14 @@ void *socket_receiver(void *p)
       maxfd = lpfd_[0];
 
       // create set for all available peers to read
-      pthread_mutex_lock(&peer_mutex_);
-      for (peer = peer_; peer; peer = peer->next)
+      lock_peers();
+      for (peer = get_first_peer(); peer; peer = peer->next)
       {
-         pthread_mutex_lock(&peer->mutex);
+         lock_peer(peer);
          // only select active peers
          if (peer->state != PEER_ACTIVE)
          {
-            pthread_mutex_unlock(&peer->mutex);
+            unlock_peer(peer);
             continue;
          }
 
@@ -364,9 +304,9 @@ void *socket_receiver(void *p)
          FD_SET(peer->tcpfd, &rset);
          if (peer->tcpfd > maxfd)
             maxfd = peer->tcpfd;
-         pthread_mutex_unlock(&peer->mutex);
+         unlock_peer(peer);
       }
-      pthread_mutex_unlock(&peer_mutex_);
+      unlock_peers();
 
       log_msg(L_DEBUG, "selecting...");
       if ((maxfd = select(maxfd + 1, &rset, NULL, NULL, NULL)) == -1)
@@ -385,29 +325,29 @@ void *socket_receiver(void *p)
       peer = NULL;
       while (maxfd)
       {
-         // the following 10 loc look somehow strange and someone may tend
+         // the following 10 locs look somehow strange and someone may tend
          // to write this as a for loop but it's necessary for thread locking!
-         pthread_mutex_lock(&peer_mutex_);
+         lock_peers();
          if (!peer)
-            peer = peer_;
+            peer = get_first_peer();
          else if (!(peer = peer->next))
          {
             log_msg(L_FATAL, "fd %d ready but no peer found");
-            pthread_mutex_unlock(&peer_mutex_);
+            unlock_peers();
             break;
          }
-         pthread_mutex_lock(&peer->mutex);
-         pthread_mutex_unlock(&peer_mutex_);
+         lock_peer(peer);
+         unlock_peers();
 
          if (peer->state != PEER_ACTIVE)
          {
-            pthread_mutex_unlock(&peer->mutex);
+            unlock_peer(peer);
             continue;
          }
 
          if (!FD_ISSET(peer->tcpfd, &rset))
          {
-            pthread_mutex_unlock(&peer->mutex);
+            unlock_peer(peer);
             continue;
          }
 
@@ -419,7 +359,7 @@ void *socket_receiver(void *p)
          {
             // this might happen on linux, see SELECT(2)
             log_msg(L_DEBUG, "spurious wakup of %d: \"%s\"", peer->tcpfd, strerror(errno));
-            pthread_mutex_unlock(&peer->mutex);
+            unlock_peer(peer);
             continue;
          }
          log_msg(L_DEBUG, "received %d bytes on %d", len, peer->tcpfd);
@@ -428,10 +368,10 @@ void *socket_receiver(void *p)
          {
             log_msg(L_NOTICE, "fd %d reached EOF, closing.", peer->tcpfd);
             close(peer->tcpfd);
-            pthread_mutex_unlock(&peer->mutex);
-            pthread_mutex_lock(&peer_mutex_);
+            unlock_peer(peer);
+            lock_peers();
             delete_peer(peer);
-            pthread_mutex_unlock(&peer_mutex_);
+            unlock_peers();
             continue;
          }
 
@@ -487,7 +427,7 @@ void *socket_receiver(void *p)
             else
                log_msg(L_DEBUG, "fragbuf empty");
          } // while (peer->fraglen >= IP6HLEN)
-         pthread_mutex_unlock(&peer->mutex);
+         unlock_peer(peer);
       } // while (maxfd)
    } // for (;;)
 }
@@ -528,15 +468,15 @@ int insert_peer(int fd, const struct in6_addr *addr, time_t dly)
 
    set_nonblock(fd);
 
-   pthread_mutex_lock(&peer_mutex_);
+   lock_peers();
    if (!(peer = get_empty_peer()))
    {
-      pthread_mutex_unlock(&peer_mutex_);
+      unlock_peers();
       log_msg(L_ERROR, "could not get new empty peer");
       return 0;
    } 
-   pthread_mutex_lock(&peer->mutex);
-   pthread_mutex_unlock(&peer_mutex_);
+   lock_peer(peer);
+   unlock_peers();
 
    peer->tcpfd = fd;
    peer->state = PEER_ACTIVE;
@@ -549,7 +489,7 @@ int insert_peer(int fd, const struct in6_addr *addr, time_t dly)
    }
    else
       peer->dir = PEER_INCOMING;
-   pthread_mutex_unlock(&peer->mutex);
+   unlock_peer(peer);
 
    // wake up socket_receiver
    log_msg(L_DEBUG, "waking up socket_receiver");
@@ -818,9 +758,9 @@ void *socks_connector(void *p)
       pthread_mutex_unlock(&socks_queue_mutex_);
 
       // search for existing peer
-      pthread_mutex_lock(&peer_mutex_);
+      lock_peers();
       peer = search_peer(&(*squeue)->addr);
-      pthread_mutex_unlock(&peer_mutex_);
+      unlock_peers();
 
       // connect via SOCKS if no peer exists
       if (!peer)
@@ -901,17 +841,17 @@ void *socket_cleaner(void *ptr)
    {
       sleep(CLEANER_WAKEUP);
       log_msg(L_DEBUG, "wakeup");
-      pthread_mutex_lock(&peer_mutex_);
-      for (p = &peer_; *p; p = &(*p)->next)
+      lock_peers();
+      for (p = get_first_peer_ptr(); *p; p = &(*p)->next)
       {
-         pthread_mutex_lock(&(*p)->mutex);
+         lock_peer(*p);
          if ((*p)->state && (*p)->time + MAX_IDLE_TIME < time(NULL))
          {
             peer = *p;
             *p = peer->next;
             log_msg(L_NOTICE, "peer %d timed out, closing.", peer->tcpfd);
             close(peer->tcpfd);
-            pthread_mutex_unlock(&peer->mutex);
+            unlock_peer(peer);
             delete_peer(peer);
             if (!(*p))
             {
@@ -920,9 +860,9 @@ void *socket_cleaner(void *ptr)
             }
          }
          else
-            pthread_mutex_unlock(&(*p)->mutex);
+            unlock_peer(*p);
       }
-      pthread_mutex_unlock(&peer_mutex_);
+      unlock_peers();
    }
 }
 
@@ -987,8 +927,9 @@ void *ctrl_handler(void *p)
       // "status"
       else if (!strncmp(buf, "status", 6))
       {
-         pthread_mutex_lock(&peer_mutex_);
-         for (peer = peer_; peer; peer = peer->next)
+         lock_peers();
+         for (peer = get_first_peer(); peer; peer = peer->next)
+            // FIXME: should peer be locked?
             if (peer->state == PEER_ACTIVE)
             {
                tm = localtime(&peer->otime);
@@ -999,13 +940,13 @@ void *ctrl_handler(void *p)
                      peer->dir == PEER_INCOMING ? "in" : "out",
                      time(NULL) - peer->time, peer->in, peer->out, peer->sdelay, timestr);
             }
-         pthread_mutex_unlock(&peer_mutex_);
+         unlock_peers();
       }
       else if (!strncmp(buf, "close ", 6))
       {
          cfd = atoi(&buf[6]);
-         pthread_mutex_lock(&peer_mutex_);
-         for (peer = peer_; peer; peer = peer->next)
+         lock_peers();
+         for (peer = get_first_peer(); peer; peer = peer->next)
             if (peer->tcpfd == cfd)
             {
                log_msg(L_NOTICE, "close request for %d", cfd);
@@ -1018,7 +959,7 @@ void *ctrl_handler(void *p)
             log_msg(L_NOTICE, "no peer with fd %d exists\n", cfd);
             fprintf(ff, "no peer with fd %d exists\n", cfd);
          }
-         pthread_mutex_unlock(&peer_mutex_);
+         unlock_peers();
       }
       else if (!strncmp(buf, "threads", 7))
       {
