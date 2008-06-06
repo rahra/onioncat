@@ -1,8 +1,25 @@
+/* Copyright 2008 Bernhard R. Fischer, Daniel Haslinger.
+ *
+ * This file is part of OnionCat.
+ *
+ * OnionCat is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * OnionCat is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 /*! ocatv6conv.c
  *  These functions convert IPv6 addresses to onion URLs
  *  and vice versa.
  *
- *  @author Bernhard Fischer <rahra _at_ cypherpunkt at>
+ *  @author Bernhard R. Fischer <rahra _at_ cypherpunkt at>
  *  @version 2008/02/03-01
  */
 
@@ -10,16 +27,10 @@
 
 #include <ctype.h>
 #include <string.h>
-//#include <stdint.h>
 #include <sys/types.h>
-/*
-#include <netinet/in.h>
-#include <netinet/ip6.h>
-*/
 
 #include "ocat.h"
 
-//static const char BASE32[] = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f','g','h','j','k','m','n','o','p','q','r','s','t','v','w','x','y','z'};
 static const char BASE32[] = "abcdefghijklmnopqrstuvwxyz234567";
 static const char tor_prefix_[] = TOR_PREFIX;
 
@@ -34,24 +45,12 @@ int is_testping(const struct in6_addr *addr)
 int has_tor_prefix(const struct in6_addr *addr)
 {
    return memcmp(addr, tor_prefix_, 6) == 0;
-/*
-   int i;
-
-   for (i = 0; i < 6; i++)
-      if (*(((char*) addr) + i) != tor_prefix_[i])
-         return 0;
-   return 1;*/
 }
 
 
 void set_tor_prefix(struct in6_addr *addr)
 {
    memcpy(addr, tor_prefix_, 6);
-/*
-   int i;
-
-   for (i = 0; i < 6; i++)
-      *(((char*) addr) + i) = tor_prefix_[i];*/
 }
 
 
@@ -100,13 +99,6 @@ char *ipv6tonion(const struct in6_addr *ip6, char *onion)
    {
       *onion = BASE32[bin[0] >> 3 & 0x1f];
       shl5(bin);
-      /*
-      for (j = 0; j < 15; j++)
-      {
-         bin[j] <<= 5;
-         bin[j] |= (bin[j + 1] >> 3) & 0x1f;
-      }
-      */
    }
    *onion = '\0';
    return r;

@@ -1,3 +1,20 @@
+/* Copyright 2008 Bernhard R. Fischer, Daniel Haslinger.
+ *
+ * This file is part of OnionCat.
+ *
+ * OnionCat is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * OnionCat is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #ifndef OCAT_H
 #define OCAT_H
 
@@ -28,8 +45,6 @@
 #define TOR_SOCKS_PORT 9050
 #define OCAT_UNAME "tor"
 #define OCAT_UID 112
-//#define OCAT_GNAME "tor"
-//#define OCAT_GID 116
 
 //! Maximum frame (packet) size, should be able to keep one maximum size ipv6-packet: 2^16 + 40 + 4
 #define FRAME_SIZE 65580
@@ -192,10 +207,6 @@ extern OcatThread_t *octh_;
 /* ocatlog.c */
 void log_msg(int, const char *, ...);
 
-/* ocatsv6.c -- this function is sourced out
- * here because of conflicting headers. */
-void set_ipv6_addr(int, struct in6_addr, int);
-
 /* ocatv6conv.c */
 char *ipv6tonion(const struct in6_addr *, char *);
 int oniontipv6(const char *, struct in6_addr *);
@@ -224,7 +235,10 @@ const OcatThread_t *get_thread(void);
 
 /* ocatcompat.c */
 #ifndef HAVE_STRLCAT
-size_t strlcat(char *, const char *, size_t);
+size_t strlcat(char*, const char*, size_t);
+#endif
+#ifndef HAVE_STRLCPY
+size_t strlcpy(char*, const char*, size_t);
 #endif
 
 /* ocatpeer.c */
