@@ -30,6 +30,9 @@
 /* Define to 1 if you have the `strlcat' function. */
 #undef HAVE_STRLCAT
 
+/* Define to 1 if you have the `strlcpy' function. */
+#undef HAVE_STRLCPY
+
 /* Define to 1 if the system has the type `struct ip6_hdr'. */
 #undef HAVE_STRUCT_IP6_HDR
 

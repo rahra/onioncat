@@ -1,7 +1,24 @@
+/* Copyright 2008 Bernhard R. Fischer, Daniel Haslinger.
+ *
+ * This file is part of OnionCat.
+ *
+ * OnionCat is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * OnionCat is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 /*! ocattun.c
  *  These functions create the TUN device.
  *
- *  @author Bernhard Fischer <rahra _at_ cypherpunk at>
+ *  @author Bernhard R. Fischer <rahra _at_ cypherpunk at>
  *  @version 2008/02/03-01
  */
 
@@ -58,7 +75,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
 
    if(ioctl(fd, TUNSETIFF, (void *) &ifr) < 0)
       perror("TUNSETIFF"), exit(1);
-   strcpy(dev, ifr.ifr_name);
+   strlcpy(dev, ifr.ifr_name, IFNAMSIZ);
    sprintf(buf, "ifconfig tun0 add %s/%d up", astr, TOR_PREFIX_LEN);
    log_msg(L_NOTICE, "configuring tun IP: \"%s\"", buf);
    if (system(buf) == -1)
