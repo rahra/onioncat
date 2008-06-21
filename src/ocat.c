@@ -39,6 +39,9 @@
 int tunfd_[2] = {0, 1};
 
 extern int debug_level_;
+char *usrname_ = OCAT_UNAME;
+char onion_url_[ONION_NAME_SIZE];
+struct in6_addr ocat_addr_;
 
 
 void usage(const char *s)
@@ -71,10 +74,9 @@ void usage(const char *s)
 
 int main(int argc, char *argv[])
 {
-   char tunname[IFNAMSIZ] = "", onion[ONION_NAME_SIZE], *s, ip6addr[INET6_ADDRSTRLEN];
-   struct in6_addr addr;
+   char tunname[IFNAMSIZ] = "", /*onion[ONION_NAME_SIZE],*/ *s, ip6addr[INET6_ADDRSTRLEN];
+   //struct in6_addr addr;
    int c, runasroot = 0;
-   char *usrname = OCAT_UNAME;
    struct passwd *pwd;
    int urlconv = 0, test_only = 0, controller = 1;
 
@@ -127,7 +129,7 @@ int main(int argc, char *argv[])
 #endif
 
          case 'u':
-            usrname = optarg;
+            usrname_ = optarg;
             break;
 
          case 'v':
@@ -148,25 +150,25 @@ int main(int argc, char *argv[])
 
    if (urlconv == 2)
    {
-      if (inet_pton(AF_INET6, argv[optind], &addr) <= 0)
+      if (inet_pton(AF_INET6, argv[optind], &ocat_addr_) <= 0)
          log_msg(L_ERROR, "%s", strerror(errno)), exit(1);
-      if (!has_tor_prefix(&addr))
+      if (!has_tor_prefix(&ocat_addr_))
          log_msg(L_ERROR, "address does not have TOR prefix"), exit(1);
-      ipv6tonion(&addr, onion);
-      printf("%s.onion\n", onion);
+      ipv6tonion(&ocat_addr_, onion_url_);
+      printf("%s.onion\n", onion_url_);
       exit(0);
    }
 
    // convert parameter to IPv6 address
-   strncpy(onion, argv[optind], ONION_NAME_SIZE);
-   if ((s = strchr(onion, '.')))
+   strncpy(onion_url_, argv[optind], ONION_NAME_SIZE);
+   if ((s = strchr(onion_url_, '.')))
          *s = '\0';
-   if (strlen(onion) != 16)
+   if (strlen(onion_url_) != 16)
       log_msg(L_ERROR, "parameter seems not to be valid onion hostname"), exit(1);
-   if (oniontipv6(onion, &addr) == -1)
+   if (oniontipv6(onion_url_, &ocat_addr_) == -1)
       log_msg(L_ERROR, "parameter seems not to be valid onion hostname"), exit(1);
 
-   inet_ntop(AF_INET6, &addr, ip6addr, INET6_ADDRSTRLEN);
+   inet_ntop(AF_INET6, &ocat_addr_, ip6addr, INET6_ADDRSTRLEN);
 
    if (urlconv == 1)
    {
@@ -178,7 +180,7 @@ int main(int argc, char *argv[])
 
 #ifndef WITHOUT_TUN
    // create TUN device
-   tunfd_[0] = tunfd_[1] = tun_alloc(tunname, addr);
+   tunfd_[0] = tunfd_[1] = tun_alloc(tunname, ocat_addr_);
 #ifdef TEST_TUN_HDR
    test_tun_hdr();
    if (test_only)
@@ -199,10 +201,10 @@ int main(int argc, char *argv[])
    if (!runasroot && !getuid())
    {
       errno = 0;
-      if (!(pwd = getpwnam(usrname)))
-         log_msg(L_FATAL, "can't get information for user \"%s\": \"%s\"", usrname, errno ? strerror(errno) : "user not found"), exit(1);
+      if (!(pwd = getpwnam(usrname_)))
+         log_msg(L_FATAL, "can't get information for user \"%s\": \"%s\"", usrname_, errno ? strerror(errno) : "user not found"), exit(1);
 
-      log_msg(L_NOTICE, "running as root, changing uid/gid to %s (uid %d/gid %d)", usrname, pwd->pw_uid, pwd->pw_gid);
+      log_msg(L_NOTICE, "running as root, changing uid/gid to %s (uid %d/gid %d)", usrname_, pwd->pw_uid, pwd->pw_gid);
       if (setgid(pwd->pw_gid))
          log_msg(L_ERROR, "could not change gid: \"%s\"", strerror(errno)), exit(1);
       if (setuid(pwd->pw_uid))

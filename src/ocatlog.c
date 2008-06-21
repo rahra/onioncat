@@ -28,6 +28,7 @@
 
 #include "ocat.h"
 
+#define TIMESTRLEN 64
 
 int debug_level_ = 4;
 static pthread_mutex_t log_mutex_ = PTHREAD_MUTEX_INITIALIZER;
@@ -39,7 +40,7 @@ void log_msg(int lf, const char *fmt, ...)
    struct tm *tm;
    time_t t;
    FILE *out = stderr;
-   char timestr[32] = "";
+   char timestr[TIMESTRLEN] = "";
    va_list ap;
    const OcatThread_t *th = get_thread();
 
@@ -49,7 +50,8 @@ void log_msg(int lf, const char *fmt, ...)
    t = time(NULL);
    tm = localtime(&t);
    if (tm)
-      strftime(timestr, 32, "%c", tm);
+      //strftime(timestr, 32, "%c", tm);
+      strftime(timestr, TIMESTRLEN, "%a, %d %b %Y %H:%M:%S %z", tm);
 
    pthread_mutex_lock(&log_mutex_);
    fprintf(out, "%s [%d:%-*s:%6s] ", timestr, th->id, THREAD_NAME_LEN - 1, th->name, flty_[lf]);

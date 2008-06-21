@@ -286,6 +286,37 @@ void cleanup_socket(int fd, OcatPeer_t *peer)
 }
 
 
+#define HANDLE_HTTP
+#ifdef HANDLE_HTTP
+#define BSTRLEN 1024
+
+int handle_http(const OcatPeer_t *peer)
+{
+   time_t t;
+   char response[BSTRLEN], timestr[BSTRLEN];
+   struct tm tm;
+
+   // simple check if packet could be an HTTP request
+   if (strncmp(peer->fragbuf, "GET ", 4))
+      return 0;
+
+   t = time(NULL);
+   (void) localtime_r(&t, &tm);
+   strftime(timestr, BSTRLEN, "%a, %d %b %Y %H:%M:%S %z", &tm);
+   snprintf(response, BSTRLEN,
+         "HTTP/1.0 301 HTTP not possible\r\nLocation: %s\r\nDate: %s\r\nContent-Type: text/html; charset=iso-8859-1\r\n\r\n"
+         "<html><body><h1>HTTP not possible!<br>OnionCat is running on this port at \"%s.onion\"</h1></body></html>\r\n",
+         OCAT_URL, timestr, onion_url_
+         );
+   log_msg(L_INFO, "request seems to be HTTP");
+   if (send(peer->tcpfd, response, strlen(response), MSG_DONTWAIT) == -1)
+      log_msg(L_ERROR, "could not send html response");
+
+   return 1;
+}
+#endif
+
+
 void *socket_receiver(void *p)
 {
    int maxfd, len, plen;
@@ -404,6 +435,17 @@ void *socket_receiver(void *p)
 
             if (!plen)
             {
+#ifdef HANDLE_HTTP
+               if (handle_http(peer))
+               {
+                  log_msg(L_NOTICE, "closing %d due to HTTP.", peer->tcpfd);
+                  close(peer->tcpfd);
+                  unlock_peer(peer);
+                  lock_peers();
+                  delete_peer(peer);
+                  unlock_peers();
+               }
+#endif
                log_msg(L_DEBUG, "FRAGBUF RESET!");
                peer->fraglen = 0;
                break;
@@ -651,7 +693,7 @@ void *socket_acceptor(void *p)
 int socks_connect(const struct in6_addr *addr)
 {
    struct sockaddr_in in;
-   int fd, t;
+   int fd, t, len;
    char buf[FRAME_SIZE], onion[ONION_NAME_SIZE];
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
 
@@ -687,12 +729,16 @@ int socks_connect(const struct in6_addr *addr)
    shdr->cmd = 1;
    shdr->port = htons(ocat_dest_port_);
    shdr->addr.s_addr = htonl(0x00000001);
-   strcpy(buf + sizeof(SocksHdr_t), "tor6");
-   strcpy(buf + sizeof(SocksHdr_t) + 5, onion);
-
-   if (write(fd, shdr, sizeof(SocksHdr_t) + strlen(onion) + 6) != sizeof(SocksHdr_t) + strlen(onion) + 6)
+   /*
+   strlcpy(buf + sizeof(SocksHdr_t), usrname_, strlen(usrname_) + 1);
+   strlcpy(buf + sizeof(SocksHdr_t) + strlen(usrname_) + 1, onion, sizeof(onion));
+   */
+   memcpy(buf + sizeof(SocksHdr_t), usrname_, strlen(usrname_) + 1);
+   memcpy(buf + sizeof(SocksHdr_t) + strlen(usrname_) + 1, onion, strlen(onion) + 1);
+   len = sizeof(SocksHdr_t) + strlen(usrname_) + strlen(onion) + 2;
+   if (write(fd, shdr, len) != len)
       // FIXME: there should be some additional error handling
-      log_msg(L_ERROR, "couldn't write %d bytes to SOCKS connection %d", sizeof(SocksHdr_t) + strlen(onion) + 6, fd);
+      log_msg(L_ERROR, "couldn't write %d bytes to SOCKS connection %d", len, fd);
    log_msg(L_DEBUG, "connect request sent");
 
    if (read(fd, shdr, sizeof(SocksHdr_t)) < sizeof(SocksHdr_t))

@@ -45,6 +45,7 @@
 #define TOR_SOCKS_PORT 9050
 #define OCAT_UNAME "tor"
 #define OCAT_UID 112
+#define OCAT_URL "http://www.abenteuerland.at/onioncat/"
 
 //! Maximum frame (packet) size, should be able to keep one maximum size ipv6-packet: 2^16 + 40 + 4
 #define FRAME_SIZE 65580
@@ -193,7 +194,6 @@ extern uint16_t tor_socks_port_;
 extern uint16_t ocat_listen_port_;
 extern uint16_t ocat_dest_port_;
 extern int vrec_;
-extern int tunfd_[2];
 
 #ifndef WITHOUT_TUN
 #define TUN_DEV "/dev/net/tun"
@@ -203,6 +203,13 @@ extern uint32_t fhd_key_;
 
 extern pthread_mutex_t thread_mutex_;
 extern OcatThread_t *octh_;
+extern char *usrname_;
+
+/* ocat.c */
+//extern int tunfd_[2];
+extern int tunfd_[];
+extern char onion_url_[];
+extern struct in6_addr ocat_addr_;
 
 /* ocatlog.c */
 void log_msg(int, const char *, ...);
