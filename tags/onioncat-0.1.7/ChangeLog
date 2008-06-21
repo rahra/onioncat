@@ -1,0 +1,23 @@
+* 
+ - replace clock_gettime() by gettimeofday() for portability reasons
+ - compiles on FreeBSD again
+ - replaced write() by send(). data should always be sent in total
+   and never partially. tcp sendbuffer read-out code thereby removed.
+ - added command fds to controller interface
+
+* version 0.1.4 
+ - acceptor and controller now use generic acceptor function
+   which accepts locally on IPv4 and IPv6 localhost.  
+ - socket connecter now multi-threaded (connect() blocks until connect) 
+ - local controller socket available: commands: status, close, exit,
+   quit - thread start routine modularized - logging improved
+
+* verion 0.1.1 
+ - improved interoperability 
+ - compiles also und FreeBSD 6.1 i
+ - TUN code slightly changed and more generic 
+ - TUN header rewriting (BSD has different header from linux)
+
+* version 0.1 
+ - works good under linux, gcc-4.2, linux-2.6.22
+

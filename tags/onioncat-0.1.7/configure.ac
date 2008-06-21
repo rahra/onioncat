@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.61)
-AC_INIT([onioncat], [0.1.8], [rahra@cypherpunk.at])
+AC_INIT([onioncat], [0.1.7], [rahra@cypherpunk.at])
 AM_INIT_AUTOMAKE([-Wall -Werror])
 #AC_CONFIG_SRCDIR([ocatroute.c])
 AC_CONFIG_HEADERS([config.h])
