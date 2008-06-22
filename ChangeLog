@@ -1,9 +1,16 @@
-* 
+* version 0.1.8
+ - port numbers changed to 8060 for local and virtual hidden service port
+ - port number of controller interface changed to 8066
+ - wrapped thread locking to internal functions
+ - added HTTP check code if some one accidently connects using HTTP
  - replace clock_gettime() by gettimeofday() for portability reasons
  - compiles on FreeBSD again
  - replaced write() by send(). data should always be sent in total
    and never partially. tcp sendbuffer read-out code thereby removed.
  - added command fds to controller interface
+
+* version 0.1.5 - 0.1.7
+ - development versions only
 
 * version 0.1.4 
  - acceptor and controller now use generic acceptor function
@@ -14,7 +21,7 @@
 
 * verion 0.1.1 
  - improved interoperability 
- - compiles also und FreeBSD 6.1 i
+ - compiles also under FreeBSD 6.1
  - TUN code slightly changed and more generic 
  - TUN header rewriting (BSD has different header from linux)
 

@@ -36,11 +36,11 @@
 #define TOR_PREFIX_LEN 48
 #define MAXPEERS 1024
 //! Local listening port for incoming connections from TOR.
-#define OCAT_LISTEN_PORT 8000
+#define OCAT_LISTEN_PORT 8060
 //! Local control port for querying status information.
-#define OCAT_CTRL_PORT 8001
+#define OCAT_CTRL_PORT 8066
 //! Virtual destination port for hidden services
-#define OCAT_DEST_PORT 80
+#define OCAT_DEST_PORT 8060
 //! SOCKS port of TOR proxy
 #define TOR_SOCKS_PORT 9050
 #define OCAT_UNAME "tor"
