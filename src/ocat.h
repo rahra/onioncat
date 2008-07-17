@@ -46,6 +46,8 @@
 #define OCAT_UNAME "tor"
 #define OCAT_UID 112
 #define OCAT_URL "http://www.abenteuerland.at/onioncat/"
+#define OCAT_DIR ".ocat"
+#define OCAT_CONNECT_LOG "connect_log"
 
 //! Maximum frame (packet) size, should be able to keep one maximum size ipv6-packet: 2^16 + 40 + 4
 #define FRAME_SIZE 65580
@@ -59,11 +61,15 @@
 #define MAX_IDLE_TIME 120
 #define CLEANER_WAKEUP 10
 
+//! log flags. word is considered as 16 bit, lower byte for level, upper byte for additional flags.
+#define L_LEVEL_MASK 0x00ff
+#define L_FLAG_MASK 0xff00
 #define L_INFO 0
 #define L_NOTICE 1
 #define L_ERROR 2
 #define L_FATAL 3
 #define L_DEBUG 4
+#define L_FCONN (1 << 15)
 
 #define E_SOCKS_SOCK -1
 #define E_SOCKS_CONN -2
@@ -84,6 +90,35 @@
 #define SOCKS_CONNECTING 1
 #define SOCKS_MAX_RETRY 3
 
+struct OcatSetup
+{
+   //! frame header of local OS in network byte order
+   //! it is initialized in ocattun.c
+   uint32_t fhd_key;
+   //! TCP port of SOCKS port of local Tor proxy
+   uint16_t tor_socks_port;
+   //! reload port of OnionCat listening for connections
+   uint16_t ocat_listen_port;
+   //! virtual port of OnionCat hidden service
+   uint16_t ocat_dest_port;
+   //! local port of controller interface
+   uint16_t ocat_ctrl_port;
+   //! enable packet validation
+   int vrec;
+   //! file descriptors of TUN device (usually tunfd[0] == tunfd[1])
+   int tunfd[2];
+   int debug_level;
+   char *usrname;
+   char onion_url[ONION_NAME_SIZE];
+   struct in6_addr ocat_addr;
+   int create_clog;
+   int runasroot;
+   int urlconv;
+   int test_only;
+   int controller;
+   char *ocat_dir;
+   char *tun_dev;
+};
 
 typedef struct PacketQueue
 {
@@ -190,29 +225,27 @@ struct ip6_hdr
 #define ip6_hops  ip6_ctlun.ip6_un1.ip6_un1_hlim
 #endif
 
-extern uint16_t tor_socks_port_;
-extern uint16_t ocat_listen_port_;
-extern uint16_t ocat_dest_port_;
-extern int vrec_;
-
 #ifndef WITHOUT_TUN
 #define TUN_DEV "/dev/net/tun"
 extern char *tun_dev_;
-extern uint32_t fhd_key_;
+//extern uint32_t fhd_key_;
 #endif
 
 extern pthread_mutex_t thread_mutex_;
 extern OcatThread_t *octh_;
-extern char *usrname_;
 
 /* ocat.c */
-//extern int tunfd_[2];
-extern int tunfd_[];
-extern char onion_url_[];
-extern struct in6_addr ocat_addr_;
+//extern int tunfd_[];
 
 /* ocatlog.c */
+int open_connect_log(const char*);
 void log_msg(int, const char *, ...);
+#define DEBUG
+#ifdef DEBUG
+#define log_debug(x...) log_msg(L_DEBUG, ## x)
+#else
+#define log_debug(x...)
+#endif
 
 /* ocatv6conv.c */
 char *ipv6tonion(const struct in6_addr *, char *);
@@ -258,6 +291,9 @@ int unlock_peer(OcatPeer_t *);
 OcatPeer_t *search_peer(const struct in6_addr *);
 OcatPeer_t *get_empty_peer(void);
 void delete_peer(OcatPeer_t *);
+
+/* ocatsetup.c */
+extern struct OcatSetup setup;
 
 #endif
 

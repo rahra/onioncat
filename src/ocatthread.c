@@ -116,7 +116,7 @@ int run_ocat_thread(const char *name, void *(*thfunc)(void*), void *parm)
    th->entry = thfunc;
    th->parm = parm;
 
-   log_msg(L_DEBUG, "starting [%s]", name);
+   log_debug("starting [%s]", name);
    if ((rc = pthread_create(&th->handle, NULL, thread_run, th)))
    {
       log_msg(L_FATAL, "could not start thread %s: \"%s\"", name, strerror(rc));

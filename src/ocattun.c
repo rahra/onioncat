@@ -60,7 +60,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
    char astr[INET6_ADDRSTRLEN];
    char buf[FRAME_SIZE];
 
-	log_msg(L_DEBUG, "opening tun \"%s\"", tun_dev_);
+	log_debug("opening tun \"%s\"", tun_dev_);
    if( (fd = open(tun_dev_, O_RDWR)) < 0 )
       perror("open tun"), exit(1);
    inet_ntop(AF_INET6, &addr, astr, INET6_ADDRSTRLEN);
@@ -81,12 +81,13 @@ int tun_alloc(char *dev, struct in6_addr addr)
    if (system(buf) == -1)
       log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
    // set tun frame header to ethertype IPv6
-   fhd_key_ = htonl(0x86dd);
+   setup.fhd_key = htonl(0x86dd);
+   //setup.fhd_key = htonl(ETH_P_IPV6);
 
 #else
 
    // set tun frame header to address family AF_INET6 (FreeBSD = 0x1c, OpenBSD = 0x18)
-   fhd_key_ = htonl(AF_INET6);
+   setup.fhd_key = htonl(AF_INET6);
 
 #ifdef __FreeBSD__
 
@@ -100,7 +101,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
 #endif
 
    sprintf(buf, "ifconfig tun0 inet6 %s/%d up", astr, TOR_PREFIX_LEN);
-   log_msg(L_DEBUG, "setting IP on tun: \"%s\"", buf);
+   log_debug("setting IP on tun: \"%s\"", buf);
    if (system(buf) == -1)
       log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
 
@@ -138,7 +139,7 @@ void test_tun_hdr(void)
    if (system(buf) == -1)
       log_msg(L_FATAL, "[test_tun_hdr] test failed: \"%s\"", strerror(errno));
    rlen = read(tunfd_[0], buf, FRAME_SIZE);
-   log_msg(L_DEBUG, "[test_tun_hdr] read %d bytes from %d, head = 0x%08x", rlen, tunfd_[0], ntohl(*((uint32_t*)buf)));
+   log_debug("[test_tun_hdr] read %d bytes from %d, head = 0x%08x", rlen, tunfd_[0], ntohl(*((uint32_t*)buf)));
 
    if ((buf[0] & 0xf0) == 0x60)
    {
@@ -146,8 +147,8 @@ void test_tun_hdr(void)
       return;
    }
    
-   fhd_key_ = *((uint32_t*)buf);
-   log_msg(L_NOTICE, "[test_tun_hdr] using 0x%08x as local frame header", ntohl(fhd_key_));
+   setup.fhd_key = *((uint32_t*)buf);
+   log_msg(L_NOTICE, "[test_tun_hdr] using 0x%08x as local frame header", ntohl(setup.fhd_key));
 }
 
 #endif

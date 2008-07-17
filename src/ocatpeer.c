@@ -98,7 +98,7 @@ OcatPeer_t *get_empty_peer(void)
       return NULL;
    }
 
-   peer->fraghdr = fhd_key_;
+   peer->fraghdr = setup.fhd_key;
    if ((rc = pthread_mutex_init(&peer->mutex, NULL)))
    {
       log_msg(L_FATAL, "cannot init new peer mutex: \"%s\"", strerror(rc));
