@@ -1,3 +1,6 @@
+* forward multicasting packets (ff00::/8)
+* IPv4 forwarding + routing
+* tun-header packet dependent
 * create some kind of connection log
 * frame checking may be improved
 * improve getopt() -- currently many things are hardcoded

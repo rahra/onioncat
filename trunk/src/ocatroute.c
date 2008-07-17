@@ -65,20 +65,7 @@ static int socks_thread_cnt_ = 0;
 static pthread_mutex_t socks_queue_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t socks_queue_cond_ = PTHREAD_COND_INITIALIZER;
 
-// frame header of local OS in network byte order
-// it is initialized in ocattun.c
-uint32_t fhd_key_ = 0;
-
-uint16_t tor_socks_port_ = TOR_SOCKS_PORT;
-uint16_t ocat_listen_port_ = OCAT_LISTEN_PORT;
-uint16_t ocat_dest_port_ = OCAT_DEST_PORT;
-uint16_t ocat_ctrl_port_ = OCAT_CTRL_PORT;
-
-int vrec_ = 0;
-
-#ifdef SNDBUF
-int snd_buf_size_ = 0;
-#endif
+//int vrec_ = 0;
 
 
 int forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
@@ -93,29 +80,13 @@ int forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
 
    if (!peer)
    {
-      log_msg(L_DEBUG, "no peer for forwarding");
+      log_debug("no peer for forwarding");
       return E_FWD_NOPEER;
    }
 
-   log_msg(L_DEBUG, "forwarding %d bytes to TCP fd %d", buflen, peer->tcpfd);
+   log_debug("forwarding %d bytes to TCP fd %d", buflen, peer->tcpfd);
 
-#ifdef SNDBUF
-   if (ioctl(peer->tcpfd, TIOCOUTQ, &len) != -1)
-   {
-      if (snd_buf_size_ - len < buflen)
-      {
-         log_msg(L_ERROR, "OUTQ too less space, dropping packet");
-         unlock_peer(peer);
-         return E_FWD_NOBUF;
-      }
-   }
-   else
-      log_msg(L_ERROR, "could not get OUTQ size: \"%s\"", strerror(errno));
-
-   if ((len = write(peer->tcpfd, buf, buflen)) == -1)
-#else
    if ((len = send(peer->tcpfd, buf, buflen, MSG_DONTWAIT)) == -1)
-#endif
    {
       log_msg(L_ERROR, "could not write %d bytes to peer %d: \"%s\", dropping", buflen, peer->tcpfd, strerror(errno));
    }
@@ -139,7 +110,7 @@ void queue_packet(const struct in6_addr *addr, const char *buf, int buflen)
 {
    PacketQueue_t *queue;
 
-   log_msg(L_DEBUG, "copying packet to heap for queue");
+   log_debug("copying packet to heap for queue");
    if (!(queue = malloc(sizeof(PacketQueue_t) + buflen)))
    {
       log_msg(L_ERROR, "%s for packet to queue", strerror(errno));
@@ -152,11 +123,11 @@ void queue_packet(const struct in6_addr *addr, const char *buf, int buflen)
    memcpy(queue->data, buf, buflen);
    queue->time = time(NULL);
 
-   log_msg(L_DEBUG, "queuing packet");
+   log_debug("queuing packet");
    pthread_mutex_lock(&queue_mutex_);
    queue->next = queue_;
    queue_ = queue;
-   log_msg(L_DEBUG, "waking up dequeuer");
+   log_debug("waking up dequeuer");
    pthread_cond_signal(&queue_cond_);
    pthread_mutex_unlock(&queue_mutex_);
 }
@@ -191,19 +162,19 @@ void *packet_dequeuer(void *p)
          }
 #endif
          ts.tv_sec += DEQUEUER_WAKEUP;
-         log_msg(L_DEBUG, "timed conditional wait...");
+         log_debug("timed conditional wait...");
          rc = pthread_cond_timedwait(&queue_cond_, &queue_mutex_, &ts);
       }
       else
       {
-         log_msg(L_DEBUG, "conditional wait...");
+         log_debug("conditional wait...");
          rc = pthread_cond_wait(&queue_cond_, &queue_mutex_);
       }
 
       if (rc)
          log_msg(L_FATAL, "woke up: \"%s\"", strerror(rc));
 
-      log_msg(L_DEBUG, "starting dequeuing");
+      log_debug("starting dequeuing");
       for (queue = &queue_; *queue; /*queue = &(*queue)->next*/)
       {
          rc = forward_packet(&(*queue)->addr, (*queue)->data, (*queue)->psize);
@@ -215,7 +186,7 @@ void *packet_dequeuer(void *p)
             fqueue = *queue;
             *queue = (*queue)->next;
             free(fqueue);
-            log_msg(L_DEBUG, "packet dequeued, delay = %d", delay);
+            log_debug("packet dequeued, delay = %d", delay);
             continue;
          }
          queue = &(*queue)->next;
@@ -251,7 +222,7 @@ int validate_frame(const struct ip6_hdr *ihd, int len)
    if ((ihd->ip6_vfc & 0xf0) != 0x60)
    {
       hex_code_header((char*) ihd, len > IP6HLEN ? IP6HLEN : len, hexbuf);
-      log_msg(L_DEBUG, "header \"%s\"", hexbuf);
+      log_debug("header \"%s\"", hexbuf);
       return 0;
    }
 
@@ -268,7 +239,7 @@ int validate_frame(const struct ip6_hdr *ihd, int len)
 #ifdef TEST_TUN_HDR
    if (is_testping(&ihd->ip6_dst))
    {
-      log_msg(L_DEBUG, "test ping detected");
+      log_debug("test ping detected");
       return 0;
    }
 #endif
@@ -278,7 +249,7 @@ int validate_frame(const struct ip6_hdr *ihd, int len)
 
 void cleanup_socket(int fd, OcatPeer_t *peer)
 {
-   log_msg(L_NOTICE, "fd %d reached EOF, closing.", fd);
+   log_msg(L_NOTICE | L_FCONN, "fd %d reached EOF, closing.", fd);
    close(fd);
    lock_peers();
    delete_peer(peer);
@@ -306,7 +277,7 @@ int handle_http(const OcatPeer_t *peer)
    snprintf(response, BSTRLEN,
          "HTTP/1.0 301 HTTP not possible\r\nLocation: %s\r\nDate: %s\r\nContent-Type: text/html; charset=iso-8859-1\r\n\r\n"
          "<html><body><h1>HTTP not possible!<br>OnionCat is running on this port at \"%s.onion\"</h1></body></html>\r\n",
-         OCAT_URL, timestr, onion_url_
+         OCAT_URL, timestr, setup.onion_url
          );
    log_msg(L_INFO, "request seems to be HTTP");
    if (send(peer->tcpfd, response, strlen(response), MSG_DONTWAIT) == -1)
@@ -356,7 +327,7 @@ void *socket_receiver(void *p)
       }
       unlock_peers();
 
-      log_msg(L_DEBUG, "selecting...");
+      log_debug("selecting...");
       if ((maxfd = select(maxfd + 1, &rset, NULL, NULL, NULL)) == -1)
       {
          log_msg(L_FATAL, "select encountered error: \"%s\", restarting", strerror(errno));
@@ -400,21 +371,21 @@ void *socket_receiver(void *p)
          }
 
          maxfd--;
-         log_msg(L_DEBUG, "reading from %d", peer->tcpfd);
+         log_debug("reading from %d", peer->tcpfd);
 
          // read/append data to peer's fragment buffer
          if ((len = read(peer->tcpfd, peer->fragbuf + peer->fraglen, FRAME_SIZE - 4 - peer->fraglen)) == -1)
          {
             // this might happen on linux, see SELECT(2)
-            log_msg(L_DEBUG, "spurious wakup of %d: \"%s\"", peer->tcpfd, strerror(errno));
+            log_debug("spurious wakup of %d: \"%s\"", peer->tcpfd, strerror(errno));
             unlock_peer(peer);
             continue;
          }
-         log_msg(L_DEBUG, "received %d bytes on %d", len, peer->tcpfd);
+         log_debug("received %d bytes on %d", len, peer->tcpfd);
          // if len == 0 EOF reached => close session
          if (!len)
          {
-            log_msg(L_NOTICE, "fd %d reached EOF, closing.", peer->tcpfd);
+            log_msg(L_NOTICE | L_FCONN, "fd %d reached EOF, closing.", peer->tcpfd);
             close(peer->tcpfd);
             unlock_peer(peer);
             lock_peers();
@@ -438,7 +409,7 @@ void *socket_receiver(void *p)
 #ifdef HANDLE_HTTP
                if (handle_http(peer))
                {
-                  log_msg(L_NOTICE, "closing %d due to HTTP.", peer->tcpfd);
+                  log_msg(L_NOTICE | L_FCONN, "closing %d due to HTTP.", peer->tcpfd);
                   close(peer->tcpfd);
                   unlock_peer(peer);
                   lock_peers();
@@ -446,12 +417,12 @@ void *socket_receiver(void *p)
                   unlock_peers();
                }
 #endif
-               log_msg(L_DEBUG, "FRAGBUF RESET!");
+               log_debug("FRAGBUF RESET!");
                peer->fraglen = 0;
                break;
             }
 
-            if (vrec_ && !plen)
+            if (setup.vrec && !plen)
             {
                log_msg(L_ERROR, "dropping frame");
                break;
@@ -460,7 +431,7 @@ void *socket_receiver(void *p)
             len = plen + IP6HLEN;
             if (peer->fraglen < len)
             {
-               log_msg(L_DEBUG, "keeping %d bytes frag", peer->fraglen);
+               log_debug("keeping %d bytes frag", peer->fraglen);
                break;
             }
 
@@ -468,23 +439,23 @@ void *socket_receiver(void *p)
             if (plen && !memcmp(&peer->addr, &in6addr_any, sizeof(struct in6_addr)))
             {
                memcpy(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src, sizeof(struct in6_addr));
-               log_msg(L_NOTICE, "incoming connection on %d from %s is now identified", peer->tcpfd,
+               log_msg(L_NOTICE | L_FCONN, "incoming connection on %d from %s is now identified", peer->tcpfd,
                   inet_ntop(AF_INET6, &peer->addr, addr, INET6_ADDRSTRLEN));
             }
             
-            log_msg(L_DEBUG, "writing to tun %d framesize %d + 4", tunfd_[1], len);
-            if (write(tunfd_[1], &peer->fraghdr, len + 4) != (len + 4))
-               log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len + 4, tunfd_[1]);
+            log_debug("writing to tun %d framesize %d + 4", setup.tunfd[1], len);
+            if (write(setup.tunfd[1], &peer->fraghdr, len + 4) != (len + 4))
+               log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len + 4, setup.tunfd[1]);
 
             peer->fraglen -= len;
 
             if (peer->fraglen)
             {
-               log_msg(L_DEBUG, "moving fragment. fragsize %d", peer->fraglen);
+               log_debug("moving fragment. fragsize %d", peer->fraglen);
                memmove(peer->fragbuf, peer->fragbuf + len, FRAME_SIZE - 4 - len);
             }
             else
-               log_msg(L_DEBUG, "fragbuf empty");
+               log_debug("fragbuf empty");
          } // while (peer->fraglen >= IP6HLEN)
          unlock_peer(peer);
       } // while (maxfd)
@@ -496,23 +467,12 @@ void set_nonblock(int fd)
 {
    long flags;
 
-#ifdef SNDBUF
-   if (!snd_buf_size_)
-   {
-      flags = sizeof(snd_buf_size_);
-      if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &snd_buf_size_, (socklen_t*) &flags) == -1)
-         log_msg(L_FATAL, "could not get TCP send buffer size: \"%s\"", strerror(errno));
-      else
-         log_msg(L_DEBUG, "SO_SNDBF = %d", snd_buf_size_);
-   }
-#endif
-
    if ((flags = fcntl(fd, F_GETFL, 0)) == -1)
    {
       log_msg(L_ERROR, "could not get socket flags for %d: \"%s\"", fd, strerror(errno));
       flags = 0;
    }
-   log_msg(L_DEBUG, "O_NONBLOCK currently is %x", flags & O_NONBLOCK);
+   log_debug("O_NONBLOCK currently is %x", flags & O_NONBLOCK);
 
    if ((fcntl(fd, F_SETFL, flags | O_NONBLOCK)) == -1)
       log_msg(L_ERROR, "could not set O_NONBLOCK for %d: \"%s\"", fd, strerror(errno));
@@ -523,7 +483,7 @@ int insert_peer(int fd, const struct in6_addr *addr, time_t dly)
 {
    OcatPeer_t *peer;
 
-   log_msg(L_DEBUG, "inserting peer fd %d", fd);
+   log_msg(L_INFO | L_FCONN, "inserting peer fd %d", fd);
 
    set_nonblock(fd);
 
@@ -551,7 +511,7 @@ int insert_peer(int fd, const struct in6_addr *addr, time_t dly)
    unlock_peer(peer);
 
    // wake up socket_receiver
-   log_msg(L_DEBUG, "waking up socket_receiver");
+   log_debug("waking up socket_receiver");
    if (write(lpfd_[1], &fd, 1) != 1)
       log_msg(L_FATAL, "couldn't write to socket_receiver pipe: \"%s\"", strerror(errno));
 
@@ -620,6 +580,8 @@ int run_local_listeners(short port, int *sockfd, int (action_accept)(int))
    struct sockaddr_in6 in6;
    fd_set rset;
    int maxfd, i;
+   socklen_t alen;
+   char iabuf[INET6_ADDRSTRLEN];
 
    memset(&in, 0, sizeof(in));
    memset(&in6, 0, sizeof(in6));
@@ -637,45 +599,50 @@ int run_local_listeners(short port, int *sockfd, int (action_accept)(int))
    in6.sin6_len = sizeof(in6);
 #endif
 
-   log_msg(L_DEBUG, "creating IPv4 listener");
+   log_debug("creating IPv4 listener");
    if ((sockfd[0] = create_listener((struct sockaddr*) &in, sizeof(in))) == -1)
       log_msg(L_FATAL, "exiting"), exit(1);
 
-   log_msg(L_DEBUG, "creating IPv6 listener");
+   log_debug("creating IPv6 listener");
    if ((sockfd[1] = create_listener((struct sockaddr*) &in6, sizeof(in6))) == -1)
       log_msg(L_FATAL, "exiting"), exit(1);
 
    for (;;)
    {
-      log_msg(L_DEBUG, "setting up fd_set");
+      log_debug("setting up fd_set");
       FD_ZERO(&rset);
       FD_SET(sockfd[0], &rset);
       FD_SET(sockfd[1], &rset);
 
       maxfd = sockfd[0] > sockfd[1] ? sockfd[0] : sockfd[1];
-      log_msg(L_DEBUG, "selecting locally (maxfd = %d)", maxfd);
+      log_debug("selecting locally (maxfd = %d)", maxfd);
       if ((maxfd = select(maxfd + 1, &rset, NULL, NULL, NULL)) == -1)
       {
-         log_msg(L_DEBUG, "select returned: \"%s\"", strerror(errno));
+         log_debug("select returned: \"%s\"", strerror(errno));
          continue;
       }
-      log_msg(L_DEBUG, "select returned %d fds ready", maxfd);
+      log_debug("select returned %d fds ready", maxfd);
 
       for (i = 0; maxfd && (i < 2); i++)
       {
-         log_msg(L_DEBUG, "checking fd %d (maxfd = %d, i = %d)", sockfd[i], maxfd, i);
+         log_debug("checking fd %d (maxfd = %d, i = %d)", sockfd[i], maxfd, i);
          if (!FD_ISSET(sockfd[i], &rset))
             continue;
          maxfd--;
-         log_msg(L_DEBUG, "accepting connection on %d", sockfd[i]);
-         if ((fd = accept(sockfd[i], NULL, NULL)) < 0)
+         alen = sizeof(in6);
+         log_debug("accepting connection on %d", sockfd[i]);
+         if ((fd = accept(sockfd[i], (struct sockaddr*) &in6, &alen)) < 0)
          {
             log_msg(L_ERROR, "error accepting connection on %d: \"%s\"", sockfd[i], strerror(errno));
             // FIXME: there should be additional error handling!
             continue;
          }
 
-         log_msg(L_NOTICE, "connection %d accepted on listener %d", fd, sockfd[i]);
+         inet_ntop(in6.sin6_family,
+               in6.sin6_family == AF_INET6 ? &in6.sin6_addr :
+               (void*) &((struct sockaddr_in*) &in6)->sin_addr,
+               iabuf, INET6_ADDRSTRLEN);
+         log_msg(L_NOTICE | L_FCONN, "connection %d accepted on listener %d from %s port %d", fd, sockfd[i], iabuf, ntohs(in6.sin6_port));
          (void) action_accept(fd);
       }
    }
@@ -685,7 +652,7 @@ int run_local_listeners(short port, int *sockfd, int (action_accept)(int))
 
 void *socket_acceptor(void *p)
 {
-   run_local_listeners(ocat_listen_port_, sockfd_, insert_anon_peer);
+   run_local_listeners(setup.ocat_listen_port, sockfd_, insert_anon_peer);
    return NULL;
 }
 
@@ -697,11 +664,11 @@ int socks_connect(const struct in6_addr *addr)
    char buf[FRAME_SIZE], onion[ONION_NAME_SIZE];
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
 
-   log_msg(L_DEBUG, "called");
+   log_debug("called");
 
    memset(&in, 0, sizeof(in));
    in.sin_family = AF_INET;
-   in.sin_port = htons(tor_socks_port_);
+   in.sin_port = htons(setup.tor_socks_port);
    in.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 #ifdef HAVE_SIN_LEN
    in.sin_len = sizeof(in);
@@ -723,31 +690,31 @@ int socks_connect(const struct in6_addr *addr)
       return E_SOCKS_CONN;
    }
 
-   log_msg(L_DEBUG, "connected to TOR, doing SOCKS handshake");
+   log_debug("connected to TOR, doing SOCKS handshake");
 
    shdr->ver = 4;
    shdr->cmd = 1;
-   shdr->port = htons(ocat_dest_port_);
+   shdr->port = htons(setup.ocat_dest_port);
    shdr->addr.s_addr = htonl(0x00000001);
    /*
    strlcpy(buf + sizeof(SocksHdr_t), usrname_, strlen(usrname_) + 1);
    strlcpy(buf + sizeof(SocksHdr_t) + strlen(usrname_) + 1, onion, sizeof(onion));
    */
-   memcpy(buf + sizeof(SocksHdr_t), usrname_, strlen(usrname_) + 1);
-   memcpy(buf + sizeof(SocksHdr_t) + strlen(usrname_) + 1, onion, strlen(onion) + 1);
-   len = sizeof(SocksHdr_t) + strlen(usrname_) + strlen(onion) + 2;
+   memcpy(buf + sizeof(SocksHdr_t), setup.usrname, strlen(setup.usrname) + 1);
+   memcpy(buf + sizeof(SocksHdr_t) + strlen(setup.usrname) + 1, onion, strlen(onion) + 1);
+   len = sizeof(SocksHdr_t) + strlen(setup.usrname) + strlen(onion) + 2;
    if (write(fd, shdr, len) != len)
       // FIXME: there should be some additional error handling
       log_msg(L_ERROR, "couldn't write %d bytes to SOCKS connection %d", len, fd);
-   log_msg(L_DEBUG, "connect request sent");
+   log_debug("connect request sent");
 
    if (read(fd, shdr, sizeof(SocksHdr_t)) < sizeof(SocksHdr_t))
    {
-      log_msg(L_ERROR, "short read, closing.");
+      log_msg(L_ERROR | L_FCONN, "short read, closing.");
       close(fd);
       return E_SOCKS_REQ;
    }
-   log_msg(L_DEBUG, "SOCKS response received");
+   log_debug("SOCKS response received");
 
    if (shdr->ver || (shdr->cmd != 90))
    {
@@ -755,7 +722,7 @@ int socks_connect(const struct in6_addr *addr)
       close(fd);
       return E_SOCKS_RQFAIL;
    }
-   log_msg(L_NOTICE, "connection to %s successfully opened on fd %d", onion, fd);
+   log_msg(L_NOTICE | L_FCONN, "connection to %s successfully opened on fd %d", onion, fd);
 
    insert_peer(fd, addr, time(NULL) - t);
 
@@ -773,17 +740,17 @@ void socks_queue(const struct in6_addr *addr)
          break;
    if (!squeue)
    {
-      log_msg(L_DEBUG, "queueing new SOCKS connection request");
+      log_debug("queueing new SOCKS connection request");
       if (!(squeue = calloc(1, sizeof(SocksQueue_t))))
          log_msg(L_FATAL, "could not get memory for SocksQueue entry: \"%s\"", strerror(errno)), exit(1);
       memcpy(&squeue->addr, addr, sizeof(struct in6_addr));
       squeue->next = socks_queue_;
       socks_queue_ = squeue;
-      log_msg(L_DEBUG, "signalling connector");
+      log_debug("signalling connector");
       pthread_cond_signal(&socks_queue_cond_);
    }
    else
-      log_msg(L_DEBUG, "connection already exists, not queueing SOCKS connection");
+      log_debug("connection already exists, not queueing SOCKS connection");
    pthread_mutex_unlock(&socks_queue_mutex_);
 }
 
@@ -863,20 +830,20 @@ void packet_forwarder(void)
 
    for (;;)
    {
-      if ((rlen = read(tunfd_[0], buf, FRAME_SIZE)) == -1)
+      if ((rlen = read(setup.tunfd[0], buf, FRAME_SIZE)) == -1)
       {
          rlen = errno;
-         log_msg(L_DEBUG, "read from tun %d returned on error: \"%s\"", strerror(rlen));
+         log_debug("read from tun %d returned on error: \"%s\"", setup.tunfd[0], strerror(rlen));
          if (rlen == EINTR)
          {
-            log_msg(L_DEBUG, "signal caught, exiting");
+            log_debug("signal caught, exiting");
             return;
          }
-         log_msg(L_DEBUG, "restart reading");
+         log_debug("restart reading");
          continue;
       }
 
-      log_msg(L_DEBUG, "received on tunfd %d, framesize %d + 4", tunfd_[0], rlen - 4);
+      log_debug("received on tunfd %d, framesize %d + 4", setup.tunfd[0], rlen - 4);
 
       if (!validate_frame(ihd, rlen - 4))
       {
@@ -889,7 +856,7 @@ void packet_forwarder(void)
       {
          log_msg(L_NOTICE, "establishing new socks peer");
          socks_queue(&ihd->ip6_dst);
-         log_msg(L_DEBUG, "queuing packet");
+         log_debug("queuing packet");
          queue_packet(&ihd->ip6_dst, buf + 4, rlen - 4);
       }
    }
@@ -903,7 +870,7 @@ void *socket_cleaner(void *ptr)
    for (;;)
    {
       sleep(CLEANER_WAKEUP);
-      log_msg(L_DEBUG, "wakeup");
+      log_debug("wakeup");
       lock_peers();
       for (p = get_first_peer_ptr(); *p; p = &(*p)->next)
       {
@@ -912,13 +879,13 @@ void *socket_cleaner(void *ptr)
          {
             peer = *p;
             *p = peer->next;
-            log_msg(L_NOTICE, "peer %d timed out, closing.", peer->tcpfd);
+            log_msg(L_NOTICE | L_FCONN, "peer %d timed out, closing.", peer->tcpfd);
             close(peer->tcpfd);
             unlock_peer(peer);
             delete_peer(peer);
             if (!(*p))
             {
-               log_msg(L_DEBUG, "last peer in list deleted, breaking loop");
+               log_debug("last peer in list deleted, breaking loop");
                break;
             }
          }
@@ -959,7 +926,7 @@ void *ctrl_handler(void *p)
 
    if ((rlen = pthread_detach(pthread_self())))
       log_msg(L_ERROR, "thread couldn't self-detach: \"%s\"", strerror(rlen));
-   log_msg(L_DEBUG, "thread detached");
+   log_debug("thread detached");
 
    fd = (int) p;
    if (!(ff = fdopen(fd, "r+")))
@@ -967,7 +934,7 @@ void *ctrl_handler(void *p)
       log_msg(L_ERROR, "could not open %d for writing", fd);
       return NULL;
    }
-   log_msg(L_DEBUG, "fd %d fdopen'ed", fd);
+   log_debug("fd %d fdopen'ed", fd);
 
    for (;;)
    {
@@ -1012,7 +979,7 @@ void *ctrl_handler(void *p)
          for (peer = get_first_peer(); peer; peer = peer->next)
             if (peer->tcpfd == cfd)
             {
-               log_msg(L_NOTICE, "close request for %d", cfd);
+               log_msg(L_NOTICE | L_FCONN, "close request for %d", cfd);
                close(cfd);
                delete_peer(peer);
                break;
@@ -1051,7 +1018,7 @@ void *ctrl_handler(void *p)
       }
    }
 
-   log_msg(L_NOTICE, "closing session %d", fd);
+   log_msg(L_NOTICE | L_FCONN, "closing session %d", fd);
    if (fclose(ff) == EOF)
       log_msg(L_ERROR, "error closing control stream: \"%s\"", strerror(errno));
    // fclose also closes the fd according to the man page
@@ -1068,7 +1035,7 @@ int run_ctrl_handler(int fd)
 
 void *ocat_controller(void *p)
 {
-   run_local_listeners(ocat_ctrl_port_, ctrlfd_, run_ctrl_handler);
+   run_local_listeners(setup.ocat_ctrl_port, ctrlfd_, run_ctrl_handler);
    return NULL;
 }
 
