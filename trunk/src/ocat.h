@@ -18,6 +18,11 @@
 #ifndef OCAT_H
 #define OCAT_H
 
+#include "config.h"
+
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
 #include <time.h>
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
@@ -27,7 +32,6 @@
 #endif
 #include <pthread.h>
 
-#include "config.h"
 
 
 #define IP6HLEN sizeof(struct ip6_hdr)
