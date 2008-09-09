@@ -46,6 +46,7 @@
 #ifdef HAVE_NET_IF_TUN_H
 #include <net/if_tun.h>
 #endif
+#include <net/ethernet.h>
 
 #include "ocat.h"
 
@@ -58,36 +59,47 @@ int tun_alloc(char *dev, struct in6_addr addr)
    struct ifreq ifr;
    int fd;
    char astr[INET6_ADDRSTRLEN];
+   char astr4[INET_ADDRSTRLEN];
    char buf[FRAME_SIZE];
+   struct in_addr netmask = {setup.ocat_addr4_mask};
 
 	log_debug("opening tun \"%s\"", tun_dev_);
-   if( (fd = open(tun_dev_, O_RDWR)) < 0 )
+   if ((fd = open(tun_dev_, O_RDWR)) < 0)
       perror("open tun"), exit(1);
    inet_ntop(AF_INET6, &addr, astr, INET6_ADDRSTRLEN);
+   inet_ntop(AF_INET, &setup.ocat_addr4, astr4, INET_ADDRSTRLEN);
 
 #ifdef __linux__
 
    memset(&ifr, 0, sizeof(ifr));
    ifr.ifr_flags = IFF_TUN;
    //ifr.ifr_flags |= IFF_NO_PI;
-   if(*dev)
+   if (*dev)
       strncpy(ifr.ifr_name, dev, IFNAMSIZ);
 
-   if(ioctl(fd, TUNSETIFF, (void *) &ifr) < 0)
+   if (ioctl(fd, TUNSETIFF, (void *) &ifr) < 0)
       perror("TUNSETIFF"), exit(1);
    strlcpy(dev, ifr.ifr_name, IFNAMSIZ);
-   sprintf(buf, "ifconfig tun0 add %s/%d up", astr, TOR_PREFIX_LEN);
+   sprintf(buf, "ifconfig %s add %s/%d up", dev, astr, TOR_PREFIX_LEN);
    log_msg(L_NOTICE, "configuring tun IP: \"%s\"", buf);
    if (system(buf) == -1)
       log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+
+   // according to drivers/net/tun.c only IFF_MULTICAST and IFF_PROMISC are supported.
+/*   ifr.ifr_flags = IFF_UP | IFF_RUNNING | IFF_MULTICAST | IFF_NOARP;
+   if (ioctl(fd, SIOCSIFFLAGS, (void*) &ifr) < 0)
+      log_msg(L_ERROR, "could not set interface flags: \"%s\"", strerror(errno));
+      */
+
    // set tun frame header to ethertype IPv6
-   setup.fhd_key = htonl(0x86dd);
-   //setup.fhd_key = htonl(ETH_P_IPV6);
+   setup.fhd_key[IPV6_KEY] = htonl(ETHERTYPE_IPV6);
+   setup.fhd_key[IPV4_KEY] = htonl(ETHERTYPE_IP);
 
 #else
 
    // set tun frame header to address family AF_INET6 (FreeBSD = 0x1c, OpenBSD = 0x18)
-   setup.fhd_key = htonl(AF_INET6);
+   setup.fhd_key[IPV6_KEY] = htonl(AF_INET6);
+   setup.fhd_key[IPV4_KEY] = htonl(AF_INET);
 
 #ifdef __FreeBSD__
 
@@ -107,51 +119,17 @@ int tun_alloc(char *dev, struct in6_addr addr)
 
 #endif
 
+   // setting up IPv4 address
+   if (setup.ipv4_enable)
+   {
+      sprintf(buf, "ifconfig %s %s netmask %s", dev, astr4, inet_ntoa(netmask));
+      log_msg(L_NOTICE, "configuring tun IP: \"%s\"", buf);
+      if (system(buf) == -1)
+         log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+   }
+
    return fd;
 }              
  
-
-#ifdef TEST_TUN_HDR
-
-/*! This is a test function which detects the frame
- *  header of the local OS by sending a ping into
- *  the tun by a call to system("ping6..."). */
-void test_tun_hdr(void)
-{
-   struct in6_addr addr;
-   char addrstr[INET6_ADDRSTRLEN];
-   char buf[FRAME_SIZE];
-   int rlen;
-
-   if (oniontipv6("aaaaaaaaaaaaaaab", &addr) == -1)
-      log_msg(L_FATAL, "[test_tun_hdr] this should never happen..."), exit(1);
-
-   inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
-#ifdef __linux__
-   sprintf(buf, "ping6 -c 1 -w 1 %s >/dev/null 2>&1", addrstr);
-#else
-   //sprintf(buf, "ping6 -c 1 %s >/dev/null 2>&1", addrstr);
-   sprintf(buf, "ping6 -c 1 %s", addrstr);
-#endif
-   log_msg(L_NOTICE, "[test_tun_hdr] testing tun header: \"%s\"", buf);
-   // FIXME: This is somehow an unclean try to wait for ifconfig to finish
-   sleep(1);
-   if (system(buf) == -1)
-      log_msg(L_FATAL, "[test_tun_hdr] test failed: \"%s\"", strerror(errno));
-   rlen = read(tunfd_[0], buf, FRAME_SIZE);
-   log_debug("[test_tun_hdr] read %d bytes from %d, head = 0x%08x", rlen, tunfd_[0], ntohl(*((uint32_t*)buf)));
-
-   if ((buf[0] & 0xf0) == 0x60)
-   {
-      log_msg(L_NOTICE, "[test_tun_hdr] tun doesn't seem to have any frame header");
-      return;
-   }
-   
-   setup.fhd_key = *((uint32_t*)buf);
-   log_msg(L_NOTICE, "[test_tun_hdr] using 0x%08x as local frame header", ntohl(setup.fhd_key));
-}
-
-#endif
-
 #endif
 
