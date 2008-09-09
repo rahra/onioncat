@@ -20,6 +20,7 @@
 
 #include "config.h"
 
+#include <stdio.h>
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
@@ -31,13 +32,24 @@
 #include <netinet/ip6.h>
 #endif
 #include <pthread.h>
+#include <endian.h>
 
 
+#ifndef ETHERTYPE_IPV6
+#define ETHERTYPE_IPV6 0x86dd
+#endif
 
 #define IP6HLEN sizeof(struct ip6_hdr)
 //! TOR prefix: FD87:D87E:EB43::/48
 #define TOR_PREFIX {0xfd,0x87,0xd8,0x7e,0xeb,0x43}
 #define TOR_PREFIX_LEN 48
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#define TOR_PREFIX4 {0x0000000a}
+#define TOR_PREFIX4_MASK 0x000000ff
+#else
+#define TOR_PREFIX4 {0x0a000000}
+#define TOR_PREFIX4_MASK 0xff000000
+#endif
 #define MAXPEERS 1024
 //! Local listening port for incoming connections from TOR.
 #define OCAT_LISTEN_PORT 8060
@@ -94,11 +106,21 @@
 #define SOCKS_CONNECTING 1
 #define SOCKS_MAX_RETRY 3
 
+#define E_RT_NOMEM -1
+#define E_RT_DUP -2
+#define E_RT_ILLNM -3
+#define E_RT_SYNTAX -4
+#define E_RT_NULLPTR -5
+
+
+#define IPV4_KEY 0
+#define IPV6_KEY 1
+
 struct OcatSetup
 {
    //! frame header of local OS in network byte order
    //! it is initialized in ocattun.c
-   uint32_t fhd_key;
+   uint32_t fhd_key[2];
    //! TCP port of SOCKS port of local Tor proxy
    uint16_t tor_socks_port;
    //! reload port of OnionCat listening for connections
@@ -122,6 +144,11 @@ struct OcatSetup
    int controller;
    char *ocat_dir;
    char *tun_dev;
+   int ipv4_enable;
+   struct in_addr ocat_addr4;
+   int ocat_addr4_mask;
+   char *config_file;
+   int config_read;
 };
 
 typedef struct PacketQueue
@@ -176,6 +203,13 @@ typedef struct SocksQueue
    int state;
 } SocksQueue_t;
 
+typedef struct IPv4Route
+{
+   struct IPv4Route *next[2];    //!< next routes in binary tree
+   uint32_t dest;
+   uint32_t netmask;
+   struct in6_addr gw;
+} IPv4Route_t;
 
 /*
 // next header value for ocat internal use (RFC3692)
@@ -254,6 +288,7 @@ void log_msg(int, const char *, ...);
 /* ocatv6conv.c */
 char *ipv6tonion(const struct in6_addr *, char *);
 int oniontipv6(const char *, struct in6_addr *);
+int oniontipv4(const char *, struct in_addr *, int);
 int has_tor_prefix(const struct in6_addr *);
 
 /* ocattun.c */
@@ -271,6 +306,7 @@ void *socket_acceptor(void *);
 void *socks_connector(void *);
 void *socket_cleaner(void *);
 void *ocat_controller(void *);
+void *ctrl_handler(void *);
 
 /* ocatthread.c */
 const OcatThread_t *init_ocat_thread(const char *);
@@ -298,6 +334,14 @@ void delete_peer(OcatPeer_t *);
 
 /* ocatsetup.c */
 extern struct OcatSetup setup;
+
+/* ocatipv4route.c */
+//int ipv4_add_route(IPv4Route_t *);
+//IPv4Route_t *ipv4_lookup_route(uint32_t);
+struct in6_addr *ipv4_lookup_route(uint32_t);
+int parse_route(const char *);
+void print_routes(FILE *);
+
 
 #endif
 

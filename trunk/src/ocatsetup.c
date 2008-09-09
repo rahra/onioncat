@@ -26,5 +26,8 @@
 
 #include "ocat.h"
 
-struct OcatSetup setup = {0, TOR_SOCKS_PORT, OCAT_LISTEN_PORT, OCAT_DEST_PORT, OCAT_CTRL_PORT, 0, {0, 1}, 4, OCAT_UNAME, {0}, {{{0}}}, 0, 0, 0, 0, 1, OCAT_DIR, TUN_DEV};
+struct OcatSetup setup = {{0, 0}, TOR_SOCKS_PORT, OCAT_LISTEN_PORT, OCAT_DEST_PORT, OCAT_CTRL_PORT, 0, {0, 1}, 4, OCAT_UNAME, {0}, {{{0}}}, 0, 0, 0, 0, 1, OCAT_DIR, TUN_DEV,
+   0, TOR_PREFIX4, TOR_PREFIX4_MASK,
+   NULL, 1
+};
 

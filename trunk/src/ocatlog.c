@@ -99,11 +99,13 @@ void log_msg(int lf, const char *fmt, ...)
 
    va_start(ap, fmt);
    vlog_msgf(stderr, lf, fmt, ap);
+   va_end(ap);
    if (clog_ && (lf & L_FCONN))
    {
+      va_start(ap, fmt);
       vlog_msgf(clog_, lf, fmt, ap);
+      va_end(ap);
       (void) fflush(clog_);
    }
-   va_end(ap);
 }
 

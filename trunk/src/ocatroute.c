@@ -41,6 +41,7 @@
 #ifdef HAVE_LINUX_SOCKIOS_H
 #include <linux/sockios.h>
 #endif
+#include <netinet/ip.h>
 
 #include "ocat.h"
 
@@ -213,18 +214,12 @@ void hex_code_header(const char *frame, int len, char *buf)
 }
 
 
-// do some packet validation
-int validate_frame(const struct ip6_hdr *ihd, int len)
+/*! Check if source and destination address has
+ *  the TOR IPv6 prefix.
+ *  @return 0 on error or packet length else. */
+int check_tor_prefix(const struct ip6_hdr *ihd)
 {
    char buf[INET6_ADDRSTRLEN];
-   char hexbuf[IP6HLEN * 3 + 1];
-
-   if ((ihd->ip6_vfc & 0xf0) != 0x60)
-   {
-      hex_code_header((char*) ihd, len > IP6HLEN ? IP6HLEN : len, hexbuf);
-      log_debug("header \"%s\"", hexbuf);
-      return 0;
-   }
 
    if (!has_tor_prefix(&ihd->ip6_dst))
    {
@@ -236,14 +231,23 @@ int validate_frame(const struct ip6_hdr *ihd, int len)
       log_msg(L_ERROR, "source address invalid. Remote ocat could not reply");
       return 0;
    }
-#ifdef TEST_TUN_HDR
-   if (is_testping(&ihd->ip6_dst))
+   return ntohs(ihd->ip6_plen);
+}
+
+
+// do some packet validation
+int validate_frame(const struct ip6_hdr *ihd, int len)
+{
+   char hexbuf[IP6HLEN * 3 + 1];
+
+   if ((ihd->ip6_vfc & 0xf0) != 0x60)
    {
-      log_debug("test ping detected");
+      hex_code_header((char*) ihd, len > IP6HLEN ? IP6HLEN : len, hexbuf);
+      log_debug("header \"%s\"", hexbuf);
       return 0;
    }
-#endif
-   return ntohs(ihd->ip6_plen);
+
+   return check_tor_prefix(ihd);
 }
 
 
@@ -290,11 +294,13 @@ int handle_http(const OcatPeer_t *peer)
 
 void *socket_receiver(void *p)
 {
-   int maxfd, len, plen;
+   int maxfd, len;
    char buf[FRAME_SIZE];
    char addr[INET6_ADDRSTRLEN];
    fd_set rset;
    OcatPeer_t *peer;
+   struct in6_addr *in6;
+   int drop = 0;
 
    if (pipe(lpfd_) < 0)
       log_msg(L_FATAL, "could not create pipe for socket_receiver: \"%s\"", strerror(errno)), exit(1);
@@ -398,7 +404,104 @@ void *socket_receiver(void *p)
          // update timestamp
          peer->time = time(NULL);
          peer->in += len;
+
+         while (peer->fraglen)
+         {
+            // incoming packet seems to be IPv6
+            if ((peer->fragbuf[0] & 0xf0) == 0x60)
+            {
+               log_debug("identified IPv6 packet");
+               if ((peer->fraglen < IP6HLEN) || (peer->fraglen < ntohs(((struct ip6_hdr*) peer->fragbuf)->ip6_plen) + IP6HLEN))
+               {
+                  log_debug("keeping %d bytes frag", peer->fraglen);
+                  break;
+               }
+
+               len = ntohs(((struct ip6_hdr*)peer->fragbuf)->ip6_plen) + IP6HLEN;
+               peer->fraghdr = setup.fhd_key[IPV6_KEY];
+/*
+               // set IP address if it is not set yet and frame is valid
+               if (!memcmp(&peer->addr, &in6addr_any, sizeof(struct in6_addr)))
+               {
+                  memcpy(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src, sizeof(struct in6_addr));
+                  log_msg(L_NOTICE | L_FCONN, "incoming connection on %d from %s is now identified", peer->tcpfd,
+                     inet_ntop(AF_INET6, &peer->addr, addr, INET6_ADDRSTRLEN));
+               }*/
+            }
+            // incoming packet seems to be IPv4
+            else if ((peer->fragbuf[0] & 0xf0) == 0x40)
+            {
+               if ((peer->fragbuf[0] & 0x0f) < 5)
+               {
+                  log_debug("dropping packet, not IPv4 - resetting fragment buffer");
+                  peer->fraglen = 0;
+                  break;
+               }
                
+               log_debug("identified IPv4 packet");
+               if ((peer->fraglen < sizeof(struct iphdr)) || (peer->fraglen < ntohs(((struct iphdr*) peer->fragbuf)->tot_len)))
+               {
+                  log_debug("keeping %d bytes frag", peer->fraglen);
+                  break;
+               }
+
+               len = ntohs(((struct iphdr*) peer->fragbuf)->tot_len);
+               peer->fraghdr = setup.fhd_key[IPV4_KEY];
+            }
+            else
+            {
+               log_debug("fragment buffer reset");
+               peer->fraglen = 0;
+               break;
+            }
+
+            // set IP address if it is not set yet and frame is valid
+            if (!memcmp(&peer->addr, &in6addr_any, sizeof(struct in6_addr)))
+            {
+               if (peer->fraghdr == setup.fhd_key[IPV6_KEY])
+                  memcpy(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src, sizeof(struct in6_addr));
+               else if (peer->fraghdr == setup.fhd_key[IPV4_KEY])
+               {
+                  // check if there is a route back
+                  if (!(in6 = ipv4_lookup_route(ntohl(((struct iphdr*) peer->fragbuf)->saddr))))
+                  {
+                     drop = 1;
+                     log_debug("no route back");
+                  }
+                  else
+                     memcpy(&peer->addr, in6, sizeof(struct in6_addr));
+               }
+
+               if (!drop)
+                  log_msg(L_NOTICE | L_FCONN, "incoming connection on %d from %s is now identified", peer->tcpfd,
+                     inet_ntop(AF_INET6, &peer->addr, addr, INET6_ADDRSTRLEN));
+            }
+
+            if (!drop)
+            {
+               log_debug("writing to tun %d framesize %d + 4", setup.tunfd[1], len);
+               if (write(setup.tunfd[1], &peer->fraghdr, len + 4) != (len + 4))
+                  log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len + 4, setup.tunfd[1]);
+            }
+            else
+            {
+               log_msg(L_ERROR, "dropping packet with %d bytes", len);
+               drop = 0;
+            }
+
+
+            peer->fraglen -= len;
+            if (peer->fraglen)
+            {
+               log_debug("moving fragment. fragsize %d", peer->fraglen);
+               memmove(peer->fragbuf, peer->fragbuf + len, FRAME_SIZE - 4 - len);
+            }
+            else
+               log_debug("fragbuf empty");
+
+        } // while (peer->fraglen)
+
+#if 0
          while (peer->fraglen >= IP6HLEN)
          {
             // check frame
@@ -457,6 +560,8 @@ void *socket_receiver(void *p)
             else
                log_debug("fragbuf empty");
          } // while (peer->fraglen >= IP6HLEN)
+#endif
+
          unlock_peer(peer);
       } // while (maxfd)
    } // for (;;)
@@ -823,10 +928,9 @@ void *socks_connector(void *p)
 void packet_forwarder(void)
 {
    char buf[FRAME_SIZE];
-   struct ip6_hdr *ihd;
    int rlen;
-
-   ihd = (struct ip6_hdr*) &buf[4];
+   struct in6_addr *dest;
+   struct in_addr in;
 
    for (;;)
    {
@@ -845,19 +949,50 @@ void packet_forwarder(void)
 
       log_debug("received on tunfd %d, framesize %d + 4", setup.tunfd[0], rlen - 4);
 
-      if (!validate_frame(ihd, rlen - 4))
+      if (*((uint32_t*) buf) == setup.fhd_key[IPV6_KEY])
       {
-         log_msg(L_ERROR, "dropping frame");
+         if (((rlen - 4) < IP6HLEN))
+         {
+            log_debug("IPv6 packet too short (%d bytes). dropping", rlen - 4);
+            continue;
+         }
+
+         if (!check_tor_prefix((struct ip6_hdr*) &buf[4]))
+         {
+            log_msg(L_ERROR, "dropping frame");
+            continue;
+         }
+
+         dest = &((struct ip6_hdr*) &buf[4])->ip6_dst;
+      }
+      else if (*((uint32_t*) buf) == setup.fhd_key[IPV4_KEY])
+      {
+         if (((rlen - 4) < sizeof(struct iphdr)))
+         {
+            log_debug("IPv4 packet too short (%d bytes). dropping", rlen - 4);
+            continue;
+         }
+
+         in.s_addr = ((struct iphdr*) &buf[4])->daddr;
+         if (!(dest = ipv4_lookup_route(ntohl(in.s_addr))))
+         {
+            log_msg(L_ERROR, "no route to destination %s, dropping frame.", inet_ntoa(in));
+            continue;
+         }
+      }
+      else
+      {
+         log_msg(L_ERROR, "protocol 0x%08x not supported. dropping frame.", ntohl(*((uint32_t*) buf)));
          continue;
       }
 
       // now forward either directly or to the queue
-      if (forward_packet(&ihd->ip6_dst, buf + 4, rlen - 4) == E_FWD_NOPEER)
+      if (forward_packet(dest, buf + 4, rlen - 4) == E_FWD_NOPEER)
       {
          log_msg(L_NOTICE, "establishing new socks peer");
-         socks_queue(&ihd->ip6_dst);
+         socks_queue(dest);
          log_debug("queuing packet");
-         queue_packet(&ihd->ip6_dst, buf + 4, rlen - 4);
+         queue_packet(dest, buf + 4, rlen - 4);
       }
    }
 }
@@ -897,14 +1032,15 @@ void *socket_cleaner(void *ptr)
 }
 
 
-void _remtr(char *s)
+int _remtr(char *s)
 {
    if (!s[0])
-      return;
-   if (s[strlen(s) - 1] != '\n' && s[strlen(s) - 1] != '\r')
-      return;
-   s[strlen(s) - 1] = '\0';
-   _remtr(s);
+      return 0;
+   if (s[0] && (s[strlen(s) - 1] == '\n'))
+      s[strlen(s) - 1] = '\0';
+   if (s[0] && (s[strlen(s) - 1] == '\r'))
+      s[strlen(s) - 1] = '\0';
+   return strlen(s);
 }
 
 
@@ -915,10 +1051,9 @@ void _remtr(char *s)
 // FIXME: ctrl_handler probably is not thread-safe.
 void *ctrl_handler(void *p)
 {
-
-   int fd;
-   FILE *ff;
-   char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[ONION_NAME_SIZE], timestr[32];
+   int fd, c;
+   FILE *ff, *fo;
+   char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[ONION_NAME_SIZE], timestr[32], *s;
    int rlen, cfd;
    struct tm *tm;
    OcatThread_t *th;
@@ -929,30 +1064,69 @@ void *ctrl_handler(void *p)
    log_debug("thread detached");
 
    fd = (int) p;
-   if (!(ff = fdopen(fd, "r+")))
+   if (setup.config_read)
    {
-      log_msg(L_ERROR, "could not open %d for writing", fd);
-      return NULL;
+      if (!(ff = fdopen(fd, "r+")))
+      {
+         log_msg(L_ERROR, "could not open %d for writing: %s", fd, strerror(errno));
+         return NULL;
+      }
+      log_debug("fd %d fdopen'ed", fd);
+      fo = ff;
    }
-   log_debug("fd %d fdopen'ed", fd);
+   else
+   {
+      if (!(ff = fdopen(fd, "r")))
+      {
+         log_msg(L_ERROR, "could not open %d for reading: %s", fd, strerror(errno));
+         setup.config_read = 1;
+         return NULL;
+      }
+      log_debug("fd %d fdopen'ed", fd);
+      fo = stderr;
+      //setup.config_read = 1;
+   }
 
    for (;;)
    {
-      fprintf(ff, "> ");
+      if (setup.config_read)
+         fprintf(fo, "> ");
+
+      c = getc(ff);
+      if (c == EOF)
+      {
+         log_debug("EOF received.");
+         break;
+      }
+      else if (c == 4)
+      {
+         log_debug("^D received.");
+         break;
+      }
+      else
+      {
+         if (ungetc(c, ff) == EOF)
+         {
+            log_debug("received EOF on ungetc");
+            break;
+         }
+      }
+
       if (!fgets(buf, FRAME_SIZE, ff))
       {
          if (!feof(ff))
             log_msg(L_ERROR, "error reading from %d");
          break;
       }
-      // remove trailing \r\n character
-      _remtr(buf);
-      // continue if string now is empty
-      if (!buf[0])
+
+      if (!(rlen = _remtr(buf)))
+         continue;
+
+      if (!strtok_r(buf, " \t\r\n", &s))
          continue;
 
       // "exit"/"quit" => terminate thread
-      if (buf[0] == 4 || !strncmp(buf, "exit", 4) || !strncmp(buf, "quit", 4))
+      if (!strncmp(buf, "exit", 4) || !strncmp(buf, "quit", 4))
          break;
       // "status"
       else if (!strncmp(buf, "status", 6))
@@ -964,7 +1138,7 @@ void *ctrl_handler(void *p)
             {
                tm = localtime(&peer->otime);
                strftime(timestr, 32, "%c", tm);
-               fprintf(ff, "[%s]\n fd = %d\n addr = %s\n dir = \"%s\"\n idle = %lds\n bytes_in = %ld\n bytes_out = %ld\n setup_delay = %lds\n opening_time = \"%s\"\n",
+               fprintf(fo, "[%s]\n fd = %d\n addr = %s\n dir = \"%s\"\n idle = %lds\n bytes_in = %ld\n bytes_out = %ld\n setup_delay = %lds\n opening_time = \"%s\"\n",
                      ipv6tonion(&peer->addr, onionstr), peer->tcpfd,
                      inet_ntop(AF_INET6, &peer->addr, addrstr, INET6_ADDRSTRLEN),
                      peer->dir == PEER_INCOMING ? "in" : "out",
@@ -987,7 +1161,7 @@ void *ctrl_handler(void *p)
          if (!peer)
          {
             log_msg(L_NOTICE, "no peer with fd %d exists\n", cfd);
-            fprintf(ff, "no peer with fd %d exists\n", cfd);
+            fprintf(fo, "no peer with fd %d exists\n", cfd);
          }
          unlock_peers();
       }
@@ -1006,22 +1180,37 @@ void *ctrl_handler(void *p)
       }
       else if (!strncmp(buf, "fds", 3))
       {
-         fprintf(ff, "acceptor sockets: %d/%d\nconntroller sockets: %d/%d\n", sockfd_[0], sockfd_[1], ctrlfd_[0], ctrlfd_[1]);
+         fprintf(fo, "acceptor sockets: %d/%d\nconntroller sockets: %d/%d\n", sockfd_[0], sockfd_[1], ctrlfd_[0], ctrlfd_[1]);
+      }
+      else if (!strncmp(buf, "route", 5))
+      {
+         if (rlen > 6)
+         {
+            if ((c = parse_route(&buf[6])))
+               fprintf(ff, "ERR %d\n", c);
+         }
+         else
+            print_routes(fo);
       }
       else if (!strncmp(buf, "help", 4))
       {
-         fprintf(ff, "commands:\nexit\nquit\nterminate\nclose <n>\nstatus\nthreads\nfds\n");
+         fprintf(fo, "commands:\nexit\nquit\nterminate\nclose <n>\nstatus\nthreads\nfds\nroute [<destination IP> <netmask> <IPv6 gateway>]\n");
       }
       else
       {
-         fprintf(ff, "unknown command: \"%s\"\n", buf);
+         fprintf(fo, "ERR unknown command: \"%s\"\n", buf);
       }
    }
 
+   if (setup.config_read)
+      fprintf(fo, "Good bye!\n");
    log_msg(L_NOTICE | L_FCONN, "closing session %d", fd);
    if (fclose(ff) == EOF)
       log_msg(L_ERROR, "error closing control stream: \"%s\"", strerror(errno));
    // fclose also closes the fd according to the man page
+
+   if (!setup.config_read)
+      setup.config_read = 1;
 
    return NULL;
 }

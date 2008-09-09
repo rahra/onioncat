@@ -25,6 +25,8 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <pwd.h>
 #include <errno.h>
 #include <time.h>
@@ -45,7 +47,8 @@ void usage(const char *s)
          "   -h                    display usage message\n"
          "   -C                    disable local controller interface\n"
          "   -d <n>                set debug level to n, default = %d\n"
-         "   -i <onion_hostname>   convert onion hostname to IPv6 and exit\n"
+         "   -f <config_file>      read config from config_file\n"
+         "   -i                    convert onion hostname to IPv6 and exit\n"
          "   -l <port>             set ocat listen port, default = %d\n"
          "   -o <ipv6_addr>        convert IPv6 address to onion url and exit\n"
          "   -r                    run as root, i.e. do not change uid/gid\n"
@@ -57,19 +60,21 @@ void usage(const char *s)
 #endif
          "   -u <user>             change UID to user, default = \"%s\"\n"
          "   -v                    validate packets from sockets, default = %d (validation not mature)\n"
+         "   -4                    enable IPv4 support (default = %d)\n"
          , PACKAGE_STRING, __DATE__, __TIME__, s,
          // option defaults start here
          OCAT_DIR, OCAT_CONNECT_LOG, setup.create_clog, setup.debug_level, setup.ocat_listen_port, setup.ocat_dest_port, setup.tor_socks_port, 
 #ifndef WITHOUT_TUN
          TUN_DEV,
 #endif
-         OCAT_UNAME, setup.vrec);
+         OCAT_UNAME, setup.vrec, setup.ipv4_enable
+            );
 }
 
 
 int main(int argc, char *argv[])
 {
-   char tunname[IFNAMSIZ] = "", *s, ip6addr[INET6_ADDRSTRLEN];
+   char tunname[IFNAMSIZ] = {0}, *s, ip6addr[INET6_ADDRSTRLEN];
    int c, runasroot = 0;
    struct passwd *pwd;
    int urlconv = 0;
@@ -77,7 +82,7 @@ int main(int argc, char *argv[])
    if (argc < 2)
       usage(argv[0]), exit(1);
 
-   while ((c = getopt(argc, argv, "aCd:hriopl:t:T:s:u:")) != -1)
+   while ((c = getopt(argc, argv, "aCd:f:hriopl:t:T:s:u:4")) != -1)
       switch (c)
       {
          case 'a':
@@ -90,6 +95,11 @@ int main(int argc, char *argv[])
 
          case 'd':
             setup.debug_level = atoi(optarg);
+            break;
+
+         case 'f':
+            setup.config_file = optarg;
+            setup.config_read = 0;
             break;
 
          case 'i':
@@ -135,6 +145,10 @@ int main(int argc, char *argv[])
             setup.vrec = 1;
             break;
 
+         case '4':
+            setup.ipv4_enable = 1;
+            break;
+
          case 'h':
          default:
             usage(argv[0]);
@@ -149,8 +163,10 @@ int main(int argc, char *argv[])
 
    if (urlconv == 2)
    {
-      if (inet_pton(AF_INET6, argv[optind], &setup.ocat_addr) <= 0)
-         log_msg(L_ERROR, "%s", strerror(errno)), exit(1);
+      if ((c = inet_pton(AF_INET6, argv[optind], &setup.ocat_addr)) < 0)
+         log_msg(L_ERROR, "inet_pton failed: %s", strerror(errno)), exit(1);
+      else if (!c)
+         log_msg(L_ERROR, "%s is not a valid IPv6 address", argv[optind]), exit(1);
       if (!has_tor_prefix(&setup.ocat_addr))
          log_msg(L_ERROR, "address does not have TOR prefix"), exit(1);
       ipv6tonion(&setup.ocat_addr, setup.onion_url);
@@ -166,29 +182,36 @@ int main(int argc, char *argv[])
       log_msg(L_ERROR, "parameter seems not to be valid onion hostname"), exit(1);
    if (oniontipv6(setup.onion_url, &setup.ocat_addr) == -1)
       log_msg(L_ERROR, "parameter seems not to be valid onion hostname"), exit(1);
+   if (setup.ipv4_enable)
+      oniontipv4(setup.onion_url, &setup.ocat_addr4, ntohl(setup.ocat_addr4_mask));
 
    inet_ntop(AF_INET6, &setup.ocat_addr, ip6addr, INET6_ADDRSTRLEN);
 
    if (urlconv == 1)
    {
       printf("%s\n", ip6addr);
+      if (setup.ipv4_enable)
+         printf("%s\n", inet_ntoa(setup.ocat_addr4));
       exit(0);
    }
 
    log_msg(L_NOTICE, "%s (c) Bernhard R. Fischer -- compiled %s %s", PACKAGE_STRING, __DATE__, __TIME__);
 
+   if (setup.config_file)
+   {
+      log_msg(L_NOTICE, "reading config file %s", setup.config_file);
+      if ((c = open(setup.config_file, O_RDONLY)) == -1)
+         log_msg(L_ERROR, "error opening file: %s", strerror(errno)), exit(1);
+      ctrl_handler((void*) c);
+   }
+
 #ifndef WITHOUT_TUN
    // create TUN device
    setup.tunfd[0] = setup.tunfd[1] = tun_alloc(tunname, setup.ocat_addr);
-#ifdef TEST_TUN_HDR
-   test_tun_hdr();
-   if (setup.test_only)
-      exit(0);
-#endif
 #endif
 
    log_msg(L_NOTICE, "local IP is %s on %s", ip6addr, tunname);
-   log_debug("tun frameheader = 0x%08x", ntohl(setup.fhd_key));
+   log_debug("tun frameheader v6 = 0x%08x, v4 = 0x%08x", ntohl(setup.fhd_key[IPV6_KEY]), ntohl(setup.fhd_key[IPV4_KEY]));
 
    // start socket receiver thread
    run_ocat_thread("receiver", socket_receiver, NULL);

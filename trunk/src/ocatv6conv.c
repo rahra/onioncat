@@ -88,6 +88,22 @@ int oniontipv6(const char *onion, struct in6_addr *ip6)
 }
 
 
+int oniontipv4(const char *onion, struct in_addr *ip, int prefix_mask)
+{
+   struct in6_addr ip6;
+   //uint32_t netmask = 0xffffffff << (32 - prefix_len);
+   uint32_t netmask = prefix_mask;
+   uint32_t ip4;
+
+   if (oniontipv6(onion, &ip6))
+      return -1;
+   memcpy(&ip4, &ip6.s6_addr[12], sizeof(ip4));
+   ip4 &= htonl(~netmask);
+   ip->s_addr |= ip4;
+   return 0;
+}
+
+
 char *ipv6tonion(const struct in6_addr *ip6, char *onion)
 {
    int i;
