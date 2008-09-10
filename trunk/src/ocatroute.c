@@ -41,7 +41,12 @@
 #ifdef HAVE_LINUX_SOCKIOS_H
 #include <linux/sockios.h>
 #endif
+#ifdef HAVE_NETINET_IN_SYSTM_H
+#include <netinet/in_systm.h>
+#endif
+#ifdef HAVE_NETINET_IP_H
 #include <netinet/ip.h>
+#endif
 
 #include "ocat.h"
 
@@ -198,22 +203,6 @@ void *packet_dequeuer(void *p)
 }
 
 
-const static char hdigit_[] = "0123456789abcdef";
-
-void hex_code_header(const char *frame, int len, char *buf)
-{
-   int i;
-
-   for (i = 0; i < len; i++, frame++)
-   {
-      *buf++ = hdigit_[(*frame >> 4) & 0x0f];
-      *buf++ = hdigit_[*frame & 0x0f];
-      *buf++ = ' ';
-   }
-   *--buf = '\0';
-}
-
-
 /*! Check if source and destination address has
  *  the TOR IPv6 prefix.
  *  @return 0 on error or packet length else. */
@@ -232,22 +221,6 @@ int check_tor_prefix(const struct ip6_hdr *ihd)
       return 0;
    }
    return ntohs(ihd->ip6_plen);
-}
-
-
-// do some packet validation
-int validate_frame(const struct ip6_hdr *ihd, int len)
-{
-   char hexbuf[IP6HLEN * 3 + 1];
-
-   if ((ihd->ip6_vfc & 0xf0) != 0x60)
-   {
-      hex_code_header((char*) ihd, len > IP6HLEN ? IP6HLEN : len, hexbuf);
-      log_debug("header \"%s\"", hexbuf);
-      return 0;
-   }
-
-   return check_tor_prefix(ihd);
 }
 
 
@@ -419,14 +392,6 @@ void *socket_receiver(void *p)
 
                len = ntohs(((struct ip6_hdr*)peer->fragbuf)->ip6_plen) + IP6HLEN;
                peer->fraghdr = setup.fhd_key[IPV6_KEY];
-/*
-               // set IP address if it is not set yet and frame is valid
-               if (!memcmp(&peer->addr, &in6addr_any, sizeof(struct in6_addr)))
-               {
-                  memcpy(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src, sizeof(struct in6_addr));
-                  log_msg(L_NOTICE | L_FCONN, "incoming connection on %d from %s is now identified", peer->tcpfd,
-                     inet_ntop(AF_INET6, &peer->addr, addr, INET6_ADDRSTRLEN));
-               }*/
             }
             // incoming packet seems to be IPv4
             else if ((peer->fragbuf[0] & 0xf0) == 0x40)
@@ -437,15 +402,35 @@ void *socket_receiver(void *p)
                   peer->fraglen = 0;
                   break;
                }
-               
+
+ #ifdef HANDLE_HTTP
+               if (handle_http(peer))
+               {
+                  log_msg(L_NOTICE | L_FCONN, "closing %d due to HTTP", peer->tcpfd);
+                  close(peer->tcpfd);
+                  unlock_peer(peer);
+                  lock_peers();
+                  delete_peer(peer);
+                  unlock_peers();
+               }
+#endif
+              
                log_debug("identified IPv4 packet");
+#ifdef HAVE_STRUCT_IPHDR
                if ((peer->fraglen < sizeof(struct iphdr)) || (peer->fraglen < ntohs(((struct iphdr*) peer->fragbuf)->tot_len)))
+#else
+               if ((peer->fraglen < sizeof(struct ip)) || (peer->fraglen < ntohs(((struct ip*) peer->fragbuf)->ip_len)))
+#endif
                {
                   log_debug("keeping %d bytes frag", peer->fraglen);
                   break;
                }
 
+#ifdef HAVE_STRUCT_IPHDR
                len = ntohs(((struct iphdr*) peer->fragbuf)->tot_len);
+#else
+               len = ntohs(((struct ip*) peer->fragbuf)->ip_len);
+#endif
                peer->fraghdr = setup.fhd_key[IPV4_KEY];
             }
             else
@@ -463,7 +448,11 @@ void *socket_receiver(void *p)
                else if (peer->fraghdr == setup.fhd_key[IPV4_KEY])
                {
                   // check if there is a route back
+#ifdef HAVE_STRUCT_IPHDR
                   if (!(in6 = ipv4_lookup_route(ntohl(((struct iphdr*) peer->fragbuf)->saddr))))
+#else
+                  if (!(in6 = ipv4_lookup_route(ntohl(((struct ip*) peer->fragbuf)->ip_src.s_addr))))
+#endif
                   {
                      drop = 1;
                      log_debug("no route back");
@@ -501,68 +490,7 @@ void *socket_receiver(void *p)
 
         } // while (peer->fraglen)
 
-#if 0
-         while (peer->fraglen >= IP6HLEN)
-         {
-            // check frame
-            plen = validate_frame((struct ip6_hdr*) peer->fragbuf, peer->fraglen);
-
-            if (!plen)
-            {
-#ifdef HANDLE_HTTP
-               if (handle_http(peer))
-               {
-                  log_msg(L_NOTICE | L_FCONN, "closing %d due to HTTP.", peer->tcpfd);
-                  close(peer->tcpfd);
-                  unlock_peer(peer);
-                  lock_peers();
-                  delete_peer(peer);
-                  unlock_peers();
-               }
-#endif
-               log_debug("FRAGBUF RESET!");
-               peer->fraglen = 0;
-               break;
-            }
-
-            if (setup.vrec && !plen)
-            {
-               log_msg(L_ERROR, "dropping frame");
-               break;
-            }
-
-            len = plen + IP6HLEN;
-            if (peer->fraglen < len)
-            {
-               log_debug("keeping %d bytes frag", peer->fraglen);
-               break;
-            }
-
-            // set IP address if it is not set yet and frame is valid
-            if (plen && !memcmp(&peer->addr, &in6addr_any, sizeof(struct in6_addr)))
-            {
-               memcpy(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src, sizeof(struct in6_addr));
-               log_msg(L_NOTICE | L_FCONN, "incoming connection on %d from %s is now identified", peer->tcpfd,
-                  inet_ntop(AF_INET6, &peer->addr, addr, INET6_ADDRSTRLEN));
-            }
-            
-            log_debug("writing to tun %d framesize %d + 4", setup.tunfd[1], len);
-            if (write(setup.tunfd[1], &peer->fraghdr, len + 4) != (len + 4))
-               log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len + 4, setup.tunfd[1]);
-
-            peer->fraglen -= len;
-
-            if (peer->fraglen)
-            {
-               log_debug("moving fragment. fragsize %d", peer->fraglen);
-               memmove(peer->fragbuf, peer->fragbuf + len, FRAME_SIZE - 4 - len);
-            }
-            else
-               log_debug("fragbuf empty");
-         } // while (peer->fraglen >= IP6HLEN)
-#endif
-
-         unlock_peer(peer);
+        unlock_peer(peer);
       } // while (maxfd)
    } // for (;;)
 }
@@ -967,13 +895,21 @@ void packet_forwarder(void)
       }
       else if (*((uint32_t*) buf) == setup.fhd_key[IPV4_KEY])
       {
+#ifdef HAVE_STRUCT_IPHDR
          if (((rlen - 4) < sizeof(struct iphdr)))
+#else
+         if (((rlen - 4) < sizeof(struct ip)))
+#endif
          {
             log_debug("IPv4 packet too short (%d bytes). dropping", rlen - 4);
             continue;
          }
 
+#ifdef HAVE_STRUCT_IPHDR
          in.s_addr = ((struct iphdr*) &buf[4])->daddr;
+#else
+         in.s_addr = ((struct ip*) &buf[4])->ip_dst.s_addr;
+#endif
          if (!(dest = ipv4_lookup_route(ntohl(in.s_addr))))
          {
             log_msg(L_ERROR, "no route to destination %s, dropping frame.", inet_ntoa(in));
@@ -1001,11 +937,19 @@ void packet_forwarder(void)
 void *socket_cleaner(void *ptr)
 {
    OcatPeer_t *peer, **p;
+   int cnt;
 
-   for (;;)
+   for (cnt = STAT_WAKEUP; ; cnt--)
    {
+      if (!cnt)
+      {
+         cnt = STAT_WAKEUP;
+         log_msg(L_NOTICE, "stats: ...");
+      }
+
       sleep(CLEANER_WAKEUP);
       log_debug("wakeup");
+
       lock_peers();
       for (p = get_first_peer_ptr(); *p; p = &(*p)->next)
       {

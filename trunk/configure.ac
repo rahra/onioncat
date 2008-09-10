@@ -20,7 +20,7 @@ AC_CHECK_LIB([pthread], [pthread_create])
 # Checks for header files.
 #AC_HEADER_STDC
 #AC_CHECK_HEADERS([arpa/inet.h fcntl.h netinet/in.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h])
-AC_CHECK_HEADERS([sys/types.h sys/socket.h netinet/in.h netinet/ip6.h netinet/in6.h net/if.h linux/if_tun.h net/if_tun.h linux/sockios.h], [], [],
+AC_CHECK_HEADERS([sys/types.h sys/socket.h netinet/in.h netinet/in_systm.h netinet/ip.h netinet/ip6.h netinet/in6.h net/if.h net/if_tun.h linux/if_tun.h linux/sockios.h endian.h sys/endian.h], [], [],
 [[
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
@@ -30,6 +30,9 @@ AC_CHECK_HEADERS([sys/types.h sys/socket.h netinet/in.h netinet/ip6.h netinet/in
 #endif
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
+#endif
+#ifdef HAVE_NETINET_IN_SYSTM_H
+#include <netinet/in_systm.h>
 #endif
 ]]
 )
@@ -57,6 +60,35 @@ AC_CHECK_TYPES([struct ip6_hdr], , ,
 #endif
 #ifdef HAVE_NETINET_IP6_H
 #include <netinet/ip6.h>
+#endif
+])
+
+AC_CHECK_TYPES([struct iphdr], , ,
+[
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#ifdef HAVE_NETINET_IP_H
+#include <netinet/ip.h>
+#endif
+])
+
+AC_CHECK_TYPES([struct ip], , ,
+[
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#ifdef HAVE_NETINET_IN_SYSTM_H
+#include <netinet/in_systm.h>
+#endif
+#ifdef HAVE_NETINET_IP_H
+#include <netinet/ip.h>
 #endif
 ])
 

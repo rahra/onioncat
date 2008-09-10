@@ -32,6 +32,9 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <errno.h>
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
 
 #include "ocat.h"
 
