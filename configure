@@ -3351,7 +3351,11 @@ fi
 
 
 
-for ac_header in sys/types.h sys/socket.h netinet/in.h netinet/ip6.h netinet/in6.h net/if.h linux/if_tun.h net/if_tun.h linux/sockios.h
+
+
+
+
+for ac_header in sys/types.h sys/socket.h netinet/in.h netinet/in_systm.h netinet/ip.h netinet/ip6.h netinet/in6.h net/if.h net/if_tun.h linux/if_tun.h linux/sockios.h endian.h sys/endian.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
 { echo "$as_me:$LINENO: checking for $ac_header" >&5
@@ -3374,6 +3378,9 @@ cat >>conftest.$ac_ext <<_ACEOF
 #endif
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
+#endif
+#ifdef HAVE_NETINET_IN_SYSTM_H
+#include <netinet/in_systm.h>
 #endif
 
 
@@ -3606,6 +3613,157 @@ if test $ac_cv_type_struct_ip6_hdr = yes; then
 
 cat >>confdefs.h <<_ACEOF
 #define HAVE_STRUCT_IP6_HDR 1
+_ACEOF
+
+
+fi
+
+
+{ echo "$as_me:$LINENO: checking for struct iphdr" >&5
+echo $ECHO_N "checking for struct iphdr... $ECHO_C" >&6; }
+if test "${ac_cv_type_struct_iphdr+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#ifdef HAVE_NETINET_IP_H
+#include <netinet/ip.h>
+#endif
+
+
+typedef struct iphdr ac__type_new_;
+int
+main ()
+{
+if ((ac__type_new_ *) 0)
+  return 0;
+if (sizeof (ac__type_new_))
+  return 0;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  ac_cv_type_struct_iphdr=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_cv_type_struct_iphdr=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_type_struct_iphdr" >&5
+echo "${ECHO_T}$ac_cv_type_struct_iphdr" >&6; }
+if test $ac_cv_type_struct_iphdr = yes; then
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_STRUCT_IPHDR 1
+_ACEOF
+
+
+fi
+
+
+{ echo "$as_me:$LINENO: checking for struct ip" >&5
+echo $ECHO_N "checking for struct ip... $ECHO_C" >&6; }
+if test "${ac_cv_type_struct_ip+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#ifdef HAVE_NETINET_IN_SYSTM_H
+#include <netinet/in_systm.h>
+#endif
+#ifdef HAVE_NETINET_IP_H
+#include <netinet/ip.h>
+#endif
+
+
+typedef struct ip ac__type_new_;
+int
+main ()
+{
+if ((ac__type_new_ *) 0)
+  return 0;
+if (sizeof (ac__type_new_))
+  return 0;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  ac_cv_type_struct_ip=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_cv_type_struct_ip=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_type_struct_ip" >&5
+echo "${ECHO_T}$ac_cv_type_struct_ip" >&6; }
+if test $ac_cv_type_struct_ip = yes; then
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_STRUCT_IP 1
 _ACEOF
 
 

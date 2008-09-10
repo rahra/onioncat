@@ -55,11 +55,9 @@ void usage(const char *s)
          "   -s <port>             set hidden service virtual port, default = %d\n"
          "   -t <port>             set tor SOCKS port, default = %d\n"
 #ifndef WITHOUT_TUN
-         "   -p                    test tun header and exit (debug feature only)\n"
          "   -T <tun_device>       path to tun character device, default = \"%s\"\n"
 #endif
          "   -u <user>             change UID to user, default = \"%s\"\n"
-         "   -v                    validate packets from sockets, default = %d (validation not mature)\n"
          "   -4                    enable IPv4 support (default = %d)\n"
          , PACKAGE_STRING, __DATE__, __TIME__, s,
          // option defaults start here
@@ -67,7 +65,7 @@ void usage(const char *s)
 #ifndef WITHOUT_TUN
          TUN_DEV,
 #endif
-         OCAT_UNAME, setup.vrec, setup.ipv4_enable
+         OCAT_UNAME, setup.ipv4_enable
             );
 }
 
@@ -128,10 +126,6 @@ int main(int argc, char *argv[])
             break;
 
 #ifndef WITHOUT_TUN
-         case 'p':
-            setup.test_only = 1;
-            break;
-
          case 'T':
             tun_dev_ = optarg;
             break;
@@ -139,10 +133,6 @@ int main(int argc, char *argv[])
 
          case 'u':
             setup.usrname = optarg;
-            break;
-
-         case 'v':
-            setup.vrec = 1;
             break;
 
          case '4':

@@ -32,8 +32,11 @@
 #include <netinet/ip6.h>
 #endif
 #include <pthread.h>
+#ifdef HAVE_ENDIAN_H
 #include <endian.h>
-
+#elif HAVE_SYS_ENDIAN_H
+#include <sys/endian.h>
+#endif
 
 #ifndef ETHERTYPE_IPV6
 #define ETHERTYPE_IPV6 0x86dd
@@ -43,7 +46,7 @@
 //! TOR prefix: FD87:D87E:EB43::/48
 #define TOR_PREFIX {0xfd,0x87,0xd8,0x7e,0xeb,0x43}
 #define TOR_PREFIX_LEN 48
-#if __BYTE_ORDER == __LITTLE_ENDIAN
+#if BYTE_ORDER == LITTLE_ENDIAN
 #define TOR_PREFIX4 {0x0000000a}
 #define TOR_PREFIX4_MASK 0x000000ff
 #else
@@ -76,6 +79,7 @@
 //! Maximum idle time for a peer, after that time the peer is closed.
 #define MAX_IDLE_TIME 120
 #define CLEANER_WAKEUP 10
+#define STAT_WAKEUP (120/CLEANER_WAKEUP)
 
 //! log flags. word is considered as 16 bit, lower byte for level, upper byte for additional flags.
 #define L_LEVEL_MASK 0x00ff
@@ -129,18 +133,19 @@ struct OcatSetup
    uint16_t ocat_dest_port;
    //! local port of controller interface
    uint16_t ocat_ctrl_port;
-   //! enable packet validation
-   int vrec;
    //! file descriptors of TUN device (usually tunfd[0] == tunfd[1])
    int tunfd[2];
    int debug_level;
+   //! user name to change uid to
    char *usrname;
    char onion_url[ONION_NAME_SIZE];
    struct in6_addr ocat_addr;
+   //! flag to create connection log
    int create_clog;
+   //! flag to not change uid to unprivileged user
    int runasroot;
-   int urlconv;
-   int test_only;
+   //int urlconv;
+   //int test_only;
    int controller;
    char *ocat_dir;
    char *tun_dev;
@@ -266,14 +271,13 @@ struct ip6_hdr
 #ifndef WITHOUT_TUN
 #define TUN_DEV "/dev/net/tun"
 extern char *tun_dev_;
-//extern uint32_t fhd_key_;
 #endif
 
 extern pthread_mutex_t thread_mutex_;
 extern OcatThread_t *octh_;
 
 /* ocat.c */
-//extern int tunfd_[];
+
 
 /* ocatlog.c */
 int open_connect_log(const char*);
@@ -294,7 +298,6 @@ int has_tor_prefix(const struct in6_addr *);
 /* ocattun.c */
 #ifndef WITHOUT_TUN
 int tun_alloc(char *, struct in6_addr);
-void test_tun_hdr(void);
 #endif
 
 /* ocatroute.c */
@@ -336,8 +339,6 @@ void delete_peer(OcatPeer_t *);
 extern struct OcatSetup setup;
 
 /* ocatipv4route.c */
-//int ipv4_add_route(IPv4Route_t *);
-//IPv4Route_t *ipv4_lookup_route(uint32_t);
 struct in6_addr *ipv4_lookup_route(uint32_t);
 int parse_route(const char *);
 void print_routes(FILE *);
