@@ -75,9 +75,9 @@ void *thread_run(void *p)
    (void) init_ocat_thread(((OcatThread_t *)p)->name);
 
    // call thread entry function
-   log_msg(L_NOTICE, "running");
+   log_debug("starting thread");
    r = ((OcatThread_t*)p)->entry(((OcatThread_t*)p)->parm);
-   log_msg(L_NOTICE, "terminating");
+   log_debug("terminating thread");
 
    pthread_mutex_lock(&thread_mutex_);
    for (tl = &octh_; *tl; tl = &(*tl)->next)
