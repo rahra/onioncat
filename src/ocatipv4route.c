@@ -46,7 +46,7 @@ static IPv4Route_t *rroot_ = NULL;
 static pthread_mutex_t route_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 
 
-int ipv4_add_route__(IPv4Route_t *route, IPv4Route_t **root, uint32_t cur_nm)
+int ipv4_add_route(IPv4Route_t *route, IPv4Route_t **root, uint32_t cur_nm)
 {
    if (!(*root))
    {
@@ -85,20 +85,7 @@ int ipv4_add_route__(IPv4Route_t *route, IPv4Route_t **root, uint32_t cur_nm)
    cur_nm >>= 1;
    cur_nm |= 0x80000000;
 
-   //return ipv4_add_route(&(*root)->next[((route->dest & cur_nm) & ~(cur_nm << 1)) != 0], cur_nm, route);
-   return ipv4_add_route__(route, &(*root)->next[BRANCH(route->dest, cur_nm)], cur_nm);
-}
-
-
-int ipv4_add_route(IPv4Route_t *route)
-{
-   int r;
-
-   pthread_mutex_lock(&route_mutex_);
-   r = ipv4_add_route__(route, &rroot_, 0);
-   pthread_mutex_unlock(&route_mutex_);
-
-   return r;
+   return ipv4_add_route(route, &(*root)->next[BRANCH(route->dest, cur_nm)], cur_nm);
 }
 
 
@@ -116,7 +103,6 @@ IPv4Route_t *ipv4_lookup_route__(uint32_t ip, IPv4Route_t *route, uint32_t cur_n
    if (route->next[BRANCH(ip, cur_nm)])
       return ipv4_lookup_route__(ip, route->next[BRANCH(ip, cur_nm)], cur_nm);
 
-   //if (ip & (cur_nm << 1) == route->dest)
    if (memcmp(&route->gw, &in6addr_any, sizeof(struct in6_addr)))
       return route;
 
@@ -179,6 +165,7 @@ int parse_route(const char *rs)
 {
    char buf[strlen(rs) + 1], *s, *b;
    IPv4Route_t route;
+   int r;
 
    if (!rs)
       return E_RT_NULLPTR;
@@ -207,6 +194,10 @@ int parse_route(const char *rs)
    route.netmask = ntohl(route.netmask);
    route.dest = ntohl(route.dest);
 
-   return ipv4_add_route(&route);
+   pthread_mutex_lock(&route_mutex_);
+   r = ipv4_add_route(&route, &rroot_, 0);
+   pthread_mutex_unlock(&route_mutex_);
+
+   return r;
 }
 

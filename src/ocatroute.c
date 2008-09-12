@@ -50,6 +50,13 @@
 
 #include "ocat.h"
 
+#ifdef HAVE_STRUCT_IPHDR
+#define IPPKTLEN(x) ntohs(((struct iphdr*) (x))->tot_len)
+#define IPHDLEN sizeof(struct iphdr)
+#else
+#define IPPKTLEN(x) ntohs(((struct ip*) (x))->ip_len)
+#define IPHDLEN sizeof(struct ip)
+#endif
 
 // file descriptor of tcp listener
 static int sockfd_[2];
@@ -70,8 +77,6 @@ static int socks_connect_cnt_ = 0;
 static int socks_thread_cnt_ = 0;
 static pthread_mutex_t socks_queue_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t socks_queue_cond_ = PTHREAD_COND_INITIALIZER;
-
-//int vrec_ = 0;
 
 
 int forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
@@ -152,9 +157,6 @@ void *packet_dequeuer(void *p)
       pthread_mutex_lock(&queue_mutex_);
       if (timed)
       {
-#ifdef USE_CLOCK_GETTIME
-         clock_gettime(CLOCK_REALTIME, &ts);
-#else
           // replaced clock_gettime() due to portability issues
          if (gettimeofday(&tv, NULL) == -1)
          {
@@ -166,7 +168,6 @@ void *packet_dequeuer(void *p)
             ts.tv_sec = tv.tv_sec;
             ts.tv_nsec = tv.tv_usec * 1000;
          }
-#endif
          ts.tv_sec += DEQUEUER_WAKEUP;
          log_debug("timed conditional wait...");
          rc = pthread_cond_timedwait(&queue_cond_, &queue_mutex_, &ts);
@@ -416,21 +417,13 @@ void *socket_receiver(void *p)
 #endif
               
                log_debug("identified IPv4 packet");
-#ifdef HAVE_STRUCT_IPHDR
-               if ((peer->fraglen < sizeof(struct iphdr)) || (peer->fraglen < ntohs(((struct iphdr*) peer->fragbuf)->tot_len)))
-#else
-               if ((peer->fraglen < sizeof(struct ip)) || (peer->fraglen < ntohs(((struct ip*) peer->fragbuf)->ip_len)))
-#endif
+               if ((peer->fraglen < IPHDLEN) || (peer->fraglen < IPPKTLEN(peer->fragbuf)))
                {
                   log_debug("keeping %d bytes frag", peer->fraglen);
                   break;
                }
 
-#ifdef HAVE_STRUCT_IPHDR
-               len = ntohs(((struct iphdr*) peer->fragbuf)->tot_len);
-#else
-               len = ntohs(((struct ip*) peer->fragbuf)->ip_len);
-#endif
+               len = IPPKTLEN(peer->fragbuf);
                peer->fraghdr = setup.fhd_key[IPV4_KEY];
             }
             else
@@ -516,7 +509,7 @@ int insert_peer(int fd, const struct in6_addr *addr, time_t dly)
 {
    OcatPeer_t *peer;
 
-   log_msg(L_INFO | L_FCONN, "inserting peer fd %d", fd);
+   log_msg(L_NOTICE | L_FCONN, "inserting peer fd %d to active peer list", fd);
 
    set_nonblock(fd);
 
@@ -596,7 +589,7 @@ int create_listener(struct sockaddr *addr, int sock_len)
       return -1;
    }
 
-   log_msg(L_NOTICE, "created listener, fd = %d", fd);
+   log_debug("created listener, fd = %d", fd);
    return fd;
 }
 
@@ -710,7 +703,7 @@ int socks_connect(const struct in6_addr *addr)
    ipv6tonion(addr, onion);
    strlcat(onion, ".onion", sizeof(onion));
 
-   log_msg(L_NOTICE, "trying to connecto to \"%s\" [%s]", onion, inet_ntop(AF_INET6, addr, buf, FRAME_SIZE));
+   log_msg(L_NOTICE, "trying to connect to \"%s\" [%s]", onion, inet_ntop(AF_INET6, addr, buf, FRAME_SIZE));
 
    if ((fd = socket(PF_INET, SOCK_STREAM, 0)) < 0)
       return E_SOCKS_SOCK;
@@ -833,7 +826,7 @@ void *socks_connector(void *p)
          log_msg(L_NOTICE, "peer already exists, ignoring");
 
       // remove request from queue after connect
-      log_msg(L_NOTICE, "removing from SOCKS queue");
+      log_debug("removing destination from SOCKS queue");
       pthread_mutex_lock(&socks_queue_mutex_);
       sq = *squeue;
       *squeue = (*squeue)->next;
@@ -895,11 +888,7 @@ void packet_forwarder(void)
       }
       else if (*((uint32_t*) buf) == setup.fhd_key[IPV4_KEY])
       {
-#ifdef HAVE_STRUCT_IPHDR
-         if (((rlen - 4) < sizeof(struct iphdr)))
-#else
-         if (((rlen - 4) < sizeof(struct ip)))
-#endif
+         if (((rlen - 4) < IPHDLEN))
          {
             log_debug("IPv4 packet too short (%d bytes). dropping", rlen - 4);
             continue;
@@ -925,7 +914,7 @@ void packet_forwarder(void)
       // now forward either directly or to the queue
       if (forward_packet(dest, buf + 4, rlen - 4) == E_FWD_NOPEER)
       {
-         log_msg(L_NOTICE, "establishing new socks peer");
+         log_debug("adding destination to SOCKS queue");
          socks_queue(dest);
          log_debug("queuing packet");
          queue_packet(dest, buf + 4, rlen - 4);
