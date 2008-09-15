@@ -1,13 +1,8 @@
 * forward multicasting packets (ff00::/8)
-* IPv4 forwarding + routing
-* tun-header packet dependent
-* create some kind of connection log
 * frame checking may be improved
 * improve getopt() -- currently many things are hardcoded
-* improve tun header test (check for src and dst ip)
 * generally improve tun opening routine
 * header compression
-* fragment handler
 * log levels and log output are currently somehow random
 * interaction with OS routing table to be able to forward packets to "foreign" networks beside the TOR prefix
 * peer list should be improved
@@ -20,3 +15,8 @@
 //* replace clock_gettime() by time(), no accuracy needed
 //* replace all socket write()s by send()
 //* licence
+//* improve tun header test (check for src and dst ip)
+//* create some kind of connection log
+//* tun-header packet dependent
+//* IPv4 forwarding + routing
+//* fragment handler
