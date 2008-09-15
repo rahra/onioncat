@@ -115,6 +115,8 @@
 #define E_RT_ILLNM -3
 #define E_RT_SYNTAX -4
 #define E_RT_NULLPTR -5
+#define E_RT_NOTORGW -6
+#define E_RT_GWSELF -7
 
 
 #define IPV4_KEY 0

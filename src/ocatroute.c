@@ -1023,7 +1023,7 @@ void *ctrl_handler(void *p)
    for (;;)
    {
       if (setup.config_read)
-         fprintf(fo, "> ");
+         fprintf(fo, "%s> ", setup.onion_url);
 
       c = getc(ff);
       if (c == EOF)
@@ -1119,8 +1119,22 @@ void *ctrl_handler(void *p)
       {
          if (rlen > 6)
          {
-            if ((c = parse_route(&buf[6])))
-               fprintf(ff, "ERR %d\n", c);
+            c = parse_route(&buf[6]);
+            switch (c)
+            {
+               case E_RT_NOTORGW:
+                  s = "gateway has not TOR prefix";
+                  break;
+
+               case E_RT_GWSELF:
+                  s = "gateway points to me";
+                  break;
+
+               default:
+                  s = "";
+            }
+            if (c)
+               fprintf(ff, "ERR %d %s\n", c, s);
          }
          else
             print_routes(fo);
