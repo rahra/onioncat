@@ -15,23 +15,12 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*! ocatsetup.c
- *  This file contains the global settings structure.
- *
- *  @author Bernhard Fischer <rahra _at_ cypherpunk at>
- *  @version 2008/02/03-01
- */
-
 #include "config.h"
 
-#include "ocat.h"
-
-struct OcatSetup setup = {{0, 0}, TOR_SOCKS_PORT, OCAT_LISTEN_PORT, OCAT_DEST_PORT, OCAT_CTRL_PORT, 
-   //! default tunfd is stdin/stdout
-   {0, 1},
-   4, OCAT_UNAME, {0}, {{{0}}}, 0, 0, 1, OCAT_DIR, TUN_DEV,
-   0, TOR_PREFIX4, TOR_PREFIX4_MASK,
-   NULL, 1,
-   0        // use_tap
-};
+#ifndef HAVE_STRLCAT
+#include "strlcat.c"
+#endif
+#ifndef HAVE_STRLCPY
+#include "strlcpy.c"
+#endif
 

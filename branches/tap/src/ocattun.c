@@ -83,10 +83,13 @@ int tun_alloc(char *dev, struct in6_addr addr)
    if (ioctl(fd, TUNSETIFF, (void *) &ifr) < 0)
       perror("TUNSETIFF"), exit(1);
    strlcpy(dev, ifr.ifr_name, IFNAMSIZ);
-   sprintf(buf, "ifconfig %s add %s/%d up", dev, astr, TOR_PREFIX_LEN);
-   log_msg(L_NOTICE, "configuring tun IP: \"%s\"", buf);
-   if (system(buf) == -1)
-      log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+   if (!setup.use_tap)
+   {
+      sprintf(buf, "ifconfig %s add %s/%d up", dev, astr, TOR_PREFIX_LEN);
+      log_msg(L_NOTICE, "configuring tun IP: \"%s\"", buf);
+      if (system(buf) == -1)
+         log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+   }
 
    // according to drivers/net/tun.c only IFF_MULTICAST and IFF_PROMISC are supported.
 /*   ifr.ifr_flags = IFF_UP | IFF_RUNNING | IFF_MULTICAST | IFF_NOARP;
@@ -115,18 +118,30 @@ int tun_alloc(char *dev, struct in6_addr addr)
 
 #endif
 
-   sprintf(buf, "ifconfig tun0 inet6 %s/%d up", astr, TOR_PREFIX_LEN);
-   log_debug("setting IP on tun: \"%s\"", buf);
-   if (system(buf) == -1)
-      log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+   if (!setup.use_tap)
+   {
+      sprintf(buf, "ifconfig tun0 inet6 %s/%d up", astr, TOR_PREFIX_LEN);
+      log_debug("setting IP on tun: \"%s\"", buf);
+      if (system(buf) == -1)
+         log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+   }
 
 #endif
 
    // setting up IPv4 address
-   if (setup.ipv4_enable)
+   if (setup.ipv4_enable && !setup.use_tap)
    {
       sprintf(buf, "ifconfig %s %s netmask %s", dev, astr4, inet_ntoa(netmask));
       log_msg(L_NOTICE, "configuring tun IP: \"%s\"", buf);
+      if (system(buf) == -1)
+         log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+   }
+
+   // bring up tap device
+   if (setup.use_tap)
+   {
+       sprintf(buf, "ifconfig %s up", dev);
+      log_msg(L_NOTICE, "bringing up TAP device \"%s\"", buf);
       if (system(buf) == -1)
          log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
    }

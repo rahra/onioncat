@@ -37,6 +37,7 @@
 #elif HAVE_SYS_ENDIAN_H
 #include <sys/endian.h>
 #endif
+#include <net/ethernet.h>
 
 #ifndef ETHERTYPE_IPV6
 #define ETHERTYPE_IPV6 0x86dd
@@ -118,6 +119,10 @@
 #define E_RT_NOTORGW -6
 #define E_RT_GWSELF -7
 
+//! maximum number of MAC address entries in table
+#define MAX_MAC_ENTRY 128
+//! maximum age of MAC address in table
+#define MAX_MAC_AGE 120
 
 #define IPV4_KEY 0
 #define IPV6_KEY 1
@@ -157,6 +162,8 @@ struct OcatSetup
    char *config_file;
    int config_read;
    int use_tap;
+   int icmpv6fd[2];
+   uint8_t ocat_hwaddr[ETH_ALEN];
 };
 
 typedef struct PacketQueue
@@ -174,7 +181,7 @@ typedef struct SocksHdr
    char cmd;
    uint16_t port;
    struct in_addr addr;
-} __attribute__ ((packed)) SocksHdr_t;
+} __attribute__((packed)) SocksHdr_t;
 
 typedef struct OcatPeer
 {
@@ -192,7 +199,7 @@ typedef struct OcatPeer
    char fragbuf[FRAME_SIZE - 4]; //!< (de)frag buffer
    int fraglen;            //!< current frag buffer size
    pthread_mutex_t mutex;  //!< mutex for thread locking
-} OcatPeer_t;
+} __attribute__((packed)) OcatPeer_t;
 
 typedef struct OcatThread
 {
@@ -218,6 +225,13 @@ typedef struct IPv4Route
    uint32_t netmask;
    struct in6_addr gw;
 } IPv4Route_t;
+
+typedef struct MACTable
+{
+   struct in6_addr in6addr;
+   uint8_t hwaddr[ETH_ALEN];
+   time_t age;
+} MACTable_t;
 
 /*
 // next header value for ocat internal use (RFC3692)
@@ -285,7 +299,7 @@ extern OcatThread_t *octh_;
 /* ocatlog.c */
 int open_connect_log(const char*);
 void log_msg(int, const char *, ...);
-//#define DEBUG
+#define DEBUG
 #ifdef DEBUG
 #define log_debug(x...) log_msg(L_DEBUG, ## x)
 #else
@@ -346,6 +360,8 @@ struct in6_addr *ipv4_lookup_route(uint32_t);
 int parse_route(const char *);
 void print_routes(FILE *);
 
+/* ocateth.c */
+void *icmpv6_handler(void *);
 
 #endif
 
