@@ -51,6 +51,7 @@ void usage(const char *s)
          "   -i                    convert onion hostname to IPv6 and exit\n"
          "   -l <port>             set ocat listen port, default = %d\n"
          "   -o <ipv6_addr>        convert IPv6 address to onion url and exit\n"
+         "   -p                    use TAP device instead of TUN\n"
          "   -r                    run as root, i.e. do not change uid/gid\n"
          "   -s <port>             set hidden service virtual port, default = %d\n"
          "   -t <port>             set tor SOCKS port, default = %d\n"
@@ -110,6 +111,10 @@ int main(int argc, char *argv[])
 
          case 'o':
             urlconv = 2;
+            break;
+
+         case 'p':
+            setup.use_tap = 1;
             break;
 
          case 'r':

@@ -156,6 +156,7 @@ struct OcatSetup
    int ocat_addr4_mask;
    char *config_file;
    int config_read;
+   int use_tap;
 };
 
 typedef struct PacketQueue

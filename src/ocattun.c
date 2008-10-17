@@ -72,7 +72,10 @@ int tun_alloc(char *dev, struct in6_addr addr)
 #ifdef __linux__
 
    memset(&ifr, 0, sizeof(ifr));
-   ifr.ifr_flags = IFF_TUN;
+   if (setup.use_tap)
+      ifr.ifr_flags = IFF_TAP;
+   else
+      ifr.ifr_flags = IFF_TUN;
    //ifr.ifr_flags |= IFF_NO_PI;
    if (*dev)
       strncpy(ifr.ifr_name, dev, IFNAMSIZ);
