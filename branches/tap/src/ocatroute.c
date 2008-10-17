@@ -851,8 +851,6 @@ void *socks_connector(void *p)
 }
 
 
-#define PACKET_LOG
-
 void packet_forwarder(void)
 {
    char buf[FRAME_SIZE];
@@ -903,15 +901,18 @@ void packet_forwarder(void)
          if (eh->ether_dhost[0] & 1)
          {
             log_debug("forwarding %d bytes eth multicast to icmp pipe", rlen);
+            ndp_solicit(buf, rlen);
+            /*
             if (write(setup.icmpv6fd[1], buf, rlen) < rlen)
                log_msg(L_ERROR, "error writing to icmp pipe");
+               */
             continue;
          }
          // remove ethernet header from buffer
          // FIXME: it would be better to adjust pointers instead of moving data
          if (memcmp(eh->ether_dhost, setup.ocat_hwaddr, ETH_ALEN))
          {
-            log_msg(L_ERROR, "destination MAC is not OCat, dropping frame");
+            log_msg(L_ERROR, "destination MAC is not OnionCat, dropping frame");
             continue;
          }
          memmove(eh, eh + 1, rlen - 4 - sizeof(struct ether_header));

@@ -33,7 +33,6 @@ struct OcatSetup setup = {{0, 0}, TOR_SOCKS_PORT, OCAT_LISTEN_PORT, OCAT_DEST_PO
    0, TOR_PREFIX4, TOR_PREFIX4_MASK,
    NULL, 1,
    0,         // use_tap
-   {-1, -1},  // icmpv6fd
    {0x00, 0x00, 0x6c, 0x00, 0x00, 0x00}   // ocat_hwaddr (OnionCat MAC address)
 };
 

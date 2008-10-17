@@ -162,7 +162,7 @@ struct OcatSetup
    char *config_file;
    int config_read;
    int use_tap;
-   int icmpv6fd[2];
+   //int icmpv6fd[2];
    uint8_t ocat_hwaddr[ETH_ALEN];
 };
 
@@ -225,6 +225,16 @@ typedef struct IPv4Route
    uint32_t netmask;
    struct in6_addr gw;
 } IPv4Route_t;
+
+//! IPv6 pseudo header used for checksum calculation
+struct ip6_psh
+{
+   struct in6_addr src;
+   struct in6_addr dst;
+   uint32_t len;
+   char _pad[3];
+   uint8_t nxt;
+} __attribute__((packed));
 
 typedef struct MACTable
 {
@@ -361,7 +371,7 @@ int parse_route(const char *);
 void print_routes(FILE *);
 
 /* ocateth.c */
-void *icmpv6_handler(void *);
+int ndp_solicit(char *, int);
 
 #endif
 
