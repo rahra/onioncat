@@ -62,6 +62,10 @@ static pthread_mutex_t mac_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 /*! Pseudo header for IPv6 checksum calculation.
  *  RFC2460 8.1, (RFC1885 2.3) RFC2463, RFC1071. */
 
+/* IPv6 Ethernet Multicast: (MAC) 33:33:xx:xx:xx:xx, xx -> 4 lowest order bytes of IPv6 source.
+ * Solicited-Node address: (IPv6) FF02:0:0:0:0:1:ffxx:xxxx, -> xx -> 3 lowest order bytes of IPv6 Source. (RFC4291)
+ * IPv4 Ethernet Multicast: 01:00:5e:0xx:xx:xx, */
+
 void mac_cleanup(void)
 {
    int i;
@@ -193,6 +197,18 @@ uint16_t *malloc_ckbuf(const struct in6_addr *src, const struct in6_addr *dst, u
 }
 
 
+int ndp_(const struct in6_addr *in6)
+{
+   char buf[FRAME_SIZE];
+   struct ether_header *eh = (struct ether_header*) (buf + 4);
+   struct ip6_hdr *ip6 = (struct ip6_hdr*) (eh + 1); // ip6 header starts behind ether_header
+   struct nd_neighbor_solicit *nds = (struct nd_neighbor_solicit*) ip6;
+   struct nd_opt_hdr *ohd = (struct nd_opt_hdr*) (nds + 1);
+   uint16_t *ckb, cksum;
+
+}
+
+
 int ndp_solicit(char *buf, int rlen)
 {
    struct ether_header *eh = (struct ether_header*) (buf + 4);
@@ -238,14 +254,6 @@ int ndp_solicit(char *buf, int rlen)
       return -1;
    }
 
-   /*
-   memcpy(&ip6ph->src, &ip6->ip6_src, sizeof(struct in6_addr));
-   memcpy(&ip6ph->dst, &ip6->ip6_dst, sizeof(struct in6_addr));
-   ip6ph->len = ip6->ip6_plen;
-   ip6ph->nxt = IPPROTO_ICMPV6;
-   memcpy(ip6ph + 1, icmp6, ntohs(ip6->ip6_plen));
-   */
-
    ckb = malloc_ckbuf(&ip6->ip6_src, &ip6->ip6_dst, ntohs(ip6->ip6_plen), IPPROTO_ICMPV6, icmp6);
    cksum = checksum(ckb, ntohs(ip6->ip6_plen) + sizeof(struct ip6_psh));
    free_ckbuf(ckb);
@@ -274,14 +282,6 @@ int ndp_solicit(char *buf, int rlen)
    nda->nd_na_flags_reserved = ND_NA_FLAG_SOLICITED;
    ohd->nd_opt_type = ND_OPT_TARGET_LINKADDR;
    memcpy(ohd + 1, setup.ocat_hwaddr, ETH_ALEN);
-
-   /*
-   memcpy(&ip6ph->src, &ip6->ip6_src, sizeof(struct in6_addr));
-   memcpy(&ip6ph->dst, &ip6->ip6_dst, sizeof(struct in6_addr));
-   ip6ph->len = ip6->ip6_plen;
-   ip6ph->nxt = IPPROTO_ICMPV6;
-   memcpy(ip6ph + 1, icmp6, ntohs(ip6->ip6_plen));
-   */
 
    ckb = malloc_ckbuf(&ip6->ip6_src, &ip6->ip6_dst, ntohs(ip6->ip6_plen), IPPROTO_ICMPV6, icmp6);
    nda->nd_na_hdr.icmp6_cksum = checksum(ckb, ntohs(ip6->ip6_plen) + sizeof(struct ip6_psh));
