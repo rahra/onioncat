@@ -200,12 +200,26 @@ int main(int argc, char *argv[])
       ctrl_handler((void*) c);
    }
 
+   memcpy(&setup.ocat_hwaddr[3], &setup.ocat_addr.s6_addr[13], 3);
+   if (setup.use_tap);
+   {
+      log_msg(L_NOTICE, "MAC address %02x:%02x:%02x:%02x:%02x:%02x",
+            setup.ocat_hwaddr[0], setup.ocat_hwaddr[1], setup.ocat_hwaddr[2], setup.ocat_hwaddr[3], setup.ocat_hwaddr[4], setup.ocat_hwaddr[5]);
+      if (pipe(setup.icmpv6fd) == -1)
+         log_msg(L_FATAL, "cannot create multicast pipe: %s", strerror(errno)), exit(1);
+      run_ocat_thread("icmpv6", icmpv6_handler, NULL);
+   }
+
 #ifndef WITHOUT_TUN
    // create TUN device
    setup.tunfd[0] = setup.tunfd[1] = tun_alloc(tunname, setup.ocat_addr);
 #endif
 
-   log_msg(L_NOTICE, "local IP is %s on %s", ip6addr, tunname);
+   log_msg(L_NOTICE, "IPv6 address %s", ip6addr);
+   log_msg(L_NOTICE, "TUN/TAP device %s", tunname);
+   if (setup.ipv4_enable)
+      log_msg(L_NOTICE, "IP address %s", inet_ntoa(setup.ocat_addr4));
+ 
    log_debug("tun frameheader v6 = 0x%08x, v4 = 0x%08x", ntohl(setup.fhd_key[IPV6_KEY]), ntohl(setup.fhd_key[IPV4_KEY]));
 
    // start socket receiver thread

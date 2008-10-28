@@ -81,7 +81,8 @@ OcatPeer_t *search_peer(const struct in6_addr *addr)
    OcatPeer_t *peer;
 
    for (peer = peer_; peer; peer = peer->next)
-      if (!memcmp(addr, &peer->addr, sizeof(struct in6_addr)))
+      //if (!memcmp(addr, &peer->addr, sizeof(struct in6_addr)))
+      if (IN6_ARE_ADDR_EQUAL(addr, &peer->addr))
          return peer;
    return NULL;
 }

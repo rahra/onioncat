@@ -36,6 +36,7 @@
 #include <sys/time.h>
 #include <sys/select.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #ifdef HAVE_LINUX_SOCKIOS_H
@@ -47,6 +48,8 @@
 #ifdef HAVE_NETINET_IP_H
 #include <netinet/ip.h>
 #endif
+
+#include <net/ethernet.h>
 
 #include "ocat.h"
 
@@ -434,7 +437,8 @@ void *socket_receiver(void *p)
             }
 
             // set IP address if it is not set yet and frame is valid
-            if (!memcmp(&peer->addr, &in6addr_any, sizeof(struct in6_addr)))
+            //if (!memcmp(&peer->addr, &in6addr_any, sizeof(struct in6_addr)))
+            if (IN6_ARE_ADDR_EQUAL(&peer->addr, &in6addr_any))
             {
                if (*peer->tunhdr == setup.fhd_key[IPV6_KEY])
                   memcpy(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src, sizeof(struct in6_addr));
@@ -764,7 +768,8 @@ void socks_queue(const struct in6_addr *addr, int perm)
 
    pthread_mutex_lock(&socks_queue_mutex_);
    for (squeue = socks_queue_; squeue; squeue = squeue->next)
-      if (!memcmp(&squeue->addr, addr, sizeof(struct in6_addr)))
+      //if (!memcmp(&squeue->addr, addr, sizeof(struct in6_addr)))
+      if (IN6_ARE_ADDR_EQUAL(&squeue->addr, addr))
          break;
    if (!squeue)
    {
@@ -850,12 +855,22 @@ void *socks_connector(void *p)
 }
 
 
+#define PACKET_LOG
+
 void packet_forwarder(void)
 {
    char buf[FRAME_SIZE];
    int rlen;
    struct in6_addr *dest;
    struct in_addr in;
+   struct ether_header *eh = (struct ether_header*) &buf[4];
+#ifdef PACKET_LOG
+   int pktlog;
+
+   log_debug("opening packetlog");
+   if ((pktlog = open("pkt_log", O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR)) == -1)
+      log_debug("could not open packet log: %s", strerror(errno));
+#endif
 
    for (;;)
    {
@@ -873,6 +888,38 @@ void packet_forwarder(void)
       }
 
       log_debug("received on tunfd %d, framesize %d + 4", setup.tunfd[0], rlen - 4);
+
+#ifdef PACKET_LOG
+      if ((pktlog != -1) && (write(pktlog, buf, rlen) == -1))
+         log_debug("could write frame to packet log: %s", strerror(errno));
+#endif
+
+      // just to be on the safe side but this should never happen
+      if ((!setup.use_tap && (rlen < 4)) || (setup.use_tap && (rlen < 4 + sizeof(struct ether_header))))
+      {
+         log_msg(L_ERROR, "frame effektively too short (rlen = %d)", rlen);
+         continue;
+      }
+
+      // in case of TAP device handle ethernet header
+      if (setup.use_tap)
+      {
+         if (eh->ether_dhost[0] & 1)
+         {
+            log_debug("forwarding %d bytes eth multicast to icmp pipe", rlen);
+            if (write(setup.icmpv6fd[1], buf, rlen) < rlen)
+               log_msg(L_ERROR, "error writing to icmp pipe");
+            continue;
+         }
+         // remove ethernet header from buffer
+         // FIXME: it would be better to adjust pointers instead of moving data
+         if (memcmp(eh->ether_dhost, setup.ocat_hwaddr, ETH_ALEN))
+         {
+            log_msg(L_ERROR, "destination MAC is not OCat, dropping frame");
+            continue;
+         }
+         memmove(eh, eh + 1, rlen - 4 - sizeof(struct ether_header));
+      }
 
       if (*((uint32_t*) buf) == setup.fhd_key[IPV6_KEY])
       {
