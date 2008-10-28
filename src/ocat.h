@@ -127,6 +127,7 @@ struct OcatSetup
    //! frame header of local OS in network byte order
    //! it is initialized in ocattun.c
    uint32_t fhd_key[2];
+   int fhd_key_len;
    //! TCP port of SOCKS port of local Tor proxy
    uint16_t tor_socks_port;
    //! reload port of OnionCat listening for connections
@@ -188,10 +189,12 @@ typedef struct OcatPeer
    int dir;                //!< direction this session was opened
    unsigned long out;      //!< bytes output
    unsigned long in;       //!< bytes input
-   uint32_t fraghdr;       //!< local tun frame header
-   char fragbuf[FRAME_SIZE - 4]; //!< (de)frag buffer
+   uint32_t *tunhdr;       //!< pointer to local tun frame header
+   char *fragbuf;          //!< pointer to (de)frag buffer
+   char _fragbuf[FRAME_SIZE]; //!< (de)frag buffer
    int fraglen;            //!< current frag buffer size
    pthread_mutex_t mutex;  //!< mutex for thread locking
+   int perm;               //!< keep peer permanently open
 } OcatPeer_t;
 
 typedef struct OcatThread
@@ -209,6 +212,7 @@ typedef struct SocksQueue
    struct SocksQueue *next;
    struct in6_addr addr;
    int state;
+   int perm;
 } SocksQueue_t;
 
 typedef struct IPv4Route
@@ -285,7 +289,7 @@ extern OcatThread_t *octh_;
 /* ocatlog.c */
 int open_connect_log(const char*);
 void log_msg(int, const char *, ...);
-//#define DEBUG
+#define DEBUG
 #ifdef DEBUG
 #define log_debug(x...) log_msg(L_DEBUG, ## x)
 #else

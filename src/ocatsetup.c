@@ -26,7 +26,12 @@
 
 #include "ocat.h"
 
-struct OcatSetup setup = {{0, 0}, TOR_SOCKS_PORT, OCAT_LISTEN_PORT, OCAT_DEST_PORT, OCAT_CTRL_PORT, 
+struct OcatSetup setup = {
+   // fhd_keys
+   {0, 0},
+   // fhd_key_len
+   sizeof(uint32_t),
+   TOR_SOCKS_PORT, OCAT_LISTEN_PORT, OCAT_DEST_PORT, OCAT_CTRL_PORT, 
    //! default tunfd is stdin/stdout
    {0, 1},
    4, OCAT_UNAME, {0}, {{{0}}}, 0, 0, 1, OCAT_DIR, TUN_DEV,

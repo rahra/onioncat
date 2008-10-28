@@ -392,7 +392,7 @@ void *socket_receiver(void *p)
                }
 
                len = ntohs(((struct ip6_hdr*)peer->fragbuf)->ip6_plen) + IP6HLEN;
-               peer->fraghdr = setup.fhd_key[IPV6_KEY];
+               *peer->tunhdr = setup.fhd_key[IPV6_KEY];
             }
             // incoming packet seems to be IPv4
             else if ((peer->fragbuf[0] & 0xf0) == 0x40)
@@ -424,7 +424,7 @@ void *socket_receiver(void *p)
                }
 
                len = IPPKTLEN(peer->fragbuf);
-               peer->fraghdr = setup.fhd_key[IPV4_KEY];
+               *peer->tunhdr = setup.fhd_key[IPV4_KEY];
             }
             else
             {
@@ -436,9 +436,9 @@ void *socket_receiver(void *p)
             // set IP address if it is not set yet and frame is valid
             if (!memcmp(&peer->addr, &in6addr_any, sizeof(struct in6_addr)))
             {
-               if (peer->fraghdr == setup.fhd_key[IPV6_KEY])
+               if (*peer->tunhdr == setup.fhd_key[IPV6_KEY])
                   memcpy(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src, sizeof(struct in6_addr));
-               else if (peer->fraghdr == setup.fhd_key[IPV4_KEY])
+               else if (*peer->tunhdr == setup.fhd_key[IPV4_KEY])
                {
                   // check if there is a route back
 #ifdef HAVE_STRUCT_IPHDR
@@ -462,7 +462,7 @@ void *socket_receiver(void *p)
             if (!drop)
             {
                log_debug("writing to tun %d framesize %d + 4", setup.tunfd[1], len);
-               if (write(setup.tunfd[1], &peer->fraghdr, len + 4) != (len + 4))
+               if (write(setup.tunfd[1], peer->tunhdr, len + 4) != (len + 4))
                   log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len + 4, setup.tunfd[1]);
             }
             else
@@ -505,7 +505,7 @@ void set_nonblock(int fd)
 }
 
 
-int insert_peer(int fd, const struct in6_addr *addr, time_t dly)
+int insert_peer(int fd, const SocksQueue_t *sq, /*const struct in6_addr *addr,*/ time_t dly)
 {
    OcatPeer_t *peer;
 
@@ -527,10 +527,11 @@ int insert_peer(int fd, const struct in6_addr *addr, time_t dly)
    peer->state = PEER_ACTIVE;
    peer->otime = peer->time = time(NULL);
    peer->sdelay = dly;
-   if (addr)
+   if (sq)
    {
-      memcpy(&peer->addr, addr, sizeof(struct in6_addr));
+      memcpy(&peer->addr, &sq->addr, sizeof(struct in6_addr));
       peer->dir = PEER_OUTGOING;
+      peer->perm = sq->perm;
    }
    else
       peer->dir = PEER_INCOMING;
@@ -683,7 +684,8 @@ void *socket_acceptor(void *p)
 }
 
 
-int socks_connect(const struct in6_addr *addr)
+int socks_connect(const SocksQueue_t *sq)
+//int socks_connect(const struct in6_addr *addr)
 {
    struct sockaddr_in in;
    int fd, t, len;
@@ -700,10 +702,10 @@ int socks_connect(const struct in6_addr *addr)
    in.sin_len = sizeof(in);
 #endif
 
-   ipv6tonion(addr, onion);
+   ipv6tonion(&sq->addr, onion);
    strlcat(onion, ".onion", sizeof(onion));
 
-   log_msg(L_NOTICE, "trying to connect to \"%s\" [%s]", onion, inet_ntop(AF_INET6, addr, buf, FRAME_SIZE));
+   log_msg(L_NOTICE, "trying to connect to \"%s\" [%s]", onion, inet_ntop(AF_INET6, &sq->addr, buf, FRAME_SIZE));
 
    if ((fd = socket(PF_INET, SOCK_STREAM, 0)) < 0)
       return E_SOCKS_SOCK;
@@ -750,13 +752,13 @@ int socks_connect(const struct in6_addr *addr)
    }
    log_msg(L_NOTICE | L_FCONN, "connection to %s successfully opened on fd %d", onion, fd);
 
-   insert_peer(fd, addr, time(NULL) - t);
+   insert_peer(fd, sq, time(NULL) - t);
 
    return fd;
 }
 
 
-void socks_queue(const struct in6_addr *addr)
+void socks_queue(const struct in6_addr *addr, int perm)
 {
    SocksQueue_t *squeue;
 
@@ -770,6 +772,7 @@ void socks_queue(const struct in6_addr *addr)
       if (!(squeue = calloc(1, sizeof(SocksQueue_t))))
          log_msg(L_FATAL, "could not get memory for SocksQueue entry: \"%s\"", strerror(errno)), exit(1);
       memcpy(&squeue->addr, addr, sizeof(struct in6_addr));
+      squeue->perm = perm;
       squeue->next = socks_queue_;
       socks_queue_ = squeue;
       log_debug("signalling connector");
@@ -821,7 +824,8 @@ void *socks_connector(void *p)
       // connect via SOCKS if no peer exists
       if (!peer)
          for (i = 0, ps = -1; i < SOCKS_MAX_RETRY && ps < 0; i++)
-            ps = socks_connect(&(*squeue)->addr);
+            ps = socks_connect(*squeue);
+            //ps = socks_connect(&(*squeue)->addr);
       else
          log_msg(L_NOTICE, "peer already exists, ignoring");
 
@@ -915,7 +919,7 @@ void packet_forwarder(void)
       if (forward_packet(dest, buf + 4, rlen - 4) == E_FWD_NOPEER)
       {
          log_debug("adding destination to SOCKS queue");
-         socks_queue(dest);
+         socks_queue(dest, 0);
          log_debug("queuing packet");
          queue_packet(dest, buf + 4, rlen - 4);
       }
@@ -943,7 +947,7 @@ void *socket_cleaner(void *ptr)
       for (p = get_first_peer_ptr(); *p; p = &(*p)->next)
       {
          lock_peer(*p);
-         if ((*p)->state && (*p)->time + MAX_IDLE_TIME < time(NULL))
+         if ((*p)->state && !(*p)->perm && (*p)->time + MAX_IDLE_TIME < time(NULL))
          {
             peer = *p;
             *p = peer->next;
@@ -986,11 +990,12 @@ void *ctrl_handler(void *p)
 {
    int fd, c;
    FILE *ff, *fo;
-   char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[ONION_NAME_SIZE], timestr[32], *s;
+   char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[ONION_NAME_SIZE], timestr[32], *s, *tokbuf;
    int rlen, cfd;
    struct tm *tm;
    OcatThread_t *th;
    OcatPeer_t *peer;
+   struct in6_addr in6;
 
    if ((rlen = pthread_detach(pthread_self())))
       log_msg(L_ERROR, "thread couldn't self-detach: \"%s\"", strerror(rlen));
@@ -1055,14 +1060,14 @@ void *ctrl_handler(void *p)
       if (!(rlen = _remtr(buf)))
          continue;
 
-      if (!strtok_r(buf, " \t\r\n", &s))
+      if (!strtok_r(buf, " \t\r\n", &tokbuf))
          continue;
 
       // "exit"/"quit" => terminate thread
       if (!strncmp(buf, "exit", 4) || !strncmp(buf, "quit", 4))
          break;
       // "status"
-      else if (!strncmp(buf, "status", 6))
+      else if (!strcmp(buf, "status"))
       {
          lock_peers();
          for (peer = get_first_peer(); peer; peer = peer->next)
@@ -1071,15 +1076,17 @@ void *ctrl_handler(void *p)
             {
                tm = localtime(&peer->otime);
                strftime(timestr, 32, "%c", tm);
-               fprintf(fo, "[%s]\n fd = %d\n addr = %s\n dir = \"%s\"\n idle = %lds\n bytes_in = %ld\n bytes_out = %ld\n setup_delay = %lds\n opening_time = \"%s\"\n",
-                     ipv6tonion(&peer->addr, onionstr), peer->tcpfd,
+               fprintf(fo, "[%s]\n fd = %d\n addr = %s\n dir = \"%s\" (%d)\n idle = %lds\n bytes_in = %ld\n bytes_out = %ld\n setup_delay = %lds\n opening_time = \"%s\"\n conn type = \"%s\" (%d)\n",
+                     IN6_IS_ADDR_UNSPECIFIED(&peer->addr) ? "--unidentified--" : ipv6tonion(&peer->addr, onionstr), peer->tcpfd,
                      inet_ntop(AF_INET6, &peer->addr, addrstr, INET6_ADDRSTRLEN),
-                     peer->dir == PEER_INCOMING ? "in" : "out",
-                     time(NULL) - peer->time, peer->in, peer->out, peer->sdelay, timestr);
+                     peer->dir == PEER_INCOMING ? "IN" : "OUT", peer->dir,
+                     time(NULL) - peer->time, peer->in, peer->out, peer->sdelay, timestr,
+                     peer->perm ? "PERMANENT" : "TEMPORARY", peer->perm
+                     );
             }
          unlock_peers();
       }
-      else if (!strncmp(buf, "close ", 6))
+      else if (!strcmp(buf, "close"))
       {
          cfd = atoi(&buf[6]);
          lock_peers();
@@ -1139,9 +1146,29 @@ void *ctrl_handler(void *p)
          else
             print_routes(fo);
       }
+      //else if (!strncmp(buf, "connect", 7))
+      else if (!strcmp(buf, "connect"))
+      {
+         if ((s = strtok_r(NULL, " \t\r\n", &tokbuf)))
+         {
+            if ((strlen(s) != 16) || (oniontipv6(s, &in6) == -1))
+               fprintf(ff, "ERR \"%s\" not valid .onion-URL\n", &buf[8]);
+            else
+            {
+               if (!(s = strtok_r(NULL, " \t\r\n", &tokbuf)))
+                  socks_queue(&in6, 0);
+               else if (!strcmp(s, "perm"))
+                  socks_queue(&in6, 1);
+               else
+                  fprintf(ff, "ERR unknown param \"%s\"\n", s);
+            }
+         }
+         else
+            fprintf(ff, "ERR missing args\n");
+      }
       else if (!strncmp(buf, "help", 4))
       {
-         fprintf(fo, "commands:\nexit\nquit\nterminate\nclose <n>\nstatus\nthreads\nfds\nroute [<destination IP> <netmask> <IPv6 gateway>]\n");
+         fprintf(fo, "commands:\nexit\nquit\nterminate\nclose <n>\nstatus\nthreads\nfds\nroute [<destination IP> <netmask> <IPv6 gateway>]\nconnect <.onion-URL> [\"perm\"]\n");
       }
       else
       {
