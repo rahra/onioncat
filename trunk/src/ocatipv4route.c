@@ -61,13 +61,15 @@ int ipv4_add_route(IPv4Route_t *route, IPv4Route_t **root, uint32_t cur_nm)
 
    if (route->netmask == cur_nm /*(*root)->netmask*/)
    {
-      if (!memcmp(&(*root)->gw, &in6addr_any, sizeof(struct in6_addr)))
+      //if (!memcmp(&(*root)->gw, &in6addr_any, sizeof(struct in6_addr)))
+      if (IN6_ARE_ADDR_EQUAL(&(*root)->gw, &in6addr_any))
       {
          memcpy(&(*root)->gw, &route->gw, sizeof(struct in6_addr));
          return 0;
       }
 
-      if (!memcmp(&(*root)->gw, &route->gw, sizeof(struct in6_addr)))
+      //if (!memcmp(&(*root)->gw, &route->gw, sizeof(struct in6_addr)))
+      if (IN6_ARE_ADDR_EQUAL(&(*root)->gw, &route->gw))
          return 0;
 
       log_msg(L_ERROR, "route already exists");
@@ -103,7 +105,8 @@ IPv4Route_t *ipv4_lookup_route__(uint32_t ip, IPv4Route_t *route, uint32_t cur_n
    if (route->next[BRANCH(ip, cur_nm)])
       return ipv4_lookup_route__(ip, route->next[BRANCH(ip, cur_nm)], cur_nm);
 
-   if (memcmp(&route->gw, &in6addr_any, sizeof(struct in6_addr)))
+   //if (memcmp(&route->gw, &in6addr_any, sizeof(struct in6_addr)))
+   if (!IN6_ARE_ADDR_EQUAL(&route->gw, &in6addr_any))
       return route;
 
    return NULL;
@@ -141,7 +144,8 @@ void ipv4_print(IPv4Route_t *route, void *f)
    char addr[INET6_ADDRSTRLEN];
    struct in_addr iaddr;
 
-   if (!memcmp(&route->gw, &in6addr_any, sizeof(struct in6_addr)))
+   //if (!memcmp(&route->gw, &in6addr_any, sizeof(struct in6_addr)))
+   if (IN6_ARE_ADDR_EQUAL(&route->gw, &in6addr_any))
       return;
 
    iaddr.s_addr = htonl(route->dest);
@@ -194,7 +198,7 @@ int parse_route(const char *rs)
    if (!has_tor_prefix(&route.gw))
       return E_RT_NOTORGW;
 
-   if (!memcmp(&route.gw, &setup.ocat_addr, sizeof(setup.ocat_addr)))
+   if (IN6_ARE_ADDR_EQUAL(&route.gw, &setup.ocat_addr))
       return E_RT_GWSELF;
 
    route.netmask = ntohl(route.netmask);

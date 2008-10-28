@@ -48,7 +48,7 @@ PROGRAMS = $(bin_PROGRAMS)
 am_ocat_OBJECTS = ocat.$(OBJEXT) ocatlog.$(OBJEXT) ocatroute.$(OBJEXT) \
 	ocatthread.$(OBJEXT) ocattun.$(OBJEXT) ocatv6conv.$(OBJEXT) \
 	ocatcompat.$(OBJEXT) ocatpeer.$(OBJEXT) ocatsetup.$(OBJEXT) \
-	ocatipv4route.$(OBJEXT)
+	ocatipv4route.$(OBJEXT) ocateth.$(OBJEXT)
 ocat_OBJECTS = $(am_ocat_OBJECTS)
 ocat_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
@@ -152,7 +152,7 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-ocat_SOURCES = ocat.c ocatlog.c ocatroute.c ocatthread.c ocattun.c ocatv6conv.c ocatcompat.c ocatpeer.c ocatsetup.c ocatipv4route.c
+ocat_SOURCES = ocat.c ocatlog.c ocatroute.c ocatthread.c ocattun.c ocatv6conv.c ocatcompat.c ocatpeer.c ocatsetup.c ocatipv4route.c ocateth.c
 include_HEADERS = ocat.h strlcpy.c strlcat.c
 all: all-am
 
@@ -222,6 +222,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ocat.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ocatcompat.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ocateth.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ocatipv4route.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ocatlog.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ocatpeer.Po@am__quote@
