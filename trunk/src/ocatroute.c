@@ -238,7 +238,6 @@ void cleanup_socket(int fd, OcatPeer_t *peer)
 }
 
 
-#define HANDLE_HTTP
 #ifdef HANDLE_HTTP
 #define BSTRLEN 1024
 
@@ -854,8 +853,6 @@ void *socks_connector(void *p)
    return NULL;
 }
 
-
-#define PACKET_LOG
 
 void packet_forwarder(void)
 {

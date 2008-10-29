@@ -1239,6 +1239,9 @@ if test -n "$ac_init_help"; then
 Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+  --enable-debug          enable debugging
+  --enable-packet-log     enable packet logging
+  --enable-handle-http    enable handling of accidental HTTP requests
   --disable-dependency-tracking  speeds up one-time build
   --enable-dependency-tracking   do not reject slow dependency extractors
 
@@ -2170,6 +2173,34 @@ ac_config_headers="$ac_config_headers config.h"
 
 
 CFLAGS=-Wall
+
+
+# Check whether --enable-debug was given.
+if test "${enable_debug+set}" = set; then
+  enableval=$enable_debug;
+cat >>confdefs.h <<\_ACEOF
+#define DEBUG
+_ACEOF
+
+fi
+
+# Check whether --enable-packet-log was given.
+if test "${enable_packet_log+set}" = set; then
+  enableval=$enable_packet_log;
+cat >>confdefs.h <<\_ACEOF
+#define PACKET_LOG
+_ACEOF
+
+fi
+
+# Check whether --enable-handle-http was given.
+if test "${enable_handle_http+set}" = set; then
+  enableval=$enable_handle_http;
+cat >>confdefs.h <<\_ACEOF
+#define HANDLE_HTTP
+_ACEOF
+
+fi
 
 
 # Checks for programs.
