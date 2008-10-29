@@ -1,5 +1,11 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* enable debugging */
+#undef DEBUG
+
+/* enable handling of accidental HTTP requests */
+#undef HANDLE_HTTP
+
 /* Define to 1 if you have the <endian.h> header file. */
 #undef HAVE_ENDIAN_H
 
@@ -77,6 +83,9 @@
 
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
+
+/* enable packet logging */
+#undef PACKET_LOG
 
 /* Version number of package */
 #undef VERSION

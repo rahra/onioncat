@@ -303,7 +303,6 @@ extern OcatThread_t *octh_;
 /* ocatlog.c */
 int open_connect_log(const char*);
 void log_msg(int, const char *, ...);
-#define DEBUG
 #ifdef DEBUG
 #define log_debug(x...) log_msg(L_DEBUG, ## x)
 #else
