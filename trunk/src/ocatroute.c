@@ -277,6 +277,7 @@ void *socket_receiver(void *p)
    OcatPeer_t *peer;
    struct in6_addr *in6;
    int drop = 0;
+   struct ether_header *eh = (struct ether_header*) (buf + 4);
 
    if (pipe(lpfd_) < 0)
       log_msg(L_FATAL, "could not create pipe for socket_receiver: \"%s\"", strerror(errno)), exit(1);
@@ -437,7 +438,8 @@ void *socket_receiver(void *p)
 
             // set IP address if it is not set yet and frame is valid
             //if (!memcmp(&peer->addr, &in6addr_any, sizeof(struct in6_addr)))
-            if (IN6_ARE_ADDR_EQUAL(&peer->addr, &in6addr_any))
+            //if (IN6_ARE_ADDR_EQUAL(&peer->addr, &in6addr_any))
+            if (IN6_IS_ADDR_UNSPECIFIED(&peer->addr))
             {
                if (*peer->tunhdr == setup.fhd_key[IPV6_KEY])
                   memcpy(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src, sizeof(struct in6_addr));
@@ -464,9 +466,42 @@ void *socket_receiver(void *p)
 
             if (!drop)
             {
-               log_debug("writing to tun %d framesize %d + 4", setup.tunfd[1], len);
-               if (write(setup.tunfd[1], peer->tunhdr, len + 4) != (len + 4))
-                  log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len + 4, setup.tunfd[1]);
+               // write directly on TUN device
+               if (!setup.use_tap)
+               {
+                  log_debug("writing to tun %d framesize %d + 4", setup.tunfd[1], len);
+                  if (write(setup.tunfd[1], peer->tunhdr, len + 4) != (len + 4))
+                     log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len + 4, setup.tunfd[1]);
+               }
+               // create ethernet header and handle MAC on TAP device
+               else if (*peer->tunhdr == setup.fhd_key[IPV6_KEY])
+               {
+                  log_debug("creating ethernet header");
+
+                  // FIXME: should differentiate between IPv6 and IP!!
+                  if (mac_get_mac(&((struct ip6_hdr*)peer->fragbuf)->ip6_dst, eh->ether_dhost) == -1)
+                  {
+                     log_debug("dest MAC unknown, must resolve...not implemented");
+                  }
+                  else
+                  {
+                     *((uint32_t*) buf) = *peer->tunhdr;
+                     memcpy(buf + 4 + sizeof(struct ether_header), peer->fragbuf, len);
+                     memcpy(eh->ether_shost, setup.ocat_hwaddr, ETH_ALEN);
+
+                     if (*peer->tunhdr == setup.fhd_key[IPV6_KEY])
+                        eh->ether_type = htons(ETHERTYPE_IPV6);
+                     else if (*peer->tunhdr == setup.fhd_key[IPV4_KEY])
+                        eh->ether_type = htons(ETHERTYPE_IP);
+
+                     if (write(setup.tunfd[1], buf, len + 4 + sizeof(struct ether_header)) != (len + 4 + sizeof(struct ether_header)))
+                        log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len + 4 + sizeof(struct ether_header), setup.tunfd[1]);
+                  }
+               }
+               else
+               {
+                  log_debug("protocol %x not implemented on TAP device", ntohs(*peer->tunhdr));
+               }
             }
             else
             {
@@ -888,7 +923,7 @@ void packet_forwarder(void)
 
 #ifdef PACKET_LOG
       if ((pktlog != -1) && (write(pktlog, buf, rlen) == -1))
-         log_debug("could write frame to packet log: %s", strerror(errno));
+         log_debug("could not write frame to packet log: %s", strerror(errno));
 #endif
 
       // just to be on the safe side but this should never happen
@@ -901,21 +936,17 @@ void packet_forwarder(void)
       // in case of TAP device handle ethernet header
       if (setup.use_tap)
       {
-         if (eh->ether_dhost[0] & 1)
+         if (!memcmp(eh->ether_dhost, setup.ocat_hwaddr, ETH_ALEN))
+            // remove ethernet header from buffer
+            // FIXME: it would be better to adjust pointers instead of moving data
+            memmove(eh, eh + 1, rlen - 4 - sizeof(struct ether_header));
+         else
          {
-            log_debug("forwarding %d bytes eth multicast to icmp pipe", rlen);
-            if (write(setup.icmpv6fd[1], buf, rlen) < rlen)
-               log_msg(L_ERROR, "error writing to icmp pipe");
+            log_debug("forwarding %d bytes eth handler", rlen);
+            //ndp_solicit(buf, rlen);
+            eth_check(buf, rlen);
             continue;
          }
-         // remove ethernet header from buffer
-         // FIXME: it would be better to adjust pointers instead of moving data
-         if (memcmp(eh->ether_dhost, setup.ocat_hwaddr, ETH_ALEN))
-         {
-            log_msg(L_ERROR, "destination MAC is not OCat, dropping frame");
-            continue;
-         }
-         memmove(eh, eh + 1, rlen - 4 - sizeof(struct ether_header));
       }
 
       if (*((uint32_t*) buf) == setup.fhd_key[IPV6_KEY])
@@ -987,6 +1018,10 @@ void *socket_cleaner(void *ptr)
       sleep(CLEANER_WAKEUP);
       log_debug("wakeup");
 
+      // cleanup MAC table
+      mac_cleanup();
+
+      // cleanup peers
       lock_peers();
       for (p = get_first_peer_ptr(); *p; p = &(*p)->next)
       {
@@ -1149,24 +1184,24 @@ void *ctrl_handler(void *p)
          }
          unlock_peers();
       }
-      else if (!strncmp(buf, "threads", 7))
+      else if (!strcmp(buf, "threads"))
       {
          pthread_mutex_lock(&thread_mutex_);
          for (th = octh_; th; th = th->next)
             fprintf(ff, "%2d: %s\n", th->id, th->name);
          pthread_mutex_unlock(&thread_mutex_);
       }
-      else if (!strncmp(buf, "terminate", 9))
+      else if (!strcmp(buf, "terminate"))
       {
          log_msg(L_NOTICE, "terminate request from control port");
          //FIXME: fds should be closed properly
          exit(0);
       }
-      else if (!strncmp(buf, "fds", 3))
+      else if (!strcmp(buf, "fds"))
       {
          fprintf(fo, "acceptor sockets: %d/%d\nconntroller sockets: %d/%d\n", sockfd_[0], sockfd_[1], ctrlfd_[0], ctrlfd_[1]);
       }
-      else if (!strncmp(buf, "route", 5))
+      else if (!strcmp(buf, "route"))
       {
          if (rlen > 6)
          {
@@ -1190,7 +1225,6 @@ void *ctrl_handler(void *p)
          else
             print_routes(fo);
       }
-      //else if (!strncmp(buf, "connect", 7))
       else if (!strcmp(buf, "connect"))
       {
          if ((s = strtok_r(NULL, " \t\r\n", &tokbuf)))
@@ -1210,9 +1244,37 @@ void *ctrl_handler(void *p)
          else
             fprintf(ff, "ERR missing args\n");
       }
-      else if (!strncmp(buf, "help", 4))
+      else if (!strcmp(buf, "macs"))
       {
-         fprintf(fo, "commands:\nexit\nquit\nterminate\nclose <n>\nstatus\nthreads\nfds\nroute [<destination IP> <netmask> <IPv6 gateway>]\nconnect <.onion-URL> [\"perm\"]\n");
+         print_mac_tbl(ff);
+      }
+      else if (!strcmp(buf, "setup"))
+      {
+         print_setup_struct(ff);
+      }
+      else if (!strcmp(buf, "version"))
+      {
+         fprintf(ff, "%s (c) Bernhard R. Fischer -- compiled %s %s\n", PACKAGE_STRING, __DATE__, __TIME__);
+      }
+      else if (!strcmp(buf, "help") || !strcmp(buf, "?"))
+      {
+         fprintf(fo,
+               "commands:\n"
+               "exit | quit               exit from control interface\n"
+               "terminate                 terminate OnionCat\n"
+               "close <n>                 close file descriptor <n> of a peer\n"
+               "status                    list peer status\n"
+               "threads                   show active threads\n"
+               "fds                       show open file descriptors (w/o peers)\n"
+               "route [<dst IP>           show routing table or add route\n"
+               "       <netmask>\n"
+               "       <IPv6 gw>]\n"
+               "connect <.onion-URL>      connect to a hidden service. if \"perm\" is set,\n"
+               "        [\"perm\"]              connection will stay open forever\n"
+               "macs                      show MAC address table\n"
+               "setup                     show internal setup struct\n"
+               "version                   show version\n"
+               );
       }
       else
       {

@@ -24,6 +24,8 @@
 
 #include "config.h"
 
+#include <arpa/inet.h>
+
 #include "ocat.h"
 
 struct OcatSetup setup = {
@@ -38,7 +40,70 @@ struct OcatSetup setup = {
    0, TOR_PREFIX4, TOR_PREFIX4_MASK,
    NULL, 1,
    0,         // use_tap
-   {-1, -1},  // icmpv6fd
+   //{-1, -1},  // icmpv6fd
    {0x00, 0x00, 0x6c, 0x00, 0x00, 0x00}   // ocat_hwaddr (OnionCat MAC address)
 };
+
+
+#define _SB 100
+
+void print_setup_struct(FILE *f)
+{
+   char ip[_SB], nm[_SB], ip6[_SB], hw[_SB];
+
+   inet_ntop(AF_INET, &setup.ocat_addr4, ip, _SB);
+   inet_ntop(AF_INET, &setup.ocat_addr4_mask, nm, _SB);
+   inet_ntop(AF_INET6, &setup.ocat_addr, ip6, _SB);
+   mac_hw2str(setup.ocat_hwaddr, hw);
+
+   fprintf(f,
+         "fhd_key[]        = [IPV4(%d) => 0x%04x, IPV6(%d) => 0x%04x]\n"
+         "fhd_key_len      = %d\n"
+         "tor_socks_port   = %d\n"
+         "ocat_listen_port = %d\n"
+         "ocat_dest_port   = %d\n"
+         "ocat_ctrl_port   = %d\n"
+         "tunfd[]          = [(0) => %d, (1) => %d]\n"
+         "debug_level      = %d\n"
+         "usrname          = \"%s\"\n"
+         "onion_url        = \"%s\"\n"
+         "ocat_addr        = %s\n"
+         "create_clog      = %d\n"
+         "runasroot        = %d\n"
+         "controller       = %d\n"
+         "ocat_dir         = \"%s\"\n"
+         "tun_dev          = \"%s\"\n"
+         "ipv4_enable      = %d\n"
+         "ocat_addr4       = %s\n"
+         "ocat_addr4_mask  = %s\n"
+         "config_file      = \"%s\"\n"
+         "config_read      = %d\n"
+         "use_tap          = %d\n"
+         "ocat_hwaddr      = %s\n",
+
+         IPV4_KEY, ntohl(setup.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup.fhd_key[IPV6_KEY]),
+         setup.fhd_key_len,
+         setup.tor_socks_port,
+         setup.ocat_listen_port,
+         setup.ocat_dest_port,
+         setup.ocat_ctrl_port,
+         setup.tunfd[0], setup.tunfd[1],
+         setup.debug_level,
+         setup.usrname,
+         setup.onion_url,
+         ip6,
+         setup.create_clog,
+         setup.runasroot,
+         setup.controller,
+         setup.ocat_dir,
+         setup.tun_dev,
+         setup.ipv4_enable,
+         ip,
+         nm,
+         setup.config_file,
+         setup.config_read,
+         setup.use_tap,
+         hw
+         );
+}
 

@@ -79,8 +79,10 @@
 
 //! Maximum idle time for a peer, after that time the peer is closed.
 #define MAX_IDLE_TIME 120
+//! # of secs after a cleaner wakeup occurs
 #define CLEANER_WAKEUP 10
-#define STAT_WAKEUP (120/CLEANER_WAKEUP)
+//! # of secs after stats output is generated
+#define STAT_WAKEUP (600/CLEANER_WAKEUP)
 
 //! log flags. word is considered as 16 bit, lower byte for level, upper byte for additional flags.
 #define L_LEVEL_MASK 0x00ff
@@ -152,8 +154,6 @@ struct OcatSetup
    int create_clog;
    //! flag to not change uid to unprivileged user
    int runasroot;
-   //int urlconv;
-   //int test_only;
    int controller;
    char *ocat_dir;
    char *tun_dev;
@@ -163,7 +163,6 @@ struct OcatSetup
    char *config_file;
    int config_read;
    int use_tap;
-   int icmpv6fd[2];
    uint8_t ocat_hwaddr[ETH_ALEN];
 };
 
@@ -230,9 +229,24 @@ typedef struct IPv4Route
    struct in6_addr gw;
 } IPv4Route_t;
 
+//! IPv6 pseudo header used for checksum calculation
+struct ip6_psh
+{
+   struct in6_addr src;
+   struct in6_addr dst;
+   uint32_t len;
+   char _pad[3];
+   uint8_t nxt;
+} __attribute__((packed));
+
 typedef struct MACTable
 {
-   struct in6_addr in6addr;
+   uint16_t family;
+   union
+   {
+      struct in6_addr in6addr;
+      struct in_addr inaddr;
+   };
    uint8_t hwaddr[ETH_ALEN];
    time_t age;
 } MACTable_t;
@@ -357,6 +371,7 @@ void delete_peer(OcatPeer_t *);
 
 /* ocatsetup.c */
 extern struct OcatSetup setup;
+void print_setup_struct(FILE *);
 
 /* ocatipv4route.c */
 struct in6_addr *ipv4_lookup_route(uint32_t);
@@ -364,7 +379,12 @@ int parse_route(const char *);
 void print_routes(FILE *);
 
 /* ocateth.c */
-void *icmpv6_handler(void *);
+int eth_check(char *, int);
+int mac_get_mac(const struct in6_addr *, uint8_t *);
+void print_mac_tbl(FILE *);
+void mac_cleanup(void);
+char *mac_hw2str(const uint8_t *, char *);
+
 
 #endif
 

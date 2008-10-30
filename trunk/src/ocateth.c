@@ -62,6 +62,50 @@ static pthread_mutex_t mac_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 /*! Pseudo header for IPv6 checksum calculation.
  *  RFC2460 8.1, (RFC1885 2.3) RFC2463, RFC1071. */
 
+/* IPv6 Ethernet Multicast: (MAC) 33:33:xx:xx:xx:xx, xx -> 4 lowest order bytes of IPv6 destination
+ * Solicited-Node address: (IPv6) FF02:0:0:0:0:1:ffxx:xxxx, -> xx -> 3 lowest order bytes of IPv6 destination (RFC4291)
+ * IPv4 Ethernet Multicast: 01:00:5e:0xx:xx:xx, */
+
+
+/*! Convert an ethernet hardware address to a string.
+ *  @param hwaddr Pointer to hardware address. Must be of len ETH_ALEN (6).
+ *  @param str Pointer to string. Must have at least 18 bytes!
+ */
+char *mac_hw2str(const uint8_t *hwaddr, char *str)
+{
+   char *s = str;
+   int i;
+
+   for (i = 0; i < ETH_ALEN; i++, str += 3, hwaddr++)
+      sprintf(str, "%02x:", *hwaddr);
+   str--;
+   *str = '\0';
+
+   return s;
+}
+
+
+void print_mac_tbl(FILE *f)
+{
+   int i;
+   char buf[INET6_ADDRSTRLEN];
+
+   //fprintf(f, "  # age MAC               C   address\n");
+   pthread_mutex_lock(&mac_mutex_);
+
+   for (i = 0; i < mac_cnt_; i++)
+   {
+      mac_hw2str(mac_tbl_[i].hwaddr, buf);
+      fprintf(f, "%3d %3d %s ", i, (int) (time(NULL) - mac_tbl_[i].age), buf);
+      fprintf(f, "%s ", mac_tbl_[i].family == AF_INET6 ? "IN6" : "IN ");
+      inet_ntop(mac_tbl_[i].family, &mac_tbl_[i].in6addr, buf, INET6_ADDRSTRLEN);
+      fprintf(f, "%s\n", buf);
+   }
+
+   pthread_mutex_unlock(&mac_mutex_);
+}
+
+
 void mac_cleanup(void)
 {
    int i;
@@ -71,6 +115,7 @@ void mac_cleanup(void)
    for (i = 0; i < mac_cnt_; i++)
       if (mac_tbl_[i].age + MAX_MAC_AGE < time(NULL))
       {
+         log_debug("mac table entry %d timed out", i);
          memmove(&mac_tbl_[i], &mac_tbl_[i + 1], sizeof(MACTable_t) * (MAX_MAC_ENTRY - i));
          mac_cnt_--;
          i--;
@@ -86,7 +131,7 @@ int mac_get_mac(const struct in6_addr *in6, uint8_t *hwaddr)
 
    pthread_mutex_lock(&mac_mutex_);
 
-   for (i = 0; i < mac_cnt_; i++)
+   for (i = mac_cnt_ - 1; i >= 0; i--)
       if (IN6_ARE_ADDR_EQUAL(in6, &mac_tbl_[i].in6addr))
       {
          memcpy(hwaddr, &mac_tbl_[i].hwaddr, ETH_ALEN);
@@ -96,27 +141,7 @@ int mac_get_mac(const struct in6_addr *in6, uint8_t *hwaddr)
 
    pthread_mutex_unlock(&mac_mutex_);
 
-   return i < mac_cnt_ ? i : -1;
-}
-
-
-int mac_get_ip(const uint8_t *hwaddr, struct in6_addr *in6)
-{
-   int i;
-
-   pthread_mutex_lock(&mac_mutex_);
-
-   for (i = 0; i < mac_cnt_; i++)
-      if (!memcmp(hwaddr, &mac_tbl_[i].hwaddr, ETH_ALEN))
-      {
-         memcpy(in6, &mac_tbl_[i].in6addr, sizeof(struct in6_addr));
-         mac_tbl_[i].age = time(NULL);
-         break;
-      }
-
-   pthread_mutex_unlock(&mac_mutex_);
-
-   return i < mac_cnt_ ? i : -1;
+   return i;
 }
 
 
@@ -128,10 +153,12 @@ int mac_add_entry(const uint8_t *hwaddr, const struct in6_addr *in6)
 
    if (mac_cnt_ < MAX_MAC_ENTRY)
    {
+      log_debug("adding entry to MAC table %d", mac_cnt_);
       memcpy(&mac_tbl_[mac_cnt_].hwaddr, hwaddr, ETH_ALEN);
       memcpy(&mac_tbl_[mac_cnt_].in6addr, in6, sizeof(struct in6_addr));
       mac_tbl_[mac_cnt_].age = time(NULL);
-      e = ++mac_cnt_;
+      mac_tbl_[mac_cnt_].family = AF_INET6;
+      e = mac_cnt_++;
    }
 
    pthread_mutex_unlock(&mac_mutex_);
@@ -140,35 +167,24 @@ int mac_add_entry(const uint8_t *hwaddr, const struct in6_addr *in6)
 }
 
 
-struct ip6_psh
+int mac_get_ip(const uint8_t *hwaddr, struct in6_addr *in6)
 {
-   struct in6_addr src;
-   struct in6_addr dst;
-   uint32_t len;
-   char _pad[3];
-   uint8_t nxt;
-} __attribute__((packed));
+   int i;
 
+   pthread_mutex_lock(&mac_mutex_);
 
-#if 0
-/*! Swap to memory areas. Those may not overlap.*/
-int memswp(void *dst, void *src, int len)
-{
-   char tmp[FRAME_SIZE];
+   for (i = mac_cnt_ - 1; i >= 0; i--)
+      if (!memcmp(hwaddr, &mac_tbl_[i].hwaddr, ETH_ALEN))
+      {
+         memcpy(in6, &mac_tbl_[i].in6addr, sizeof(struct in6_addr));
+         mac_tbl_[i].age = time(NULL);
+         break;
+      }
 
-   if (len > FRAME_SIZE)
-   {
-      log_debug("buffers too large to swap");
-      return -1;
-   }
+   pthread_mutex_unlock(&mac_mutex_);
 
-   memcpy(tmp, dst, len);
-   memcpy(dst, src, len);
-   memcpy(src, tmp, len);
-
-   return len;
+   return i;
 }
-#endif
 
 
 /*! Calculate 16 bit one's complement sum (RFC1071).
@@ -179,7 +195,6 @@ uint16_t checksum(const uint16_t *buf, int len)
 {
    uint32_t sum = 0;
 
-//   len >>= 1;
    // sum up all 16 bit words
    // (Note that it's endiness independent)
    for (; len > 1 ; len -= 2, buf++)
@@ -198,148 +213,184 @@ uint16_t checksum(const uint16_t *buf, int len)
 }
 
 
-void *icmpv6_handler(void *p)
+void free_ckbuf(uint16_t *buf)
 {
-   char buf[FRAME_SIZE], ckbuf[FRAME_SIZE];
+   free(buf);
+}
+
+
+uint16_t *malloc_ckbuf(const struct in6_addr *src, const struct in6_addr *dst, uint16_t plen, uint8_t proto, const void *payload)
+{
+   struct ip6_psh *psh;
+
+   if (!(psh = calloc(1, sizeof(struct ip6_psh) + plen)))
+   {
+      log_msg(L_FATAL, "error creating checksum buffer: %s", strerror(errno));
+      //return NULL;
+      exit(1);
+   }
+
+   psh->src = *src;
+   psh->dst = *dst;
+   psh->len = htons(plen);
+   psh->nxt = proto;
+   memcpy(psh + 1, payload, plen);
+
+   return (uint16_t*) psh;
+}
+
+
+/*
+int ndp_(const struct in6_addr *in6)
+{
+   char buf[FRAME_SIZE];
+   struct ether_header *eh = (struct ether_header*) (buf + 4);
+   struct ip6_hdr *ip6 = (struct ip6_hdr*) (eh + 1); // ip6 header starts behind ether_header
+   struct nd_neighbor_solicit *nds = (struct nd_neighbor_solicit*) ip6;
+   struct nd_opt_hdr *ohd = (struct nd_opt_hdr*) (nds + 1);
+   uint16_t *ckb, cksum;
+
+   return -1;
+}
+*/
+
+
+int ndp_solicit(char *buf, int rlen)
+{
    struct ether_header *eh = (struct ether_header*) (buf + 4);
    struct ip6_hdr *ip6 = (struct ip6_hdr*) (eh + 1); // ip6 header starts behind ether_header
    struct icmp6_hdr *icmp6 = (struct icmp6_hdr*) (ip6 + 1); // imcp6 header starts behind ip6 header
    struct nd_neighbor_solicit *nds = (struct nd_neighbor_solicit*) icmp6;
    struct nd_neighbor_advert *nda = (struct nd_neighbor_advert*) icmp6;
    struct nd_opt_hdr *ohd = (struct nd_opt_hdr*) (nds + 1);
-   struct ip6_psh *ip6ph = (struct ip6_psh*) ckbuf;
-   int rlen;
+   uint16_t *ckb, cksum;
+   struct in6_addr in6;
+   int minlen = 4 + sizeof(struct ether_header) + sizeof(struct ip6_hdr) + sizeof(struct icmp6_hdr);
 
-   memset(ckbuf, 0, sizeof(struct ip6_psh));
+   char mb[100];
+//   uint8_t md[4] = {0xff};
 
-//   if (pipe(setup.icmpv6fd) == -1)
-//      log_msg(L_FATAL, "cannot create pipe: %s", strerror(errno)), exit(1);
-
-   while ((rlen = read(setup.icmpv6fd[0], buf, FRAME_SIZE)) != -1)
+   if (rlen < minlen)
    {
-      log_debug("received %d bytes on icmp pipe", rlen);
-
-      if (rlen < 4 + sizeof(struct ether_header) + sizeof(struct ip6_hdr) + sizeof(struct icmp6_hdr))
-      {
-         log_debug("frame too short: %d < %d", rlen, 4 + sizeof(struct ether_header) + sizeof(struct ip6_hdr) + sizeof(struct icmp6_hdr));
-         continue;
-      }
-
-      // just to be on the safe side check icmpv6_mcast and ethertype
-//      if ((*((uint16_t*) &buf[4]) != 0x3333) || (*((uint16_t*) &buf[12]) != htons(ETHERTYPE_IPV6)))
-      if (eh->ether_type != htons(ETHERTYPE_IPV6))
-      {
-         log_debug("protocol 0x%04x not implemented yet", htons(eh->ether_type));
-         continue;
-      }
-
-      if (ip6->ip6_nxt != IPPROTO_ICMPV6)
-      {
-         log_debug("frame contains not ICMPV6, next header = %d", ip6->ip6_nxt);
-         continue;
-      }
-
-      if (icmp6->icmp6_type != ND_NEIGHBOR_SOLICIT)
-      {
-         log_debug("icmpv6 type %d not implemented", icmp6->icmp6_type);
-         continue;
-      }
-
-      log_debug("ICMPv6 ND_NEIGHBOR_SOLICIT received");
-
-      memcpy(&ip6ph->src, &ip6->ip6_src, sizeof(struct in6_addr));
-      memcpy(&ip6ph->dst, &ip6->ip6_dst, sizeof(struct in6_addr));
-      ip6ph->len = ip6->ip6_plen;
-      ip6ph->nxt = IPPROTO_ICMPV6;
-      memcpy(ip6ph + 1, icmp6, ntohs(ip6->ip6_plen));
-
-      if (checksum((uint16_t*) ip6ph, ntohs(ip6->ip6_plen) + sizeof(struct ip6_psh)))
-      {
-         log_msg(L_ERROR, "icmpv6 checksum wrong");
-         continue;
-      }
-
-      log_debug("checksum correct, generating response");
-      memcpy(eh->ether_dhost, eh->ether_shost, ETH_ALEN);
-      memcpy(eh->ether_shost, setup.ocat_hwaddr, ETH_ALEN);
-
-      memcpy(&ip6->ip6_dst, &ip6->ip6_src, sizeof(struct in6_addr));
-      memcpy(&ip6->ip6_src, &nds->nd_ns_target, sizeof(struct in6_addr));
-      icmp6->icmp6_type = ND_NEIGHBOR_ADVERT;
-      icmp6->icmp6_code = 0;
-      icmp6->icmp6_cksum = 0;
-
-      memcpy(&ip6ph->src, &ip6->ip6_src, sizeof(struct in6_addr));
-      memcpy(&ip6ph->dst, &ip6->ip6_dst, sizeof(struct in6_addr));
-      ip6ph->len = ip6->ip6_plen;
-      ip6ph->nxt = IPPROTO_ICMPV6;
-
-      nda->nd_na_flags_reserved = ND_NA_FLAG_SOLICITED;
-      ohd->nd_opt_type = ND_OPT_TARGET_LINKADDR;
-      memcpy(ohd + 1, setup.ocat_hwaddr, ETH_ALEN);
-
-      memcpy(ip6ph + 1, icmp6, ntohs(ip6->ip6_plen));
-
-      icmp6->icmp6_cksum = checksum((uint16_t*) ip6ph, ntohs(ip6->ip6_plen) + sizeof(struct ip6_psh));
-
-      log_debug("writing %d bytes to tunfd %d", rlen, setup.tunfd[1]);
-      if (write(setup.tunfd[1], buf, rlen) < rlen)
-         log_msg(L_ERROR, "short write");
+      log_debug("frame too short for ICMP6 %d < %d", rlen, minlen);
+      return -1;
    }
 
-   log_msg(L_FATAL, "error reading from pipe fd %d: %s", setup.icmpv6fd[0], strerror(errno));
-   exit(1);
+   if (eh->ether_type != htons(ETHERTYPE_IPV6))
+   {
+      log_debug("protocol 0x%04x not implemented yet", htons(eh->ether_type));
+      return -1;
+   }
+
+   // check for right multicast destination on ethernet
+   if (eh->ether_dhost[2] != 0xff)
+   {
+      log_debug("ethernet multicast destination %s cannot be solicited node address", mac_hw2str(eh->ether_dhost, mb));
+      return -1;
+   }
+
+   // check for right multicast destination in IPv6
+   if (!IN6_IS_ADDR_MULTICAST(&ip6->ip6_dst) || !IN6_IS_ADDR_MC_LINKLOCAL(&ip6->ip6_dst))
+   {
+      log_debug("IPv6 multicast destination not solicited node address");
+      return -1;
+   }
+
+   if (!has_tor_prefix(&ip6->ip6_src))
+   {
+      log_debug("source IPv6 is not TOR ipv6");
+      return -1;
+   }
+
+   if (ip6->ip6_nxt != IPPROTO_ICMPV6)
+   {
+      log_debug("frame contains not ICMPV6, next header = %d", ip6->ip6_nxt);
+      return -1;
+   }
+
+   if (icmp6->icmp6_type != ND_NEIGHBOR_SOLICIT)
+   {
+      log_debug("icmpv6 type %d not implemented", icmp6->icmp6_type);
+      return -1;
+   }
+
+   log_debug("ICMPv6 ND_NEIGHBOR_SOLICIT received");
+   minlen = minlen - sizeof(struct icmp6_hdr) + sizeof(struct nd_neighbor_solicit);
+   if (rlen < minlen)
+   {
+      log_debug("frame too short for ND_NEIGHBOR_SOLICIT");
+      return -1;
+   }
+
+   if (!has_tor_prefix(&nds->nd_ns_target))
+   {
+      log_debug("solicit target is not TOR IPv6");
+      return -1;
+   }
+
+   ckb = malloc_ckbuf(&ip6->ip6_src, &ip6->ip6_dst, ntohs(ip6->ip6_plen), IPPROTO_ICMPV6, icmp6);
+   cksum = checksum(ckb, ntohs(ip6->ip6_plen) + sizeof(struct ip6_psh));
+   free_ckbuf(ckb);
+   if (cksum)
+   {
+      log_msg(L_ERROR, "icmpv6 checksum wrong");
+      return -1;
+   }
+
+
+   log_debug("generating response");
+   // set MAC addresses in ethernet header and add MAC to table
+   if (mac_get_ip(eh->ether_shost, &in6) == -1)
+      if (mac_add_entry(eh->ether_shost, &ip6->ip6_src) == -1)
+      {
+         log_msg(L_ERROR, "MAC table full");
+         return -1;
+      }
+   memcpy(eh->ether_dhost, eh->ether_shost, ETH_ALEN);
+   memcpy(eh->ether_shost, setup.ocat_hwaddr, ETH_ALEN);
+
+   // init ip6 header
+   memcpy(&ip6->ip6_dst, &ip6->ip6_src, sizeof(struct in6_addr));
+   memcpy(&ip6->ip6_src, &nds->nd_ns_target, sizeof(struct in6_addr));
+
+   // init nda icmp6 header
+   nda->nd_na_hdr.icmp6_type = ND_NEIGHBOR_ADVERT;
+   nda->nd_na_hdr.icmp6_code = 0;
+   nda->nd_na_hdr.icmp6_cksum = 0;
+   nda->nd_na_flags_reserved = ND_NA_FLAG_SOLICITED;
+   ohd->nd_opt_type = ND_OPT_TARGET_LINKADDR;
+   memcpy(ohd + 1, setup.ocat_hwaddr, ETH_ALEN);
+
+   ckb = malloc_ckbuf(&ip6->ip6_src, &ip6->ip6_dst, ntohs(ip6->ip6_plen), IPPROTO_ICMPV6, icmp6);
+   nda->nd_na_hdr.icmp6_cksum = checksum(ckb, ntohs(ip6->ip6_plen) + sizeof(struct ip6_psh));
+   free_ckbuf(ckb);
+
+   log_debug("writing %d bytes to tunfd %d", rlen, setup.tunfd[1]);
+   if (write(setup.tunfd[1], buf, rlen) < rlen)
+      log_msg(L_ERROR, "short write");
+
+   return 0;
 }
 
 
-#if 0
-#ifdef DEBUG
-static char hexbuf_[FRAME_SIZE];
-static char convbuf_[] = "0123456789ABCDEF";
-
-char *buf2hex(const char *buf, int len)
+int eth_check(char *buf, int rlen)
 {
-   char *b = hexbuf_;
-   for (; len; buf++, len--)
+    struct ether_header *eh = (struct ether_header*) (buf + 4);
+
+   if (!(eh->ether_dhost[0] & 1))
    {
-      *b++ = convbuf_[((*buf) >> 4) & 0xf];
-      *b++ = convbuf_[(*buf) & 0xf];
-      *b++ = ' ';
+      log_debug("dest MAC is not multicast");
+      return -1;
    }
-   *(b - 1) = '\0';
-   return hexbuf_;
+
+   if (*((uint16_t*) &eh->ether_dhost) == 0x3333)
+   {
+      log_debug("dest MAC is IPv6 multicast");
+      return ndp_solicit(buf, rlen);
+   }
+
+   log_debug("unknown multicast MAC destination");
+   return -1;
 }
 
-#endif
-
-
-void *icmpv6_handler(void *p)
-{
-   char buf[FRAME_SIZE];
-   int s, offset = 2, rlen;
-   struct sockaddr_in6 in6;
-   socklen_t slen;
-
-   if ((s = socket(PF_INET6, SOCK_RAW, IPPROTO_ICMPV6)) == -1)
-   {
-      log_msg(L_ERROR, "could not create ICMPv6 socket: %s", strerror(errno));
-      return NULL;
-   }
-
-   if (setsockopt(s, IPPROTO_IPV6, IPV6_CHECKSUM, &offset, sizeof(offset)) == -1)
-      log_msg(L_ERROR, "could not set IPV6_CHECKSUM on raw socket: %s", strerror(errno));
-
-   for (;;)
-   {
-      slen = sizeof(in6);
-      if ((rlen = recvfrom(s, buf, FRAME_SIZE, 0, (struct sockaddr*) &in6, &slen)) == -1)
-      {
-         log_msg(L_ERROR, "could not recvfrom(): %s", strerror(errno));
-         continue;
-      }
-      log_debug("received %d bytes on raw socket %d", rlen, s);
-      log_debug("%s", buf2hex(buf, rlen));
-   }
-}
-#endif
 

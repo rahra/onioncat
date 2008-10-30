@@ -205,9 +205,9 @@ int main(int argc, char *argv[])
    {
       log_msg(L_NOTICE, "MAC address %02x:%02x:%02x:%02x:%02x:%02x",
             setup.ocat_hwaddr[0], setup.ocat_hwaddr[1], setup.ocat_hwaddr[2], setup.ocat_hwaddr[3], setup.ocat_hwaddr[4], setup.ocat_hwaddr[5]);
-      if (pipe(setup.icmpv6fd) == -1)
+      /*if (pipe(setup.icmpv6fd) == -1)
          log_msg(L_FATAL, "cannot create multicast pipe: %s", strerror(errno)), exit(1);
-      run_ocat_thread("icmpv6", icmpv6_handler, NULL);
+      run_ocat_thread("icmpv6", icmpv6_handler, NULL);*/
    }
 
 #ifndef WITHOUT_TUN
