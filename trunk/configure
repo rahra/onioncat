@@ -1242,6 +1242,7 @@ Optional Features:
   --enable-debug          enable debugging
   --enable-packet-log     enable packet logging
   --enable-handle-http    enable handling of accidental HTTP requests
+  --enable-packet-queue   enable queueuing of packets while connecting setup
   --disable-dependency-tracking  speeds up one-time build
   --enable-dependency-tracking   do not reject slow dependency extractors
 
@@ -2198,6 +2199,15 @@ if test "${enable_handle_http+set}" = set; then
   enableval=$enable_handle_http;
 cat >>confdefs.h <<\_ACEOF
 #define HANDLE_HTTP
+_ACEOF
+
+fi
+
+# Check whether --enable-packet-queue was given.
+if test "${enable_packet_queue+set}" = set; then
+  enableval=$enable_packet_queue;
+cat >>confdefs.h <<\_ACEOF
+#define PACKET_QUEUE
 _ACEOF
 
 fi

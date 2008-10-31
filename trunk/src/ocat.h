@@ -82,7 +82,9 @@
 //! # of secs after a cleaner wakeup occurs
 #define CLEANER_WAKEUP 10
 //! # of secs after stats output is generated
-#define STAT_WAKEUP (600/CLEANER_WAKEUP)
+#define STAT_WAKEUP 600
+//! keepalive time
+#define KEEPALIVE_TIME (MAX_IDLE_TIME/2)
 
 //! log flags. word is considered as 16 bit, lower byte for level, upper byte for additional flags.
 #define L_LEVEL_MASK 0x00ff
@@ -166,6 +168,7 @@ struct OcatSetup
    uint8_t ocat_hwaddr[ETH_ALEN];
 };
 
+#ifdef PACKET_QUEUE
 typedef struct PacketQueue
 {
    struct PacketQueue *next;
@@ -174,6 +177,7 @@ typedef struct PacketQueue
    time_t time;
    void *data;
 } PacketQueue_t;
+#endif
 
 typedef struct SocksHdr
 {
@@ -338,7 +342,9 @@ int tun_alloc(char *, struct in6_addr);
 void init_peers(void);
 void *socket_receiver(void *);
 void packet_forwarder(void);
+#ifdef PACKET_QUEUE
 void *packet_dequeuer(void *);
+#endif
 void *socket_acceptor(void *);
 void *socks_connector(void *);
 void *socket_cleaner(void *);

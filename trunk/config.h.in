@@ -87,6 +87,9 @@
 /* enable packet logging */
 #undef PACKET_LOG
 
+/* enable packet queue */
+#undef PACKET_QUEUE
+
 /* Version number of package */
 #undef VERSION
 
