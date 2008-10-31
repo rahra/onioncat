@@ -12,6 +12,7 @@ AC_SUBST([CFLAGS], [-Wall])
 AC_ARG_ENABLE([debug], AC_HELP_STRING([--enable-debug], [enable debugging]), AC_DEFINE([DEBUG], [], [enable debugging]))
 AC_ARG_ENABLE([packet-log], AC_HELP_STRING([--enable-packet-log], [enable packet logging]), AC_DEFINE([PACKET_LOG], [], [enable packet logging]))
 AC_ARG_ENABLE([handle-http], AC_HELP_STRING([--enable-handle-http], [enable handling of accidental HTTP requests]), AC_DEFINE([HANDLE_HTTP], [], [enable handling of accidental HTTP requests]))
+AC_ARG_ENABLE([packet-queue], AC_HELP_STRING([--enable-packet-queue], [enable queueuing of packets while connecting setup]), AC_DEFINE([PACKET_QUEUE], [], [enable packet queue]))
 
 # Checks for programs.
 AC_PROG_CC

@@ -68,11 +68,14 @@ static int ctrlfd_[2];
 // file descriptors of socket_receiver pipe
 // used for internal communication
 static int lpfd_[2];
+
+#ifdef PACKET_QUEUE
 // packet queue pointer
 static PacketQueue_t *queue_ = NULL;
 // mutex and condition variable for packet queue
 static pthread_mutex_t queue_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t queue_cond_ = PTHREAD_COND_INITIALIZER;
+#endif
 
 // SOCKS connector queue vars
 static SocksQueue_t *socks_queue_ = NULL;
@@ -120,6 +123,7 @@ int forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
 }
 
 
+#ifdef PACKET_QUEUE
 void queue_packet(const struct in6_addr *addr, const char *buf, int buflen)
 {
    PacketQueue_t *queue;
@@ -205,6 +209,7 @@ void *packet_dequeuer(void *p)
       pthread_mutex_unlock(&queue_mutex_);
    }
 }
+#endif
 
 
 /*! Check if source and destination address has
@@ -995,28 +1000,62 @@ void packet_forwarder(void)
       {
          log_debug("adding destination to SOCKS queue");
          socks_queue(dest, 0);
+#ifdef PACKET_QUEUE
          log_debug("queuing packet");
          queue_packet(dest, buf + 4, rlen - 4);
+#endif
       }
    }
+}
+
+
+int send_keepalive(const OcatPeer_t *peer)
+{
+   struct ip6_hdr hdr;
+   int len;
+
+   memset(&hdr, 0, sizeof(hdr));
+   memcpy(&hdr.ip6_dst, &peer->addr, sizeof(struct in6_addr));
+   memcpy(&hdr.ip6_src, &setup.ocat_addr, sizeof(struct in6_addr));
+   hdr.ip6_vfc = 0x60;
+   hdr.ip6_nxt = IPPROTO_NONE;
+   hdr.ip6_hops = 1;
+
+   log_debug("sending %d bytes keepalive to fd %d", sizeof(hdr), peer->tcpfd);
+
+   if ((len = send(peer->tcpfd, &hdr, sizeof(hdr), MSG_DONTWAIT)) == -1)
+   {
+      log_msg(L_ERROR, "could not send keepalive: %s", strerror(errno));
+      return -1;
+   }
+   if (len != sizeof(hdr))
+   {
+      log_msg(L_ERROR, "sending of %d bytes keepalive truncated to %d", sizeof(hdr), len);
+      return -1;
+   }
+   return 0;
 }
 
 
 void *socket_cleaner(void *ptr)
 {
    OcatPeer_t *peer, **p;
-   int cnt;
+   int stat_wup = 0;
+   time_t act_time;
 
-   for (cnt = STAT_WAKEUP; ; cnt--)
+   for (;;)
    {
-      if (!cnt)
-      {
-         cnt = STAT_WAKEUP;
-         log_msg(L_NOTICE, "stats: ...");
-      }
-
       sleep(CLEANER_WAKEUP);
       log_debug("wakeup");
+
+      act_time = time(NULL);
+
+      // stats output
+      if (act_time - stat_wup >= STAT_WAKEUP)
+      {
+         stat_wup = act_time;
+         log_msg(L_NOTICE, "stats: ... (not implemented yet)");
+      }
 
       // cleanup MAC table
       mac_cleanup();
@@ -1026,7 +1065,20 @@ void *socket_cleaner(void *ptr)
       for (p = get_first_peer_ptr(); *p; p = &(*p)->next)
       {
          lock_peer(*p);
-         if ((*p)->state && !(*p)->perm && (*p)->time + MAX_IDLE_TIME < time(NULL))
+
+         // handle permanent connections
+         if ((*p)->perm)
+         {
+            // sending keepalive
+            if (act_time - (*p)->time >= KEEPALIVE_TIME)
+            {
+               send_keepalive(*p);
+               (*p)->time = act_time;
+            }
+            unlock_peer(*p);
+         }
+         // handle temporary connections
+         else if ((*p)->state && act_time - (*p)->time >= MAX_IDLE_TIME)
          {
             peer = *p;
             *p = peer->next;

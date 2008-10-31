@@ -192,6 +192,7 @@ int main(int argc, char *argv[])
 
    log_msg(L_NOTICE, "%s (c) Bernhard R. Fischer -- compiled %s %s", PACKAGE_STRING, __DATE__, __TIME__);
 
+#if 0
    if (setup.config_file)
    {
       log_msg(L_NOTICE, "reading config file %s", setup.config_file);
@@ -199,6 +200,7 @@ int main(int argc, char *argv[])
          log_msg(L_ERROR, "error opening file: %s", strerror(errno)), exit(1);
       ctrl_handler((void*) c);
    }
+#endif
 
    memcpy(&setup.ocat_hwaddr[3], &setup.ocat_addr.s6_addr[13], 3);
    if (setup.use_tap);
@@ -249,11 +251,22 @@ int main(int argc, char *argv[])
 
    // create socks connector thread
    run_ocat_thread("connector", socks_connector, NULL);
+#ifdef PACKET_QUEUE
    // start packet dequeuer
    run_ocat_thread("dequeuer", packet_dequeuer, NULL);
+#endif
    // start controller socket thread
    if (setup.controller)
       run_ocat_thread("controller", ocat_controller, NULL);
+
+   // reading config file
+   if (setup.config_file)
+   {
+      log_msg(L_NOTICE, "reading config file %s", setup.config_file);
+      if ((c = open(setup.config_file, O_RDONLY)) == -1)
+         log_msg(L_ERROR, "error opening file: %s", strerror(errno)), exit(1);
+      ctrl_handler((void*) c);
+   }
 
    // start forwarding packets from tunnel
    log_msg(L_NOTICE, "starting packet forwarder");
