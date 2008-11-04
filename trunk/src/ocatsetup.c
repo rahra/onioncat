@@ -24,6 +24,8 @@
 
 #include "config.h"
 
+#include <stdio.h>
+#include <string.h>
 #include <arpa/inet.h>
 
 #include "ocat.h"
@@ -39,22 +41,35 @@ struct OcatSetup setup = {
    4, OCAT_UNAME, {0}, {{{0}}}, 0, 0, 1, OCAT_DIR, TUN_DEV,
    0, TOR_PREFIX4, TOR_PREFIX4_MASK,
    NULL, 1,
-   0,         // use_tap
-   //{-1, -1},  // icmpv6fd
-   {0x00, 0x00, 0x6c, 0x00, 0x00, 0x00}   // ocat_hwaddr (OnionCat MAC address)
+   0,                                      // use_tap
+   {0x00, 0x00, 0x6c, 0x00, 0x00, 0x00},   // ocat_hwaddr (OnionCat MAC address)
+   PID_FILE,
+   NULL, NULL,                             // logfile
+   0                                       // daemon
 };
+
+
+void init_setup(void)
+{
+   setup.logf = stderr;
+}
 
 
 #define _SB 100
 
 void print_setup_struct(FILE *f)
 {
-   char ip[_SB], nm[_SB], ip6[_SB], hw[_SB];
+   char ip[_SB], nm[_SB], ip6[_SB], hw[_SB], logf[_SB];
 
    inet_ntop(AF_INET, &setup.ocat_addr4, ip, _SB);
    inet_ntop(AF_INET, &setup.ocat_addr4_mask, nm, _SB);
    inet_ntop(AF_INET6, &setup.ocat_addr, ip6, _SB);
    mac_hw2str(setup.ocat_hwaddr, hw);
+
+   if (setup.logf == stderr)
+      strcpy(logf, "stderr");
+   else
+      sprintf(logf, "%p", setup.logf);
 
    fprintf(f,
          "fhd_key[]        = [IPV4(%d) => 0x%04x, IPV6(%d) => 0x%04x]\n"
@@ -79,7 +94,11 @@ void print_setup_struct(FILE *f)
          "config_file      = \"%s\"\n"
          "config_read      = %d\n"
          "use_tap          = %d\n"
-         "ocat_hwaddr      = %s\n",
+         "ocat_hwaddr      = %s\n"
+         "pid_file         = \"%s\"\n"
+         "logfn            = \"%s\""
+         "logf             = %s"
+         "daemon           = %d",
 
          IPV4_KEY, ntohl(setup.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup.fhd_key[IPV6_KEY]),
          setup.fhd_key_len,
@@ -103,7 +122,11 @@ void print_setup_struct(FILE *f)
          setup.config_file,
          setup.config_read,
          setup.use_tap,
-         hw
+         hw,
+         setup.pid_file,
+         setup.logfn,
+         logf,
+         setup.daemon
          );
 }
 

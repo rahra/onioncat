@@ -68,6 +68,7 @@
 #define OCAT_URL "http://www.abenteuerland.at/onioncat/"
 #define OCAT_DIR ".ocat"
 #define OCAT_CONNECT_LOG "connect_log"
+#define PID_FILE "/var/run/ocat.pid"
 
 //! Maximum frame (packet) size, should be able to keep one maximum size ipv6-packet: 2^16 + 40 + 4
 #define FRAME_SIZE 65580
@@ -166,6 +167,10 @@ struct OcatSetup
    int config_read;
    int use_tap;
    uint8_t ocat_hwaddr[ETH_ALEN];
+   char *pid_file;
+   char *logfn;
+   FILE *logf;
+   int daemon;
 };
 
 #ifdef PACKET_QUEUE
@@ -378,6 +383,7 @@ void delete_peer(OcatPeer_t *);
 /* ocatsetup.c */
 extern struct OcatSetup setup;
 void print_setup_struct(FILE *);
+void init_setup(void);
 
 /* ocatipv4route.c */
 struct in6_addr *ipv4_lookup_route(uint32_t);
