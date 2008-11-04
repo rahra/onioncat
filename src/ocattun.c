@@ -65,7 +65,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
 
 	log_debug("opening tun \"%s\"", tun_dev_);
    if ((fd = open(tun_dev_, O_RDWR)) < 0)
-      perror("open tun"), exit(1);
+      log_msg(L_FATAL, "could not open tundev %s: %s", tun_dev_, strerror(errno)), exit(1);
    inet_ntop(AF_INET6, &addr, astr, INET6_ADDRSTRLEN);
    inet_ntop(AF_INET, &setup.ocat_addr4, astr4, INET_ADDRSTRLEN);
 
@@ -81,7 +81,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
       strncpy(ifr.ifr_name, dev, IFNAMSIZ);
 
    if (ioctl(fd, TUNSETIFF, (void *) &ifr) < 0)
-      perror("TUNSETIFF"), exit(1);
+      log_msg(L_FATAL, "could not set TUNSETIFF: %s", strerror(errno)), exit(1);
    strlcpy(dev, ifr.ifr_name, IFNAMSIZ);
    if (!setup.use_tap)
    {
@@ -111,10 +111,10 @@ int tun_alloc(char *dev, struct in6_addr addr)
 
    int prm = 1;
    if (ioctl(fd, TUNSIFHEAD, &prm) == -1)
-      perror("ioctl:TUNSIFHEAD"), exit(1);
+      log_msg(L_FATAL, "could not ioctl:TUNSIFHEAD: %s", strerror(errno)), exit(1);
    prm = IFF_POINTOPOINT;
    if (ioctl(fd, TUNSIFMODE, &prm) == -1)
-      perror("ioctl:TUNSIFMODE"), exit(1);
+      log_msg(L_FATAL, "could not ioctl:TUNSIFMODE: %s", strerror(errno)), exit(1);
 
 #endif
 

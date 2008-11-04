@@ -98,7 +98,7 @@ void log_msg(int lf, const char *fmt, ...)
    va_list ap;
 
    va_start(ap, fmt);
-   vlog_msgf(stderr, lf, fmt, ap);
+   vlog_msgf(setup.logf, lf, fmt, ap);
    va_end(ap);
    if (clog_ && (lf & L_FCONN))
    {

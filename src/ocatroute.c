@@ -1152,7 +1152,7 @@ void *ctrl_handler(void *p)
          return NULL;
       }
       log_debug("fd %d fdopen'ed", fd);
-      fo = stderr;
+      fo = setup.logf;
       //setup.config_read = 1;
    }
 
