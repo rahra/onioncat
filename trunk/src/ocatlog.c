@@ -47,7 +47,7 @@ int open_connect_log(const char *dir)
 
    strlcpy(buf, dir, CBUFLEN);
    strlcat(buf, "/", CBUFLEN);
-   strlcat(buf, setup.ocat_dir, CBUFLEN);
+   strlcat(buf, CNF(ocat_dir), CBUFLEN);
 
    log_debug("creating ocat log dir \"%s\"", buf);
    if (mkdir(buf, S_IRWXU | S_IRGRP | S_IXGRP) && (errno != EEXIST))
@@ -78,7 +78,7 @@ void vlog_msgf(FILE *out, int lf, const char *fmt, va_list ap)
    const OcatThread_t *th = get_thread();
    int level = lf & L_LEVEL_MASK;
 
-   if (setup.debug_level < level)
+   if (CNF(debug_level) < level)
       return;
 
    t = time(NULL);
@@ -98,7 +98,7 @@ void log_msg(int lf, const char *fmt, ...)
    va_list ap;
 
    va_start(ap, fmt);
-   vlog_msgf(setup.logf, lf, fmt, ap);
+   vlog_msgf(CNF(logf), lf, fmt, ap);
    va_end(ap);
    if (clog_ && (lf & L_FCONN))
    {

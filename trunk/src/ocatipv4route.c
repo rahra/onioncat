@@ -198,7 +198,7 @@ int parse_route(const char *rs)
    if (!has_tor_prefix(&route.gw))
       return E_RT_NOTORGW;
 
-   if (IN6_ARE_ADDR_EQUAL(&route.gw, &setup.ocat_addr))
+   if (IN6_ARE_ADDR_EQUAL(&route.gw, &CNF(ocat_addr)))
       return E_RT_GWSELF;
 
    route.netmask = ntohl(route.netmask);

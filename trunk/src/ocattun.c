@@ -61,18 +61,18 @@ int tun_alloc(char *dev, struct in6_addr addr)
    char astr[INET6_ADDRSTRLEN];
    char astr4[INET_ADDRSTRLEN];
    char buf[FRAME_SIZE];
-   struct in_addr netmask = {setup.ocat_addr4_mask};
+   struct in_addr netmask = {CNF(ocat_addr4_mask)};
 
 	log_debug("opening tun \"%s\"", tun_dev_);
    if ((fd = open(tun_dev_, O_RDWR)) < 0)
       log_msg(L_FATAL, "could not open tundev %s: %s", tun_dev_, strerror(errno)), exit(1);
    inet_ntop(AF_INET6, &addr, astr, INET6_ADDRSTRLEN);
-   inet_ntop(AF_INET, &setup.ocat_addr4, astr4, INET_ADDRSTRLEN);
+   inet_ntop(AF_INET, &CNF(ocat_addr4), astr4, INET_ADDRSTRLEN);
 
 #ifdef __linux__
 
    memset(&ifr, 0, sizeof(ifr));
-   if (setup.use_tap)
+   if (CNF(use_tap))
       ifr.ifr_flags = IFF_TAP;
    else
       ifr.ifr_flags = IFF_TUN;
@@ -83,7 +83,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
    if (ioctl(fd, TUNSETIFF, (void *) &ifr) < 0)
       log_msg(L_FATAL, "could not set TUNSETIFF: %s", strerror(errno)), exit(1);
    strlcpy(dev, ifr.ifr_name, IFNAMSIZ);
-   if (!setup.use_tap)
+   if (!CNF(use_tap))
    {
       sprintf(buf, "ifconfig %s add %s/%d up", dev, astr, TOR_PREFIX_LEN);
       log_msg(L_NOTICE, "configuring tun IP: \"%s\"", buf);
@@ -98,14 +98,14 @@ int tun_alloc(char *dev, struct in6_addr addr)
       */
 
    // set tun frame header to ethertype IPv6
-   setup.fhd_key[IPV6_KEY] = htonl(ETHERTYPE_IPV6);
-   setup.fhd_key[IPV4_KEY] = htonl(ETHERTYPE_IP);
+   CNF(fhd_key[IPV6_KEY]) = htonl(ETHERTYPE_IPV6);
+   CNF(fhd_key[IPV4_KEY]) = htonl(ETHERTYPE_IP);
 
 #else
 
    // set tun frame header to address family AF_INET6 (FreeBSD = 0x1c, OpenBSD = 0x18)
-   setup.fhd_key[IPV6_KEY] = htonl(AF_INET6);
-   setup.fhd_key[IPV4_KEY] = htonl(AF_INET);
+   CNF(fhd_key[IPV6_KEY]) = htonl(AF_INET6);
+   CNF(fhd_key[IPV4_KEY]) = htonl(AF_INET);
 
 #ifdef __FreeBSD__
 
@@ -118,7 +118,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
 
 #endif
 
-   if (!setup.use_tap)
+   if (!CNF(use_tap))
    {
       sprintf(buf, "ifconfig tun0 inet6 %s/%d up", astr, TOR_PREFIX_LEN);
       log_debug("setting IP on tun: \"%s\"", buf);
@@ -129,7 +129,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
 #endif
 
    // setting up IPv4 address
-   if (setup.ipv4_enable && !setup.use_tap)
+   if (CNF(ipv4_enable) && !CNF(use_tap))
    {
       sprintf(buf, "ifconfig %s %s netmask %s", dev, astr4, inet_ntoa(netmask));
       log_msg(L_NOTICE, "configuring tun IP: \"%s\"", buf);
@@ -138,7 +138,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
    }
 
    // bring up tap device
-   if (setup.use_tap)
+   if (CNF(use_tap))
    {
        sprintf(buf, "ifconfig %s up", dev);
       log_msg(L_NOTICE, "bringing up TAP device \"%s\"", buf);

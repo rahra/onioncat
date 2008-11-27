@@ -70,7 +70,7 @@ int socks_connect(const SocksQueue_t *sq)
 
    memset(&in, 0, sizeof(in));
    in.sin_family = AF_INET;
-   in.sin_port = htons(setup.tor_socks_port);
+   in.sin_port = htons(CNF(tor_socks_port));
    in.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 #ifdef HAVE_SIN_LEN
    in.sin_len = sizeof(in);
@@ -96,15 +96,15 @@ int socks_connect(const SocksQueue_t *sq)
 
    shdr->ver = 4;
    shdr->cmd = 1;
-   shdr->port = htons(setup.ocat_dest_port);
+   shdr->port = htons(CNF(ocat_dest_port));
    shdr->addr.s_addr = htonl(0x00000001);
    /*
    strlcpy(buf + sizeof(SocksHdr_t), usrname_, strlen(usrname_) + 1);
    strlcpy(buf + sizeof(SocksHdr_t) + strlen(usrname_) + 1, onion, sizeof(onion));
    */
-   memcpy(buf + sizeof(SocksHdr_t), setup.usrname, strlen(setup.usrname) + 1);
-   memcpy(buf + sizeof(SocksHdr_t) + strlen(setup.usrname) + 1, onion, strlen(onion) + 1);
-   len = sizeof(SocksHdr_t) + strlen(setup.usrname) + strlen(onion) + 2;
+   memcpy(buf + sizeof(SocksHdr_t), CNF(usrname), strlen(CNF(usrname)) + 1);
+   memcpy(buf + sizeof(SocksHdr_t) + strlen(CNF(usrname)) + 1, onion, strlen(onion) + 1);
+   len = sizeof(SocksHdr_t) + strlen(CNF(usrname)) + strlen(onion) + 2;
    if (write(fd, shdr, len) != len)
       // FIXME: there should be some additional error handling
       log_msg(L_ERROR, "couldn't write %d bytes to SOCKS connection %d", len, fd);
