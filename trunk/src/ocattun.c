@@ -65,7 +65,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
 
 	log_debug("opening tun \"%s\"", tun_dev_);
    if ((fd = open(tun_dev_, O_RDWR)) < 0)
-      log_msg(L_FATAL, "could not open tundev %s: %s", tun_dev_, strerror(errno)), exit(1);
+      log_msg(LOG_EMERG, "could not open tundev %s: %s", tun_dev_, strerror(errno)), exit(1);
    inet_ntop(AF_INET6, &addr, astr, INET6_ADDRSTRLEN);
    inet_ntop(AF_INET, &CNF(ocat_addr4), astr4, INET_ADDRSTRLEN);
 
@@ -81,20 +81,20 @@ int tun_alloc(char *dev, struct in6_addr addr)
       strncpy(ifr.ifr_name, dev, IFNAMSIZ);
 
    if (ioctl(fd, TUNSETIFF, (void *) &ifr) < 0)
-      log_msg(L_FATAL, "could not set TUNSETIFF: %s", strerror(errno)), exit(1);
+      log_msg(LOG_EMERG, "could not set TUNSETIFF: %s", strerror(errno)), exit(1);
    strlcpy(dev, ifr.ifr_name, IFNAMSIZ);
    if (!CNF(use_tap))
    {
       sprintf(buf, "ifconfig %s add %s/%d up", dev, astr, TOR_PREFIX_LEN);
-      log_msg(L_NOTICE, "configuring tun IP: \"%s\"", buf);
+      log_msg(LOG_INFO, "configuring tun IP: \"%s\"", buf);
       if (system(buf) == -1)
-         log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+         log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
    }
 
    // according to drivers/net/tun.c only IFF_MULTICAST and IFF_PROMISC are supported.
 /*   ifr.ifr_flags = IFF_UP | IFF_RUNNING | IFF_MULTICAST | IFF_NOARP;
    if (ioctl(fd, SIOCSIFFLAGS, (void*) &ifr) < 0)
-      log_msg(L_ERROR, "could not set interface flags: \"%s\"", strerror(errno));
+      log_msg(LOG_ERR, "could not set interface flags: \"%s\"", strerror(errno));
       */
 
    // set tun frame header to ethertype IPv6
@@ -111,10 +111,10 @@ int tun_alloc(char *dev, struct in6_addr addr)
 
    int prm = 1;
    if (ioctl(fd, TUNSIFHEAD, &prm) == -1)
-      log_msg(L_FATAL, "could not ioctl:TUNSIFHEAD: %s", strerror(errno)), exit(1);
+      log_msg(LOG_EMERG, "could not ioctl:TUNSIFHEAD: %s", strerror(errno)), exit(1);
    prm = IFF_POINTOPOINT;
    if (ioctl(fd, TUNSIFMODE, &prm) == -1)
-      log_msg(L_FATAL, "could not ioctl:TUNSIFMODE: %s", strerror(errno)), exit(1);
+      log_msg(LOG_EMERG, "could not ioctl:TUNSIFMODE: %s", strerror(errno)), exit(1);
 
 #endif
 
@@ -123,7 +123,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
       sprintf(buf, "ifconfig tun0 inet6 %s/%d up", astr, TOR_PREFIX_LEN);
       log_debug("setting IP on tun: \"%s\"", buf);
       if (system(buf) == -1)
-         log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+         log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
    }
 
 #endif
@@ -132,18 +132,18 @@ int tun_alloc(char *dev, struct in6_addr addr)
    if (CNF(ipv4_enable) && !CNF(use_tap))
    {
       sprintf(buf, "ifconfig %s %s netmask %s", dev, astr4, inet_ntoa(netmask));
-      log_msg(L_NOTICE, "configuring tun IP: \"%s\"", buf);
+      log_msg(LOG_INFO, "configuring tun IP: \"%s\"", buf);
       if (system(buf) == -1)
-         log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+         log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
    }
 
    // bring up tap device
    if (CNF(use_tap))
    {
        sprintf(buf, "ifconfig %s up", dev);
-      log_msg(L_NOTICE, "bringing up TAP device \"%s\"", buf);
+      log_msg(LOG_INFO, "bringing up TAP device \"%s\"", buf);
       if (system(buf) == -1)
-         log_msg(L_ERROR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+         log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
    }
 
    return fd;

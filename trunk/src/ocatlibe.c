@@ -41,7 +41,7 @@ void oe_close(int fd)
    while (close(fd) == -1)
    {
       r = errno;
-      log_msg(L_ERROR, "failed to close %d: \"%s\"", fd, strerror(r));
+      log_msg(LOG_ERR, "failed to close %d: \"%s\"", fd, strerror(r));
       if (r == EINTR)
       {
          log_debug("re-closing %d", fd);
