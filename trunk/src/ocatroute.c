@@ -77,13 +77,6 @@ static pthread_mutex_t queue_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t queue_cond_ = PTHREAD_COND_INITIALIZER;
 #endif
 
-// SOCKS connector queue vars
-static SocksQueue_t *socks_queue_ = NULL;
-static int socks_connect_cnt_ = 0;
-static int socks_thread_cnt_ = 0;
-static pthread_mutex_t socks_queue_mutex_ = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t socks_queue_cond_ = PTHREAD_COND_INITIALIZER;
-
 
 int forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
 {
@@ -236,7 +229,7 @@ int check_tor_prefix(const struct ip6_hdr *ihd)
 void cleanup_socket(int fd, OcatPeer_t *peer)
 {
    log_msg(L_NOTICE | L_FCONN, "fd %d reached EOF, closing.", fd);
-   close(fd);
+   oe_close(fd);
    lock_peers();
    delete_peer(peer);
    unlock_peers();
@@ -374,7 +367,7 @@ void *socket_receiver(void *p)
          if (!len)
          {
             log_msg(L_NOTICE | L_FCONN, "fd %d reached EOF, closing.", peer->tcpfd);
-            close(peer->tcpfd);
+            oe_close(peer->tcpfd);
             unlock_peer(peer);
             lock_peers();
             delete_peer(peer);
@@ -416,7 +409,7 @@ void *socket_receiver(void *p)
                if (handle_http(peer))
                {
                   log_msg(L_NOTICE | L_FCONN, "closing %d due to HTTP", peer->tcpfd);
-                  close(peer->tcpfd);
+                  oe_close(peer->tcpfd);
                   unlock_peer(peer);
                   lock_peers();
                   delete_peer(peer);
@@ -622,14 +615,14 @@ int create_listener(struct sockaddr *addr, int sock_len)
    if (bind(fd, addr, sock_len) < 0)
    {
       log_msg(L_FATAL, "could not bind listener %d: \"%s\"", fd, strerror(errno));
-      close(fd);
+      oe_close(fd);
       return -1;
    }
 
    if (listen(fd, 32) < 0)
    {
       log_msg(L_FATAL, "could not bring listener %d to listening state: \"%s\"", fd, strerror(errno));
-      close(fd);
+      oe_close(fd);
       return -1;
    }
 
@@ -727,6 +720,7 @@ void *socket_acceptor(void *p)
 }
 
 
+#if 0
 int socks_connect(const SocksQueue_t *sq)
 //int socks_connect(const struct in6_addr *addr)
 {
@@ -754,10 +748,10 @@ int socks_connect(const SocksQueue_t *sq)
       return E_SOCKS_SOCK;
 
    t = time(NULL);
-   if (connect(fd, (struct sockaddr*) &in, sizeof(in)) < 0)
+   if (connect(fd, (struct sockaddr*) &in, sizeof(in)) == -1)
    {
-      log_msg(L_ERROR, "connect() to TOR failed");
-      close(fd);
+      log_msg(L_ERROR, "connect() to TOR failed: \"%s\"", strerror(errno));
+      oe_close(fd);
       return E_SOCKS_CONN;
    }
 
@@ -782,7 +776,7 @@ int socks_connect(const SocksQueue_t *sq)
    if (read(fd, shdr, sizeof(SocksHdr_t)) < sizeof(SocksHdr_t))
    {
       log_msg(L_ERROR | L_FCONN, "short read, closing.");
-      close(fd);
+      oe_close(fd);
       return E_SOCKS_REQ;
    }
    log_debug("SOCKS response received");
@@ -790,7 +784,7 @@ int socks_connect(const SocksQueue_t *sq)
    if (shdr->ver || (shdr->cmd != 90))
    {
       log_msg(L_ERROR, "request failed, reason = %d", shdr->cmd);
-      close(fd);
+      oe_close(fd);
       return E_SOCKS_RQFAIL;
    }
    log_msg(L_NOTICE | L_FCONN, "connection to %s successfully opened on fd %d", onion, fd);
@@ -892,6 +886,7 @@ void *socks_connector(void *p)
    }
    return NULL;
 }
+#endif
 
 
 void packet_forwarder(void)
@@ -1083,7 +1078,7 @@ void *socket_cleaner(void *ptr)
             peer = *p;
             *p = peer->next;
             log_msg(L_NOTICE | L_FCONN, "peer %d timed out, closing.", peer->tcpfd);
-            close(peer->tcpfd);
+            oe_close(peer->tcpfd);
             unlock_peer(peer);
             delete_peer(peer);
             if (!(*p))
@@ -1097,18 +1092,6 @@ void *socket_cleaner(void *ptr)
       }
       unlock_peers();
    }
-}
-
-
-int _remtr(char *s)
-{
-   if (!s[0])
-      return 0;
-   if (s[0] && (s[strlen(s) - 1] == '\n'))
-      s[strlen(s) - 1] = '\0';
-   if (s[0] && (s[strlen(s) - 1] == '\r'))
-      s[strlen(s) - 1] = '\0';
-   return strlen(s);
 }
 
 
@@ -1188,7 +1171,7 @@ void *ctrl_handler(void *p)
          break;
       }
 
-      if (!(rlen = _remtr(buf)))
+      if (!(rlen = oe_remtr(buf)))
          continue;
 
       if (!strtok_r(buf, " \t\r\n", &tokbuf))
@@ -1225,7 +1208,7 @@ void *ctrl_handler(void *p)
             if (peer->tcpfd == cfd)
             {
                log_msg(L_NOTICE | L_FCONN, "close request for %d", cfd);
-               close(cfd);
+               oe_close(cfd);
                delete_peer(peer);
                break;
             }
