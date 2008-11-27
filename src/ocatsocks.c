@@ -79,7 +79,7 @@ int socks_connect(const SocksQueue_t *sq)
    ipv6tonion(&sq->addr, onion);
    strlcat(onion, ".onion", sizeof(onion));
 
-   log_msg(L_NOTICE, "trying to connect to \"%s\" [%s]", onion, inet_ntop(AF_INET6, &sq->addr, buf, FRAME_SIZE));
+   log_msg(LOG_INFO, "trying to connect to \"%s\" [%s]", onion, inet_ntop(AF_INET6, &sq->addr, buf, FRAME_SIZE));
 
    if ((fd = socket(PF_INET, SOCK_STREAM, 0)) < 0)
       return E_SOCKS_SOCK;
@@ -87,7 +87,7 @@ int socks_connect(const SocksQueue_t *sq)
    t = time(NULL);
    if (connect(fd, (struct sockaddr*) &in, sizeof(in)) == -1)
    {
-      log_msg(L_ERROR, "connect() to TOR failed: \"%s\"", strerror(errno));
+      log_msg(LOG_ERR, "connect() to TOR failed: \"%s\"", strerror(errno));
       oe_close(fd);
       return E_SOCKS_CONN;
    }
@@ -107,12 +107,12 @@ int socks_connect(const SocksQueue_t *sq)
    len = sizeof(SocksHdr_t) + strlen(CNF(usrname)) + strlen(onion) + 2;
    if (write(fd, shdr, len) != len)
       // FIXME: there should be some additional error handling
-      log_msg(L_ERROR, "couldn't write %d bytes to SOCKS connection %d", len, fd);
+      log_msg(LOG_ERR, "couldn't write %d bytes to SOCKS connection %d", len, fd);
    log_debug("connect request sent");
 
    if (read(fd, shdr, sizeof(SocksHdr_t)) < sizeof(SocksHdr_t))
    {
-      log_msg(L_ERROR | L_FCONN, "short read, closing.");
+      log_msg(LOG_ERR | LOG_FCONN, "short read, closing.");
       oe_close(fd);
       return E_SOCKS_REQ;
    }
@@ -120,11 +120,11 @@ int socks_connect(const SocksQueue_t *sq)
 
    if (shdr->ver || (shdr->cmd != 90))
    {
-      log_msg(L_ERROR, "request failed, reason = %d", shdr->cmd);
+      log_msg(LOG_ERR, "request failed, reason = %d", shdr->cmd);
       oe_close(fd);
       return E_SOCKS_RQFAIL;
    }
-   log_msg(L_NOTICE | L_FCONN, "connection to %s successfully opened on fd %d", onion, fd);
+   log_msg(LOG_INFO | LOG_FCONN, "connection to %s successfully opened on fd %d", onion, fd);
 
    insert_peer(fd, sq, time(NULL) - t);
 
@@ -145,7 +145,7 @@ void socks_queue(const struct in6_addr *addr, int perm)
    {
       log_debug("queueing new SOCKS connection request");
       if (!(squeue = calloc(1, sizeof(SocksQueue_t))))
-         log_msg(L_FATAL, "could not get memory for SocksQueue entry: \"%s\"", strerror(errno)), exit(1);
+         log_msg(LOG_EMERG, "could not get memory for SocksQueue entry: \"%s\"", strerror(errno)), exit(1);
       memcpy(&squeue->addr, addr, sizeof(struct in6_addr));
       squeue->perm = perm;
       squeue->next = socks_queue_;
@@ -166,7 +166,7 @@ void *socks_connector(void *p)
    int i, rc, ps, run = 1;
 
    if ((rc = pthread_detach(pthread_self())))
-      log_msg(L_ERROR, "couldn't detach: \"%s\"", rc);
+      log_msg(LOG_ERR, "couldn't detach: \"%s\"", rc);
 
    pthread_mutex_lock(&socks_queue_mutex_);
    socks_thread_cnt_++;
@@ -202,7 +202,7 @@ void *socks_connector(void *p)
             ps = socks_connect(*squeue);
             //ps = socks_connect(&(*squeue)->addr);
       else
-         log_msg(L_NOTICE, "peer already exists, ignoring");
+         log_msg(LOG_INFO, "peer already exists, ignoring");
 
       // remove request from queue after connect
       log_debug("removing destination from SOCKS queue");

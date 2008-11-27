@@ -90,18 +90,6 @@
 //! keepalive time
 #define KEEPALIVE_TIME (MAX_IDLE_TIME/2)
 
-/*
-//! log flags. word is considered as 16 bit, lower byte for level, upper byte for additional flags.
-#define L_LEVEL_MASK 0x00ff
-#define L_FLAG_MASK 0xff00
-#define L_INFO 0
-#define L_NOTICE 1
-#define L_ERROR 2
-#define L_FATAL 3
-#define L_DEBUG 4
-#define L_FCONN (1 << 15)
-*/
-
 #define LOG_FCONN 0x80
 
 #define E_SOCKS_SOCK -1
@@ -138,7 +126,6 @@
 
 #define IPV4_KEY 0
 #define IPV6_KEY 1
-
 
 
 struct OcatSetup

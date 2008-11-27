@@ -33,7 +33,7 @@
 #define CBUFLEN 1024
 
 static pthread_mutex_t log_mutex_ = PTHREAD_MUTEX_INITIALIZER;
-static const char *flty_[] = {"info", "notice", "error", "fatal", "debug"};
+static const char *flty_[8] = {"emerg", "alert", "crit", "err", "warning", "notice", "info", "debug"};
 //! FILE pointer to connect log
 static FILE *clog_ = NULL;
 
@@ -52,7 +52,7 @@ int open_connect_log(const char *dir)
    log_debug("creating ocat log dir \"%s\"", buf);
    if (mkdir(buf, S_IRWXU | S_IRGRP | S_IXGRP) && (errno != EEXIST))
    {
-      log_msg(L_ERROR, "could not create ocat directory \"%s\": \"%s\"", buf, strerror(errno));
+      log_msg(LOG_ERR, "could not create ocat directory \"%s\": \"%s\"", buf, strerror(errno));
       return -1;
    }
 
@@ -62,10 +62,10 @@ int open_connect_log(const char *dir)
    log_debug("opening connect log \"%s\"", buf);
    if (!(clog_ = fopen(buf, "a")))
    {
-      log_msg(L_ERROR, "could not open connect log \"%s\": \"%s\"", buf, strerror(errno));
+      log_msg(LOG_ERR, "could not open connect log \"%s\": \"%s\"", buf, strerror(errno));
       return -1;
    }
-   log_msg(L_INFO | L_FCONN, "connect log started");
+   log_msg(LOG_NOTICE | LOG_FCONN, "connect log started");
    return 0;
 }
 
@@ -76,7 +76,7 @@ void vlog_msgf(FILE *out, int lf, const char *fmt, va_list ap)
    time_t t;
    char timestr[TIMESTRLEN] = "";
    const OcatThread_t *th = get_thread();
-   int level = lf & L_LEVEL_MASK;
+   int level = LOG_PRI(lf);
 
    if (CNF(debug_level) < level)
       return;
@@ -100,7 +100,7 @@ void log_msg(int lf, const char *fmt, ...)
    va_start(ap, fmt);
    vlog_msgf(CNF(logf), lf, fmt, ap);
    va_end(ap);
-   if (clog_ && (lf & L_FCONN))
+   if (clog_ && (lf & LOG_FCONN))
    {
       va_start(ap, fmt);
       vlog_msgf(clog_, lf, fmt, ap);

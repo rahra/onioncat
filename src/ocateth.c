@@ -225,7 +225,7 @@ uint16_t *malloc_ckbuf(const struct in6_addr *src, const struct in6_addr *dst, u
 
    if (!(psh = calloc(1, sizeof(struct ip6_psh) + plen)))
    {
-      log_msg(L_FATAL, "error creating checksum buffer: %s", strerror(errno));
+      log_msg(LOG_EMERG, "error creating checksum buffer: %s", strerror(errno));
       //return NULL;
       exit(1);
    }
@@ -333,7 +333,7 @@ int ndp_solicit(char *buf, int rlen)
    free_ckbuf(ckb);
    if (cksum)
    {
-      log_msg(L_ERROR, "icmpv6 checksum wrong");
+      log_msg(LOG_ERR, "icmpv6 checksum wrong");
       return -1;
    }
 
@@ -343,7 +343,7 @@ int ndp_solicit(char *buf, int rlen)
    if (mac_get_ip(eh->ether_shost, &in6) == -1)
       if (mac_add_entry(eh->ether_shost, &ip6->ip6_src) == -1)
       {
-         log_msg(L_ERROR, "MAC table full");
+         log_msg(LOG_ERR, "MAC table full");
          return -1;
       }
    memcpy(eh->ether_dhost, eh->ether_shost, ETH_ALEN);
@@ -367,7 +367,7 @@ int ndp_solicit(char *buf, int rlen)
 
    log_debug("writing %d bytes to tunfd %d", rlen, CNF(tunfd[1]));
    if (write(CNF(tunfd[1]), buf, rlen) < rlen)
-      log_msg(L_ERROR, "short write");
+      log_msg(LOG_ERR, "short write");
 
    return 0;
 }

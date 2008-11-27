@@ -39,7 +39,9 @@ struct OcatSetup setup_ =
    TOR_SOCKS_PORT, OCAT_LISTEN_PORT, OCAT_DEST_PORT, OCAT_CTRL_PORT, 
    //! default tunfd is stdin/stdout
    {0, 1},
-   4, OCAT_UNAME, {0}, {{{0}}}, 0, 0, 1, OCAT_DIR, TUN_DEV,
+   //! default debug level
+   LOG_DEBUG,
+   OCAT_UNAME, {0}, {{{0}}}, 0, 0, 1, OCAT_DIR, TUN_DEV,
    0, TOR_PREFIX4, TOR_PREFIX4_MASK,
    NULL, 1,
    0,                                      // use_tap

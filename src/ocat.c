@@ -84,12 +84,12 @@ void open_logfile(void)
       {
          log_debug("logfile %s opened", CNF(logfn));
          if (setvbuf(CNF(logf), NULL, _IOLBF, 0))
-            log_msg(L_ERROR, "could not setup line buffering: %s", strerror(errno));
+            log_msg(LOG_ERR, "could not setup line buffering: %s", strerror(errno));
          fflush(CNF(logf));
          return;
       }
       CNF(logf) = stderr;
-      log_msg(L_ERROR, "could not open logfile %s: %s. Defaulting to stderr", CNF(logfn), strerror(errno));
+      log_msg(LOG_ERR, "could not open logfile %s: %s. Defaulting to stderr", CNF(logfn), strerror(errno));
    }
 }
 
@@ -100,7 +100,7 @@ int mk_pid_file(void)
 
    if (!(f = fopen(CNF(pid_file), "w")))
    {
-      log_msg(L_ERROR, "could not create pid_file %s: %s", CNF(pid_file), strerror(errno));
+      log_msg(LOG_ERR, "could not create pid_file %s: %s", CNF(pid_file), strerror(errno));
       return -1;
    }
 
@@ -114,12 +114,12 @@ int mk_pid_file(void)
 
 void background(void)
 {
-   log_msg(L_NOTICE, "backgrounding");
+   log_msg(LOG_INFO, "backgrounding");
 
    switch(fork())
    {
       case -1:
-         log_msg(L_ERROR, "fork failed: %s. Staying in foreground", strerror(errno));
+         log_msg(LOG_ERR, "fork failed: %s. Staying in foreground", strerror(errno));
          return;
 
       case 0:
@@ -234,11 +234,11 @@ int main(int argc, char *argv[])
    if (urlconv == 2)
    {
       if ((c = inet_pton(AF_INET6, argv[optind], &CNF(ocat_addr))) < 0)
-         log_msg(L_ERROR, "inet_pton failed: %s", strerror(errno)), exit(1);
+         log_msg(LOG_ERR, "inet_pton failed: %s", strerror(errno)), exit(1);
       else if (!c)
-         log_msg(L_ERROR, "%s is not a valid IPv6 address", argv[optind]), exit(1);
+         log_msg(LOG_ERR, "%s is not a valid IPv6 address", argv[optind]), exit(1);
       if (!has_tor_prefix(&CNF(ocat_addr)))
-         log_msg(L_ERROR, "address does not have TOR prefix"), exit(1);
+         log_msg(LOG_ERR, "address does not have TOR prefix"), exit(1);
       ipv6tonion(&CNF(ocat_addr), CNF(onion_url));
       printf("%s.onion\n", CNF(onion_url));
       exit(0);
@@ -249,9 +249,9 @@ int main(int argc, char *argv[])
    if ((s = strchr(CNF(onion_url), '.')))
          *s = '\0';
    if (strlen(CNF(onion_url)) != 16)
-      log_msg(L_ERROR, "parameter seems not to be valid onion hostname"), exit(1);
+      log_msg(LOG_ERR, "parameter seems not to be valid onion hostname"), exit(1);
    if (oniontipv6(CNF(onion_url), &CNF(ocat_addr)) == -1)
-      log_msg(L_ERROR, "parameter seems not to be valid onion hostname"), exit(1);
+      log_msg(LOG_ERR, "parameter seems not to be valid onion hostname"), exit(1);
    if (CNF(ipv4_enable))
       oniontipv4(CNF(onion_url), &CNF(ocat_addr4), ntohl(CNF(ocat_addr4_mask)));
 
@@ -265,14 +265,14 @@ int main(int argc, char *argv[])
       exit(0);
    }
 
-   log_msg(L_NOTICE, "%s (c) Bernhard R. Fischer -- compiled %s %s", PACKAGE_STRING, __DATE__, __TIME__);
+   log_msg(LOG_INFO, "%s (c) Bernhard R. Fischer -- compiled %s %s", PACKAGE_STRING, __DATE__, __TIME__);
 
 #if 0
    if (CNF(config_file))
    {
-      log_msg(L_NOTICE, "reading config file %s", CNF(config_file));
+      log_msg(LOG_INFO, "reading config file %s", CNF(config_file));
       if ((c = open(CNF(config_file), O_RDONLY)) == -1)
-         log_msg(L_ERROR, "error opening file: %s", strerror(errno)), exit(1);
+         log_msg(LOG_ERR, "error opening file: %s", strerror(errno)), exit(1);
       ctrl_handler((void*) c);
    }
 #endif
@@ -280,10 +280,10 @@ int main(int argc, char *argv[])
    memcpy(&CNF(ocat_hwaddr[3]), &CNF(ocat_addr.s6_addr[13]), 3);
    if (CNF(use_tap));
    {
-      log_msg(L_NOTICE, "MAC address %02x:%02x:%02x:%02x:%02x:%02x",
+      log_msg(LOG_INFO, "MAC address %02x:%02x:%02x:%02x:%02x:%02x",
             CNF(ocat_hwaddr[0]), CNF(ocat_hwaddr[1]), CNF(ocat_hwaddr[2]), CNF(ocat_hwaddr[3]), CNF(ocat_hwaddr[4]), CNF(ocat_hwaddr[5]));
       /*if (pipe(CNF(icmpv6fd)) == -1)
-         log_msg(L_FATAL, "cannot create multicast pipe: %s", strerror(errno)), exit(1);
+         log_msg(LOG_EMERG, "cannot create multicast pipe: %s", strerror(errno)), exit(1);
       run_ocat_thread("icmpv6", icmpv6_handler, NULL);*/
    }
 
@@ -292,10 +292,10 @@ int main(int argc, char *argv[])
    CNF(tunfd[0]) = CNF(tunfd[1]) = tun_alloc(tunname, CNF(ocat_addr));
 #endif
 
-   log_msg(L_NOTICE, "IPv6 address %s", ip6addr);
-   log_msg(L_NOTICE, "TUN/TAP device %s", tunname);
+   log_msg(LOG_INFO, "IPv6 address %s", ip6addr);
+   log_msg(LOG_INFO, "TUN/TAP device %s", tunname);
    if (CNF(ipv4_enable))
-      log_msg(L_NOTICE, "IP address %s", inet_ntoa(CNF(ocat_addr4)));
+      log_msg(LOG_INFO, "IP address %s", inet_ntoa(CNF(ocat_addr4)));
  
    log_debug("tun frameheader v6 = 0x%08x, v4 = 0x%08x", ntohl(CNF(fhd_key[IPV6_KEY])), ntohl(CNF(fhd_key[IPV4_KEY])));
 
@@ -313,18 +313,18 @@ int main(int argc, char *argv[])
    // getting passwd info for user
    errno = 0;
    if (!(pwd = getpwnam(CNF(usrname))))
-      log_msg(L_FATAL, "can't get information for user \"%s\": \"%s\"", CNF(usrname), errno ? strerror(errno) : "user not found"), exit(1);
+      log_msg(LOG_EMERG, "can't get information for user \"%s\": \"%s\"", CNF(usrname), errno ? strerror(errno) : "user not found"), exit(1);
 
    // create pid_file
    mk_pid_file();
 
    if (!runasroot && !getuid())
    {
-      log_msg(L_NOTICE, "running as root, changing uid/gid to %s (uid %d/gid %d)", CNF(usrname), pwd->pw_uid, pwd->pw_gid);
+      log_msg(LOG_INFO, "running as root, changing uid/gid to %s (uid %d/gid %d)", CNF(usrname), pwd->pw_uid, pwd->pw_gid);
       if (setgid(pwd->pw_gid))
-         log_msg(L_ERROR, "could not change gid: \"%s\"", strerror(errno)), exit(1);
+         log_msg(LOG_ERR, "could not change gid: \"%s\"", strerror(errno)), exit(1);
       if (setuid(pwd->pw_uid))
-         log_msg(L_ERROR, "could not change uid: \"%d\"", strerror(errno)), exit(1);
+         log_msg(LOG_ERR, "could not change uid: \"%d\"", strerror(errno)), exit(1);
    }
    log_debug("uid/gid = %d/%d", getuid(), getgid());
 
@@ -352,14 +352,14 @@ int main(int argc, char *argv[])
    // reading config file
    if (CNF(config_file))
    {
-      log_msg(L_NOTICE, "reading config file %s", CNF(config_file));
+      log_msg(LOG_INFO, "reading config file %s", CNF(config_file));
       if ((c = open(CNF(config_file), O_RDONLY)) == -1)
-         log_msg(L_ERROR, "error opening file: %s", strerror(errno)), exit(1);
+         log_msg(LOG_ERR, "error opening file: %s", strerror(errno)), exit(1);
       ctrl_handler((void*) c);
    }
 
    // start forwarding packets from tunnel
-   log_msg(L_NOTICE, "starting packet forwarder");
+   log_msg(LOG_INFO, "starting packet forwarder");
    packet_forwarder();
 
    return 0;

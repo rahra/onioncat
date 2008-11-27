@@ -98,14 +98,14 @@ int forward_packet(const struct in6_addr *addr, const char *buf, int buflen)
 
    if ((len = send(peer->tcpfd, buf, buflen, MSG_DONTWAIT)) == -1)
    {
-      log_msg(L_ERROR, "could not write %d bytes to peer %d: \"%s\", dropping", buflen, peer->tcpfd, strerror(errno));
+      log_msg(LOG_ERR, "could not write %d bytes to peer %d: \"%s\", dropping", buflen, peer->tcpfd, strerror(errno));
    }
    else
    {
       if (len != buflen)
       {
          // FIXME: there should be sender frag handling!
-         log_msg(L_ERROR, "could not write %d bytes to peer %d, %d bytes written", buflen, peer->tcpfd, len);
+         log_msg(LOG_ERR, "could not write %d bytes to peer %d, %d bytes written", buflen, peer->tcpfd, len);
       }
       peer->time = time(NULL);
       peer->out += len;
@@ -124,7 +124,7 @@ void queue_packet(const struct in6_addr *addr, const char *buf, int buflen)
    log_debug("copying packet to heap for queue");
    if (!(queue = malloc(sizeof(PacketQueue_t) + buflen)))
    {
-      log_msg(L_ERROR, "%s for packet to queue", strerror(errno));
+      log_msg(LOG_ERR, "%s for packet to queue", strerror(errno));
       return;
    }
 
@@ -160,7 +160,7 @@ void *packet_dequeuer(void *p)
           // replaced clock_gettime() due to portability issues
          if (gettimeofday(&tv, NULL) == -1)
          {
-            log_msg(L_ERROR, "couldn't gettime: \"%s\"", strerror(errno));
+            log_msg(LOG_ERR, "couldn't gettime: \"%s\"", strerror(errno));
             memset(&tv, 0, sizeof(tv));
          }
          else
@@ -179,7 +179,7 @@ void *packet_dequeuer(void *p)
       }
 
       if (rc)
-         log_msg(L_FATAL, "woke up: \"%s\"", strerror(rc));
+         log_msg(LOG_EMERG, "woke up: \"%s\"", strerror(rc));
 
       log_debug("starting dequeuing");
       for (queue = &queue_; *queue; /*queue = &(*queue)->next*/)
@@ -214,12 +214,12 @@ int check_tor_prefix(const struct ip6_hdr *ihd)
 
    if (!has_tor_prefix(&ihd->ip6_dst))
    {
-      log_msg(L_ERROR, "destination %s unreachable", inet_ntop(AF_INET6, &ihd->ip6_dst, buf, INET6_ADDRSTRLEN));
+      log_msg(LOG_ERR, "destination %s unreachable", inet_ntop(AF_INET6, &ihd->ip6_dst, buf, INET6_ADDRSTRLEN));
       return 0;
    }
    if (!has_tor_prefix(&ihd->ip6_src))
    {
-      log_msg(L_ERROR, "source address invalid. Remote ocat could not reply");
+      log_msg(LOG_ERR, "source address invalid. Remote ocat could not reply");
       return 0;
    }
    return ntohs(ihd->ip6_plen);
@@ -228,7 +228,7 @@ int check_tor_prefix(const struct ip6_hdr *ihd)
 
 void cleanup_socket(int fd, OcatPeer_t *peer)
 {
-   log_msg(L_NOTICE | L_FCONN, "fd %d reached EOF, closing.", fd);
+   log_msg(LOG_INFO | LOG_FCONN, "fd %d reached EOF, closing.", fd);
    oe_close(fd);
    lock_peers();
    delete_peer(peer);
@@ -257,9 +257,9 @@ int handle_http(const OcatPeer_t *peer)
          "<html><body><h1>HTTP not possible!<br>OnionCat is running on this port at \"%s.onion\"</h1></body></html>\r\n",
          OCAT_URL, timestr, CNF(onion_url)
          );
-   log_msg(L_INFO, "request seems to be HTTP");
+   log_msg(LOG_NOTICE, "request seems to be HTTP");
    if (send(peer->tcpfd, response, strlen(response), MSG_DONTWAIT) == -1)
-      log_msg(L_ERROR, "could not send html response");
+      log_msg(LOG_ERR, "could not send html response");
 
    return 1;
 }
@@ -278,7 +278,7 @@ void *socket_receiver(void *p)
    struct ether_header *eh = (struct ether_header*) (buf + 4);
 
    if (pipe(lpfd_) < 0)
-      log_msg(L_FATAL, "could not create pipe for socket_receiver: \"%s\"", strerror(errno)), exit(1);
+      log_msg(LOG_EMERG, "could not create pipe for socket_receiver: \"%s\"", strerror(errno)), exit(1);
 
    for (;;)
    {
@@ -299,7 +299,7 @@ void *socket_receiver(void *p)
          }
 
          if (peer->tcpfd >= FD_SETSIZE)
-            log_msg(L_FATAL, "%d >= FD_SETIZE(%d)", peer->tcpfd, FD_SETSIZE), exit(1);
+            log_msg(LOG_EMERG, "%d >= FD_SETIZE(%d)", peer->tcpfd, FD_SETSIZE), exit(1);
 
          FD_SET(peer->tcpfd, &rset);
          if (peer->tcpfd > maxfd)
@@ -311,7 +311,7 @@ void *socket_receiver(void *p)
       log_debug("selecting...");
       if ((maxfd = select(maxfd + 1, &rset, NULL, NULL, NULL)) == -1)
       {
-         log_msg(L_FATAL, "select encountered error: \"%s\", restarting", strerror(errno));
+         log_msg(LOG_EMERG, "select encountered error: \"%s\", restarting", strerror(errno));
          continue;
       }
 
@@ -332,7 +332,7 @@ void *socket_receiver(void *p)
             peer = get_first_peer();
          else if (!(peer = peer->next))
          {
-            log_msg(L_FATAL, "fd %d ready but no peer found");
+            log_msg(LOG_EMERG, "fd %d ready but no peer found");
             unlock_peers();
             break;
          }
@@ -366,7 +366,7 @@ void *socket_receiver(void *p)
          // if len == 0 EOF reached => close session
          if (!len)
          {
-            log_msg(L_NOTICE | L_FCONN, "fd %d reached EOF, closing.", peer->tcpfd);
+            log_msg(LOG_INFO | LOG_FCONN, "fd %d reached EOF, closing.", peer->tcpfd);
             oe_close(peer->tcpfd);
             unlock_peer(peer);
             lock_peers();
@@ -408,7 +408,7 @@ void *socket_receiver(void *p)
  #ifdef HANDLE_HTTP
                if (handle_http(peer))
                {
-                  log_msg(L_NOTICE | L_FCONN, "closing %d due to HTTP", peer->tcpfd);
+                  log_msg(LOG_INFO | LOG_FCONN, "closing %d due to HTTP", peer->tcpfd);
                   oe_close(peer->tcpfd);
                   unlock_peer(peer);
                   lock_peers();
@@ -456,7 +456,7 @@ void *socket_receiver(void *p)
                }
 
                if (!drop)
-                  log_msg(L_NOTICE | L_FCONN, "incoming connection on %d from %s is now identified", peer->tcpfd,
+                  log_msg(LOG_INFO | LOG_FCONN, "incoming connection on %d from %s is now identified", peer->tcpfd,
                      inet_ntop(AF_INET6, &peer->addr, addr, INET6_ADDRSTRLEN));
             }
 
@@ -467,7 +467,7 @@ void *socket_receiver(void *p)
                {
                   log_debug("writing to tun %d framesize %d + 4", CNF(tunfd[1]), len);
                   if (write(CNF(tunfd[1]), peer->tunhdr, len + 4) != (len + 4))
-                     log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len + 4, CNF(tunfd[1]));
+                     log_msg(LOG_ERR, "could not write %d bytes to tunnel %d", len + 4, CNF(tunfd[1]));
                }
                // create ethernet header and handle MAC on TAP device
                else if (*peer->tunhdr == CNF(fhd_key[IPV6_KEY]))
@@ -491,7 +491,7 @@ void *socket_receiver(void *p)
                         eh->ether_type = htons(ETHERTYPE_IP);
 
                      if (write(CNF(tunfd[1]), buf, len + 4 + sizeof(struct ether_header)) != (len + 4 + sizeof(struct ether_header)))
-                        log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len + 4 + sizeof(struct ether_header), CNF(tunfd[1]));
+                        log_msg(LOG_ERR, "could not write %d bytes to tunnel %d", len + 4 + sizeof(struct ether_header), CNF(tunfd[1]));
                   }
                }
                else
@@ -501,7 +501,7 @@ void *socket_receiver(void *p)
             }
             else
             {
-               log_msg(L_ERROR, "dropping packet with %d bytes", len);
+               log_msg(LOG_ERR, "dropping packet with %d bytes", len);
                drop = 0;
             }
 
@@ -529,13 +529,13 @@ void set_nonblock(int fd)
 
    if ((flags = fcntl(fd, F_GETFL, 0)) == -1)
    {
-      log_msg(L_ERROR, "could not get socket flags for %d: \"%s\"", fd, strerror(errno));
+      log_msg(LOG_ERR, "could not get socket flags for %d: \"%s\"", fd, strerror(errno));
       flags = 0;
    }
    log_debug("O_NONBLOCK currently is %x", flags & O_NONBLOCK);
 
    if ((fcntl(fd, F_SETFL, flags | O_NONBLOCK)) == -1)
-      log_msg(L_ERROR, "could not set O_NONBLOCK for %d: \"%s\"", fd, strerror(errno));
+      log_msg(LOG_ERR, "could not set O_NONBLOCK for %d: \"%s\"", fd, strerror(errno));
 }
 
 
@@ -543,7 +543,7 @@ int insert_peer(int fd, const SocksQueue_t *sq, /*const struct in6_addr *addr,*/
 {
    OcatPeer_t *peer;
 
-   log_msg(L_NOTICE | L_FCONN, "inserting peer fd %d to active peer list", fd);
+   log_msg(LOG_INFO | LOG_FCONN, "inserting peer fd %d to active peer list", fd);
 
    set_nonblock(fd);
 
@@ -551,7 +551,7 @@ int insert_peer(int fd, const SocksQueue_t *sq, /*const struct in6_addr *addr,*/
    if (!(peer = get_empty_peer()))
    {
       unlock_peers();
-      log_msg(L_ERROR, "could not get new empty peer");
+      log_msg(LOG_ERR, "could not get new empty peer");
       return 0;
    } 
    lock_peer(peer);
@@ -574,7 +574,7 @@ int insert_peer(int fd, const SocksQueue_t *sq, /*const struct in6_addr *addr,*/
    // wake up socket_receiver
    log_debug("waking up socket_receiver");
    if (write(lpfd_[1], &fd, 1) != 1)
-      log_msg(L_FATAL, "couldn't write to socket_receiver pipe: \"%s\"", strerror(errno));
+      log_msg(LOG_EMERG, "couldn't write to socket_receiver pipe: \"%s\"", strerror(errno));
 
    return 1;
 }
@@ -600,26 +600,26 @@ int create_listener(struct sockaddr *addr, int sock_len)
          family = PF_INET6;
          break;
       default:
-         log_msg(L_FATAL, "unknown address family %d", addr->sa_family);
+         log_msg(LOG_EMERG, "unknown address family %d", addr->sa_family);
          return -1;
    }
 
    if ((fd = socket(family, SOCK_STREAM, 0)) < 0)
    {
-      log_msg(L_FATAL, "could not create listener socker: \"%s\"", strerror(errno));
+      log_msg(LOG_EMERG, "could not create listener socker: \"%s\"", strerror(errno));
       return -1;
    }
 
    if (bind(fd, addr, sock_len) < 0)
    {
-      log_msg(L_FATAL, "could not bind listener %d: \"%s\"", fd, strerror(errno));
+      log_msg(LOG_EMERG, "could not bind listener %d: \"%s\"", fd, strerror(errno));
       oe_close(fd);
       return -1;
    }
 
    if (listen(fd, 32) < 0)
    {
-      log_msg(L_FATAL, "could not bring listener %d to listening state: \"%s\"", fd, strerror(errno));
+      log_msg(LOG_EMERG, "could not bring listener %d to listening state: \"%s\"", fd, strerror(errno));
       oe_close(fd);
       return -1;
    }
@@ -662,11 +662,11 @@ int run_local_listeners(short port, int *sockfd, int (action_accept)(int))
 
    log_debug("creating IPv4 listener");
    if ((sockfd[0] = create_listener((struct sockaddr*) &in, sizeof(in))) == -1)
-      log_msg(L_FATAL, "exiting"), exit(1);
+      log_msg(LOG_EMERG, "exiting"), exit(1);
 
    log_debug("creating IPv6 listener");
    if ((sockfd[1] = create_listener((struct sockaddr*) &in6, sizeof(in6))) == -1)
-      log_msg(L_FATAL, "exiting"), exit(1);
+      log_msg(LOG_EMERG, "exiting"), exit(1);
 
    for (;;)
    {
@@ -694,7 +694,7 @@ int run_local_listeners(short port, int *sockfd, int (action_accept)(int))
          log_debug("accepting connection on %d", sockfd[i]);
          if ((fd = accept(sockfd[i], (struct sockaddr*) &in6, &alen)) < 0)
          {
-            log_msg(L_ERROR, "error accepting connection on %d: \"%s\"", sockfd[i], strerror(errno));
+            log_msg(LOG_ERR, "error accepting connection on %d: \"%s\"", sockfd[i], strerror(errno));
             // FIXME: there should be additional error handling!
             continue;
          }
@@ -703,7 +703,7 @@ int run_local_listeners(short port, int *sockfd, int (action_accept)(int))
                in6.sin6_family == AF_INET6 ? &in6.sin6_addr :
                (void*) &((struct sockaddr_in*) &in6)->sin_addr,
                iabuf, INET6_ADDRSTRLEN);
-         log_msg(L_NOTICE | L_FCONN, "connection %d accepted on listener %d from %s port %d", fd, sockfd[i], iabuf, ntohs(in6.sin6_port));
+         log_msg(LOG_INFO | LOG_FCONN, "connection %d accepted on listener %d from %s port %d", fd, sockfd[i], iabuf, ntohs(in6.sin6_port));
          (void) action_accept(fd);
       }
    }
@@ -758,7 +758,7 @@ void packet_forwarder(void)
       // just to be on the safe side but this should never happen
       if ((!CNF(use_tap) && (rlen < 4)) || (CNF(use_tap) && (rlen < 4 + sizeof(struct ether_header))))
       {
-         log_msg(L_ERROR, "frame effektively too short (rlen = %d)", rlen);
+         log_msg(LOG_ERR, "frame effektively too short (rlen = %d)", rlen);
          continue;
       }
 
@@ -788,7 +788,7 @@ void packet_forwarder(void)
 
          if (!check_tor_prefix((struct ip6_hdr*) &buf[4]))
          {
-            log_msg(L_ERROR, "dropping frame");
+            log_msg(LOG_ERR, "dropping frame");
             continue;
          }
 
@@ -809,13 +809,13 @@ void packet_forwarder(void)
 #endif
          if (!(dest = ipv4_lookup_route(ntohl(in.s_addr))))
          {
-            log_msg(L_ERROR, "no route to destination %s, dropping frame.", inet_ntoa(in));
+            log_msg(LOG_ERR, "no route to destination %s, dropping frame.", inet_ntoa(in));
             continue;
          }
       }
       else
       {
-         log_msg(L_ERROR, "protocol 0x%08x not supported. dropping frame.", ntohl(*((uint32_t*) buf)));
+         log_msg(LOG_ERR, "protocol 0x%08x not supported. dropping frame.", ntohl(*((uint32_t*) buf)));
          continue;
       }
 
@@ -849,12 +849,12 @@ int send_keepalive(const OcatPeer_t *peer)
 
    if ((len = send(peer->tcpfd, &hdr, sizeof(hdr), MSG_DONTWAIT)) == -1)
    {
-      log_msg(L_ERROR, "could not send keepalive: %s", strerror(errno));
+      log_msg(LOG_ERR, "could not send keepalive: %s", strerror(errno));
       return -1;
    }
    if (len != sizeof(hdr))
    {
-      log_msg(L_ERROR, "sending of %d bytes keepalive truncated to %d", sizeof(hdr), len);
+      log_msg(LOG_ERR, "sending of %d bytes keepalive truncated to %d", sizeof(hdr), len);
       return -1;
    }
    return 0;
@@ -878,7 +878,7 @@ void *socket_cleaner(void *ptr)
       if (act_time - stat_wup >= STAT_WAKEUP)
       {
          stat_wup = act_time;
-         log_msg(L_NOTICE, "stats: ... (not implemented yet)");
+         log_msg(LOG_INFO, "stats: ... (not implemented yet)");
       }
 
       // cleanup MAC table
@@ -906,7 +906,7 @@ void *socket_cleaner(void *ptr)
          {
             peer = *p;
             *p = peer->next;
-            log_msg(L_NOTICE | L_FCONN, "peer %d timed out, closing.", peer->tcpfd);
+            log_msg(LOG_INFO | LOG_FCONN, "peer %d timed out, closing.", peer->tcpfd);
             oe_close(peer->tcpfd);
             unlock_peer(peer);
             delete_peer(peer);
@@ -941,7 +941,7 @@ void *ctrl_handler(void *p)
    struct in6_addr in6;
 
    if ((rlen = pthread_detach(pthread_self())))
-      log_msg(L_ERROR, "thread couldn't self-detach: \"%s\"", strerror(rlen));
+      log_msg(LOG_ERR, "thread couldn't self-detach: \"%s\"", strerror(rlen));
    log_debug("thread detached");
 
    fd = (int) p;
@@ -949,7 +949,7 @@ void *ctrl_handler(void *p)
    {
       if (!(ff = fdopen(fd, "r+")))
       {
-         log_msg(L_ERROR, "could not open %d for writing: %s", fd, strerror(errno));
+         log_msg(LOG_ERR, "could not open %d for writing: %s", fd, strerror(errno));
          return NULL;
       }
       log_debug("fd %d fdopen'ed", fd);
@@ -959,7 +959,7 @@ void *ctrl_handler(void *p)
    {
       if (!(ff = fdopen(fd, "r")))
       {
-         log_msg(L_ERROR, "could not open %d for reading: %s", fd, strerror(errno));
+         log_msg(LOG_ERR, "could not open %d for reading: %s", fd, strerror(errno));
          CNF(config_read) = 1;
          return NULL;
       }
@@ -996,7 +996,7 @@ void *ctrl_handler(void *p)
       if (!fgets(buf, FRAME_SIZE, ff))
       {
          if (!feof(ff))
-            log_msg(L_ERROR, "error reading from %d");
+            log_msg(LOG_ERR, "error reading from %d");
          break;
       }
 
@@ -1036,14 +1036,14 @@ void *ctrl_handler(void *p)
          for (peer = get_first_peer(); peer; peer = peer->next)
             if (peer->tcpfd == cfd)
             {
-               log_msg(L_NOTICE | L_FCONN, "close request for %d", cfd);
+               log_msg(LOG_INFO | LOG_FCONN, "close request for %d", cfd);
                oe_close(cfd);
                delete_peer(peer);
                break;
             }
          if (!peer)
          {
-            log_msg(L_NOTICE, "no peer with fd %d exists\n", cfd);
+            log_msg(LOG_INFO, "no peer with fd %d exists\n", cfd);
             fprintf(fo, "no peer with fd %d exists\n", cfd);
          }
          unlock_peers();
@@ -1057,7 +1057,7 @@ void *ctrl_handler(void *p)
       }
       else if (!strcmp(buf, "terminate"))
       {
-         log_msg(L_NOTICE, "terminate request from control port");
+         log_msg(LOG_INFO, "terminate request from control port");
          //FIXME: fds should be closed properly
          exit(0);
       }
@@ -1148,9 +1148,9 @@ void *ctrl_handler(void *p)
 
    if (CNF(config_read))
       fprintf(fo, "Good bye!\n");
-   log_msg(L_NOTICE | L_FCONN, "closing session %d", fd);
+   log_msg(LOG_INFO | LOG_FCONN, "closing session %d", fd);
    if (fclose(ff) == EOF)
-      log_msg(L_ERROR, "error closing control stream: \"%s\"", strerror(errno));
+      log_msg(LOG_ERR, "error closing control stream: \"%s\"", strerror(errno));
    // fclose also closes the fd according to the man page
 
    if (!CNF(config_read))

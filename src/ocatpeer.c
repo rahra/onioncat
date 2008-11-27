@@ -95,7 +95,7 @@ OcatPeer_t *get_empty_peer(void)
 
    if (!(peer = calloc(1, sizeof(OcatPeer_t))))
    {
-      log_msg(L_ERROR, "cannot get memory for new peer: \"%s\"", strerror(errno));
+      log_msg(LOG_ERR, "cannot get memory for new peer: \"%s\"", strerror(errno));
       return NULL;
    }
 
@@ -103,7 +103,7 @@ OcatPeer_t *get_empty_peer(void)
    peer->fragbuf = &peer->_fragbuf[CNF(fhd_key_len)];
    if ((rc = pthread_mutex_init(&peer->mutex, NULL)))
    {
-      log_msg(L_FATAL, "cannot init new peer mutex: \"%s\"", strerror(rc));
+      log_msg(LOG_EMERG, "cannot init new peer mutex: \"%s\"", strerror(rc));
       free(peer);
       return NULL;
    }
@@ -133,7 +133,7 @@ void delete_peer(OcatPeer_t *peer)
 
          // effectively delete it
          if ((rc = pthread_mutex_destroy(&peer->mutex)))
-            log_msg(L_FATAL, "cannot destroy mutex: \"%s\"", strerror(rc));
+            log_msg(LOG_EMERG, "cannot destroy mutex: \"%s\"", strerror(rc));
          free(peer);
          return;
       }

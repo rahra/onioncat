@@ -52,7 +52,7 @@ int ipv4_add_route(IPv4Route_t *route, IPv4Route_t **root, uint32_t cur_nm)
    {
       if (!(*root = calloc(1, sizeof(IPv4Route_t))))
       {
-         log_msg(L_FATAL, "ipv4_add_route: %s", strerror(errno));
+         log_msg(LOG_EMERG, "ipv4_add_route: %s", strerror(errno));
          return E_RT_NOMEM;
       }
       (*root)->dest = route->dest & cur_nm;
@@ -72,14 +72,14 @@ int ipv4_add_route(IPv4Route_t *route, IPv4Route_t **root, uint32_t cur_nm)
       if (IN6_ARE_ADDR_EQUAL(&(*root)->gw, &route->gw))
          return 0;
 
-      log_msg(L_ERROR, "route already exists");
+      log_msg(LOG_ERR, "route already exists");
       return E_RT_DUP;
    }
 
    // break recursion in case of error
    if (cur_nm == 0xffffffff)
    {
-      log_msg(L_ERROR, "netmask error in netmask of route: %08x", route->netmask);
+      log_msg(LOG_ERR, "netmask error in netmask of route: %08x", route->netmask);
       return E_RT_ILLNM;
    }
 
