@@ -344,6 +344,7 @@ int tun_alloc(char *, struct in6_addr);
 #endif
 
 /* ocatroute.c */
+extern int sockfd_[2];
 void init_peers(void);
 void *socket_receiver(void *);
 void packet_forwarder(void);
@@ -356,6 +357,7 @@ void *socket_cleaner(void *);
 void *ocat_controller(void *);
 void *ctrl_handler(void *);
 int insert_peer(int, const SocksQueue_t *, time_t);
+int run_local_listeners(short, int *, int (action_accept)(int));
 
 /* ocatthread.c */
 const OcatThread_t *init_ocat_thread(const char *);
