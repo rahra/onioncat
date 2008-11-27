@@ -38,6 +38,7 @@
 #include <sys/endian.h>
 #endif
 #include <net/ethernet.h>
+#include <syslog.h>
 
 #ifndef ETHERTYPE_IPV6
 #define ETHERTYPE_IPV6 0x86dd
@@ -54,6 +55,8 @@
 #define TOR_PREFIX4 {0x0a000000}
 #define TOR_PREFIX4_MASK 0xff000000
 #endif
+//! Len of an .onion-URL (without ".onion" and '\0')
+#define ONION_URL_LEN 16
 #define MAXPEERS 1024
 //! Local listening port for incoming connections from TOR.
 #define OCAT_LISTEN_PORT 8060
@@ -87,6 +90,7 @@
 //! keepalive time
 #define KEEPALIVE_TIME (MAX_IDLE_TIME/2)
 
+/*
 //! log flags. word is considered as 16 bit, lower byte for level, upper byte for additional flags.
 #define L_LEVEL_MASK 0x00ff
 #define L_FLAG_MASK 0xff00
@@ -96,6 +100,9 @@
 #define L_FATAL 3
 #define L_DEBUG 4
 #define L_FCONN (1 << 15)
+*/
+
+#define LOG_FCONN 0x80
 
 #define E_SOCKS_SOCK -1
 #define E_SOCKS_CONN -2
@@ -132,6 +139,8 @@
 #define IPV4_KEY 0
 #define IPV6_KEY 1
 
+
+
 struct OcatSetup
 {
    //! frame header of local OS in network byte order
@@ -166,11 +175,15 @@ struct OcatSetup
    char *config_file;
    int config_read;
    int use_tap;
+   //! local OnionCat MAC address
    uint8_t ocat_hwaddr[ETH_ALEN];
    char *pid_file;
    char *logfn;
    FILE *logf;
    int daemon;
+   //! hardcoded permanent peers
+#define ROOT_PEERS 1
+   struct in6_addr root_peer[ROOT_PEERS];
 };
 
 #ifdef PACKET_QUEUE
@@ -327,7 +340,7 @@ extern OcatThread_t *octh_;
 int open_connect_log(const char*);
 void log_msg(int, const char *, ...);
 #ifdef DEBUG
-#define log_debug(x...) log_msg(L_DEBUG, ## x)
+#define log_debug(x...) log_msg(LOG_DEBUG, ## x)
 #else
 #define log_debug(x...)
 #endif
@@ -357,7 +370,6 @@ void *ocat_controller(void *);
 void *ctrl_handler(void *);
 int insert_peer(int, const SocksQueue_t *, time_t);
 
-
 /* ocatthread.c */
 const OcatThread_t *init_ocat_thread(const char *);
 int run_ocat_thread(const char *, void *(*)(void*), void*);
@@ -383,7 +395,8 @@ OcatPeer_t *get_empty_peer(void);
 void delete_peer(OcatPeer_t *);
 
 /* ocatsetup.c */
-extern struct OcatSetup setup;
+#define CNF(x) setup_.x
+extern struct OcatSetup setup_;
 void print_setup_struct(FILE *);
 void init_setup(void);
 

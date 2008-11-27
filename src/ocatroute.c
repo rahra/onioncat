@@ -255,7 +255,7 @@ int handle_http(const OcatPeer_t *peer)
    snprintf(response, BSTRLEN,
          "HTTP/1.0 301 HTTP not possible\r\nLocation: %s\r\nDate: %s\r\nContent-Type: text/html; charset=iso-8859-1\r\n\r\n"
          "<html><body><h1>HTTP not possible!<br>OnionCat is running on this port at \"%s.onion\"</h1></body></html>\r\n",
-         OCAT_URL, timestr, setup.onion_url
+         OCAT_URL, timestr, CNF(onion_url)
          );
    log_msg(L_INFO, "request seems to be HTTP");
    if (send(peer->tcpfd, response, strlen(response), MSG_DONTWAIT) == -1)
@@ -393,7 +393,7 @@ void *socket_receiver(void *p)
                }
 
                len = ntohs(((struct ip6_hdr*)peer->fragbuf)->ip6_plen) + IP6HLEN;
-               *peer->tunhdr = setup.fhd_key[IPV6_KEY];
+               *peer->tunhdr = CNF(fhd_key[IPV6_KEY]);
             }
             // incoming packet seems to be IPv4
             else if ((peer->fragbuf[0] & 0xf0) == 0x40)
@@ -425,7 +425,7 @@ void *socket_receiver(void *p)
                }
 
                len = IPPKTLEN(peer->fragbuf);
-               *peer->tunhdr = setup.fhd_key[IPV4_KEY];
+               *peer->tunhdr = CNF(fhd_key[IPV4_KEY]);
             }
             else
             {
@@ -435,13 +435,11 @@ void *socket_receiver(void *p)
             }
 
             // set IP address if it is not set yet and frame is valid
-            //if (!memcmp(&peer->addr, &in6addr_any, sizeof(struct in6_addr)))
-            //if (IN6_ARE_ADDR_EQUAL(&peer->addr, &in6addr_any))
             if (IN6_IS_ADDR_UNSPECIFIED(&peer->addr))
             {
-               if (*peer->tunhdr == setup.fhd_key[IPV6_KEY])
+               if (*peer->tunhdr == CNF(fhd_key[IPV6_KEY]))
                   memcpy(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src, sizeof(struct in6_addr));
-               else if (*peer->tunhdr == setup.fhd_key[IPV4_KEY])
+               else if (*peer->tunhdr == CNF(fhd_key[IPV4_KEY]))
                {
                   // check if there is a route back
 #ifdef HAVE_STRUCT_IPHDR
@@ -465,14 +463,14 @@ void *socket_receiver(void *p)
             if (!drop)
             {
                // write directly on TUN device
-               if (!setup.use_tap)
+               if (!CNF(use_tap))
                {
-                  log_debug("writing to tun %d framesize %d + 4", setup.tunfd[1], len);
-                  if (write(setup.tunfd[1], peer->tunhdr, len + 4) != (len + 4))
-                     log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len + 4, setup.tunfd[1]);
+                  log_debug("writing to tun %d framesize %d + 4", CNF(tunfd[1]), len);
+                  if (write(CNF(tunfd[1]), peer->tunhdr, len + 4) != (len + 4))
+                     log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len + 4, CNF(tunfd[1]));
                }
                // create ethernet header and handle MAC on TAP device
-               else if (*peer->tunhdr == setup.fhd_key[IPV6_KEY])
+               else if (*peer->tunhdr == CNF(fhd_key[IPV6_KEY]))
                {
                   log_debug("creating ethernet header");
 
@@ -485,15 +483,15 @@ void *socket_receiver(void *p)
                   {
                      *((uint32_t*) buf) = *peer->tunhdr;
                      memcpy(buf + 4 + sizeof(struct ether_header), peer->fragbuf, len);
-                     memcpy(eh->ether_shost, setup.ocat_hwaddr, ETH_ALEN);
+                     memcpy(eh->ether_shost, CNF(ocat_hwaddr), ETH_ALEN);
 
-                     if (*peer->tunhdr == setup.fhd_key[IPV6_KEY])
+                     if (*peer->tunhdr == CNF(fhd_key[IPV6_KEY]))
                         eh->ether_type = htons(ETHERTYPE_IPV6);
-                     else if (*peer->tunhdr == setup.fhd_key[IPV4_KEY])
+                     else if (*peer->tunhdr == CNF(fhd_key[IPV4_KEY]))
                         eh->ether_type = htons(ETHERTYPE_IP);
 
-                     if (write(setup.tunfd[1], buf, len + 4 + sizeof(struct ether_header)) != (len + 4 + sizeof(struct ether_header)))
-                        log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len + 4 + sizeof(struct ether_header), setup.tunfd[1]);
+                     if (write(CNF(tunfd[1]), buf, len + 4 + sizeof(struct ether_header)) != (len + 4 + sizeof(struct ether_header)))
+                        log_msg(L_ERROR, "could not write %d bytes to tunnel %d", len + 4 + sizeof(struct ether_header), CNF(tunfd[1]));
                   }
                }
                else
@@ -715,178 +713,9 @@ int run_local_listeners(short port, int *sockfd, int (action_accept)(int))
 
 void *socket_acceptor(void *p)
 {
-   run_local_listeners(setup.ocat_listen_port, sockfd_, insert_anon_peer);
+   run_local_listeners(CNF(ocat_listen_port), sockfd_, insert_anon_peer);
    return NULL;
 }
-
-
-#if 0
-int socks_connect(const SocksQueue_t *sq)
-//int socks_connect(const struct in6_addr *addr)
-{
-   struct sockaddr_in in;
-   int fd, t, len;
-   char buf[FRAME_SIZE], onion[ONION_NAME_SIZE];
-   SocksHdr_t *shdr = (SocksHdr_t*) buf;
-
-   log_debug("called");
-
-   memset(&in, 0, sizeof(in));
-   in.sin_family = AF_INET;
-   in.sin_port = htons(setup.tor_socks_port);
-   in.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-#ifdef HAVE_SIN_LEN
-   in.sin_len = sizeof(in);
-#endif
-
-   ipv6tonion(&sq->addr, onion);
-   strlcat(onion, ".onion", sizeof(onion));
-
-   log_msg(L_NOTICE, "trying to connect to \"%s\" [%s]", onion, inet_ntop(AF_INET6, &sq->addr, buf, FRAME_SIZE));
-
-   if ((fd = socket(PF_INET, SOCK_STREAM, 0)) < 0)
-      return E_SOCKS_SOCK;
-
-   t = time(NULL);
-   if (connect(fd, (struct sockaddr*) &in, sizeof(in)) == -1)
-   {
-      log_msg(L_ERROR, "connect() to TOR failed: \"%s\"", strerror(errno));
-      oe_close(fd);
-      return E_SOCKS_CONN;
-   }
-
-   log_debug("connected to TOR, doing SOCKS handshake");
-
-   shdr->ver = 4;
-   shdr->cmd = 1;
-   shdr->port = htons(setup.ocat_dest_port);
-   shdr->addr.s_addr = htonl(0x00000001);
-   /*
-   strlcpy(buf + sizeof(SocksHdr_t), usrname_, strlen(usrname_) + 1);
-   strlcpy(buf + sizeof(SocksHdr_t) + strlen(usrname_) + 1, onion, sizeof(onion));
-   */
-   memcpy(buf + sizeof(SocksHdr_t), setup.usrname, strlen(setup.usrname) + 1);
-   memcpy(buf + sizeof(SocksHdr_t) + strlen(setup.usrname) + 1, onion, strlen(onion) + 1);
-   len = sizeof(SocksHdr_t) + strlen(setup.usrname) + strlen(onion) + 2;
-   if (write(fd, shdr, len) != len)
-      // FIXME: there should be some additional error handling
-      log_msg(L_ERROR, "couldn't write %d bytes to SOCKS connection %d", len, fd);
-   log_debug("connect request sent");
-
-   if (read(fd, shdr, sizeof(SocksHdr_t)) < sizeof(SocksHdr_t))
-   {
-      log_msg(L_ERROR | L_FCONN, "short read, closing.");
-      oe_close(fd);
-      return E_SOCKS_REQ;
-   }
-   log_debug("SOCKS response received");
-
-   if (shdr->ver || (shdr->cmd != 90))
-   {
-      log_msg(L_ERROR, "request failed, reason = %d", shdr->cmd);
-      oe_close(fd);
-      return E_SOCKS_RQFAIL;
-   }
-   log_msg(L_NOTICE | L_FCONN, "connection to %s successfully opened on fd %d", onion, fd);
-
-   insert_peer(fd, sq, time(NULL) - t);
-
-   return fd;
-}
-
-
-void socks_queue(const struct in6_addr *addr, int perm)
-{
-   SocksQueue_t *squeue;
-
-   pthread_mutex_lock(&socks_queue_mutex_);
-   for (squeue = socks_queue_; squeue; squeue = squeue->next)
-      //if (!memcmp(&squeue->addr, addr, sizeof(struct in6_addr)))
-      if (IN6_ARE_ADDR_EQUAL(&squeue->addr, addr))
-         break;
-   if (!squeue)
-   {
-      log_debug("queueing new SOCKS connection request");
-      if (!(squeue = calloc(1, sizeof(SocksQueue_t))))
-         log_msg(L_FATAL, "could not get memory for SocksQueue entry: \"%s\"", strerror(errno)), exit(1);
-      memcpy(&squeue->addr, addr, sizeof(struct in6_addr));
-      squeue->perm = perm;
-      squeue->next = socks_queue_;
-      socks_queue_ = squeue;
-      log_debug("signalling connector");
-      pthread_cond_signal(&socks_queue_cond_);
-   }
-   else
-      log_debug("connection already exists, not queueing SOCKS connection");
-   pthread_mutex_unlock(&socks_queue_mutex_);
-}
-
-
-void *socks_connector(void *p)
-{
-   OcatPeer_t *peer;
-   SocksQueue_t **squeue, *sq;
-   int i, rc, ps, run = 1;
-
-   if ((rc = pthread_detach(pthread_self())))
-      log_msg(L_ERROR, "couldn't detach: \"%s\"", rc);
-
-   pthread_mutex_lock(&socks_queue_mutex_);
-   socks_thread_cnt_++;
-   pthread_mutex_unlock(&socks_queue_mutex_);
-
-   while (run)
-   {
-      pthread_mutex_lock(&socks_queue_mutex_);
-      do
-      {
-         pthread_cond_wait(&socks_queue_cond_, &socks_queue_mutex_);
-         for (squeue = &socks_queue_; *squeue; squeue = &(*squeue)->next)
-            if (!(*squeue)->state)
-               break;
-      }
-      while (!(*squeue));
-
-      // spawn spare thread if there is no one left
-      (*squeue)->state = SOCKS_CONNECTING;
-      socks_connect_cnt_++;
-      if (socks_thread_cnt_ <= socks_connect_cnt_)
-         run_ocat_thread("connector", socks_connector, NULL);
-      pthread_mutex_unlock(&socks_queue_mutex_);
-
-      // search for existing peer
-      lock_peers();
-      peer = search_peer(&(*squeue)->addr);
-      unlock_peers();
-
-      // connect via SOCKS if no peer exists
-      if (!peer)
-         for (i = 0, ps = -1; i < SOCKS_MAX_RETRY && ps < 0; i++)
-            ps = socks_connect(*squeue);
-            //ps = socks_connect(&(*squeue)->addr);
-      else
-         log_msg(L_NOTICE, "peer already exists, ignoring");
-
-      // remove request from queue after connect
-      log_debug("removing destination from SOCKS queue");
-      pthread_mutex_lock(&socks_queue_mutex_);
-      sq = *squeue;
-      *squeue = (*squeue)->next;
-      free(sq);
-      socks_connect_cnt_--;
-
-      // if there are more threads then pending connections
-      // terminate thread
-      if (socks_connect_cnt_ < socks_thread_cnt_ - 1)
-      {
-         socks_thread_cnt_--;
-         run = 0;
-      }
-      pthread_mutex_unlock(&socks_queue_mutex_);
-   }
-   return NULL;
-}
-#endif
 
 
 void packet_forwarder(void)
@@ -906,10 +735,10 @@ void packet_forwarder(void)
 
    for (;;)
    {
-      if ((rlen = read(setup.tunfd[0], buf, FRAME_SIZE)) == -1)
+      if ((rlen = read(CNF(tunfd[0]), buf, FRAME_SIZE)) == -1)
       {
          rlen = errno;
-         log_debug("read from tun %d returned on error: \"%s\"", setup.tunfd[0], strerror(rlen));
+         log_debug("read from tun %d returned on error: \"%s\"", CNF(tunfd[0]), strerror(rlen));
          if (rlen == EINTR)
          {
             log_debug("signal caught, exiting");
@@ -919,7 +748,7 @@ void packet_forwarder(void)
          continue;
       }
 
-      log_debug("received on tunfd %d, framesize %d + 4", setup.tunfd[0], rlen - 4);
+      log_debug("received on tunfd %d, framesize %d + 4", CNF(tunfd[0]), rlen - 4);
 
 #ifdef PACKET_LOG
       if ((pktlog != -1) && (write(pktlog, buf, rlen) == -1))
@@ -927,16 +756,16 @@ void packet_forwarder(void)
 #endif
 
       // just to be on the safe side but this should never happen
-      if ((!setup.use_tap && (rlen < 4)) || (setup.use_tap && (rlen < 4 + sizeof(struct ether_header))))
+      if ((!CNF(use_tap) && (rlen < 4)) || (CNF(use_tap) && (rlen < 4 + sizeof(struct ether_header))))
       {
          log_msg(L_ERROR, "frame effektively too short (rlen = %d)", rlen);
          continue;
       }
 
       // in case of TAP device handle ethernet header
-      if (setup.use_tap)
+      if (CNF(use_tap))
       {
-         if (!memcmp(eh->ether_dhost, setup.ocat_hwaddr, ETH_ALEN))
+         if (!memcmp(eh->ether_dhost, CNF(ocat_hwaddr), ETH_ALEN))
             // remove ethernet header from buffer
             // FIXME: it would be better to adjust pointers instead of moving data
             memmove(eh, eh + 1, rlen - 4 - sizeof(struct ether_header));
@@ -949,7 +778,7 @@ void packet_forwarder(void)
          }
       }
 
-      if (*((uint32_t*) buf) == setup.fhd_key[IPV6_KEY])
+      if (*((uint32_t*) buf) == CNF(fhd_key[IPV6_KEY]))
       {
          if (((rlen - 4) < IP6HLEN))
          {
@@ -965,7 +794,7 @@ void packet_forwarder(void)
 
          dest = &((struct ip6_hdr*) &buf[4])->ip6_dst;
       }
-      else if (*((uint32_t*) buf) == setup.fhd_key[IPV4_KEY])
+      else if (*((uint32_t*) buf) == CNF(fhd_key[IPV4_KEY]))
       {
          if (((rlen - 4) < IPHDLEN))
          {
@@ -1011,7 +840,7 @@ int send_keepalive(const OcatPeer_t *peer)
 
    memset(&hdr, 0, sizeof(hdr));
    memcpy(&hdr.ip6_dst, &peer->addr, sizeof(struct in6_addr));
-   memcpy(&hdr.ip6_src, &setup.ocat_addr, sizeof(struct in6_addr));
+   memcpy(&hdr.ip6_src, &CNF(ocat_addr), sizeof(struct in6_addr));
    hdr.ip6_vfc = 0x60;
    hdr.ip6_nxt = IPPROTO_NONE;
    hdr.ip6_hops = 1;
@@ -1116,7 +945,7 @@ void *ctrl_handler(void *p)
    log_debug("thread detached");
 
    fd = (int) p;
-   if (setup.config_read)
+   if (CNF(config_read))
    {
       if (!(ff = fdopen(fd, "r+")))
       {
@@ -1131,18 +960,18 @@ void *ctrl_handler(void *p)
       if (!(ff = fdopen(fd, "r")))
       {
          log_msg(L_ERROR, "could not open %d for reading: %s", fd, strerror(errno));
-         setup.config_read = 1;
+         CNF(config_read) = 1;
          return NULL;
       }
       log_debug("fd %d fdopen'ed", fd);
-      fo = setup.logf;
-      //setup.config_read = 1;
+      fo = CNF(logf);
+      //CNF(config_read = 1;
    }
 
    for (;;)
    {
-      if (setup.config_read)
-         fprintf(fo, "%s> ", setup.onion_url);
+      if (CNF(config_read))
+         fprintf(fo, "%s> ", CNF(onion_url));
 
       c = getc(ff);
       if (c == EOF)
@@ -1317,15 +1146,15 @@ void *ctrl_handler(void *p)
       }
    }
 
-   if (setup.config_read)
+   if (CNF(config_read))
       fprintf(fo, "Good bye!\n");
    log_msg(L_NOTICE | L_FCONN, "closing session %d", fd);
    if (fclose(ff) == EOF)
       log_msg(L_ERROR, "error closing control stream: \"%s\"", strerror(errno));
    // fclose also closes the fd according to the man page
 
-   if (!setup.config_read)
-      setup.config_read = 1;
+   if (!CNF(config_read))
+      CNF(config_read) = 1;
 
    return NULL;
 }
@@ -1339,7 +1168,7 @@ int run_ctrl_handler(int fd)
 
 void *ocat_controller(void *p)
 {
-   run_local_listeners(setup.ocat_ctrl_port, ctrlfd_, run_ctrl_handler);
+   run_local_listeners(CNF(ocat_ctrl_port), ctrlfd_, run_ctrl_handler);
    return NULL;
 }
 

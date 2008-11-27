@@ -100,7 +100,7 @@ OcatPeer_t *get_empty_peer(void)
    }
 
    peer->tunhdr = (uint32_t*) peer->_fragbuf;
-   peer->fragbuf = &peer->_fragbuf[setup.fhd_key_len];
+   peer->fragbuf = &peer->_fragbuf[CNF(fhd_key_len)];
    if ((rc = pthread_mutex_init(&peer->mutex, NULL)))
    {
       log_msg(L_FATAL, "cannot init new peer mutex: \"%s\"", strerror(rc));

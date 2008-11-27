@@ -65,31 +65,31 @@ void usage(const char *s)
          "   -4                    enable IPv4 support (default = %d)\n"
          , PACKAGE_STRING, __DATE__, __TIME__, s,
          // option defaults start here
-         OCAT_DIR, OCAT_CONNECT_LOG, setup.create_clog, setup.debug_level, setup.ocat_listen_port,
-         setup.pid_file,
-         setup.ocat_dest_port, setup.tor_socks_port, 
+         OCAT_DIR, OCAT_CONNECT_LOG, CNF(create_clog), CNF(debug_level), CNF(ocat_listen_port),
+         CNF(pid_file),
+         CNF(ocat_dest_port), CNF(tor_socks_port), 
 #ifndef WITHOUT_TUN
          TUN_DEV,
 #endif
-         OCAT_UNAME, setup.ipv4_enable
+         OCAT_UNAME, CNF(ipv4_enable)
             );
 }
 
 
 void open_logfile(void)
 {
-   if (setup.logfn)
+   if (CNF(logfn))
    {
-      if ((setup.logf = fopen(setup.logfn, "a")))
+      if ((CNF(logf) = fopen(CNF(logfn), "a")))
       {
-         log_debug("logfile %s opened", setup.logfn);
-         if (setvbuf(setup.logf, NULL, _IOLBF, 0))
+         log_debug("logfile %s opened", CNF(logfn));
+         if (setvbuf(CNF(logf), NULL, _IOLBF, 0))
             log_msg(L_ERROR, "could not setup line buffering: %s", strerror(errno));
-         fflush(setup.logf);
+         fflush(CNF(logf));
          return;
       }
-      setup.logf = stderr;
-      log_msg(L_ERROR, "could not open logfile %s: %s. Defaulting to stderr", setup.logfn, strerror(errno));
+      CNF(logf) = stderr;
+      log_msg(L_ERROR, "could not open logfile %s: %s. Defaulting to stderr", CNF(logfn), strerror(errno));
    }
 }
 
@@ -98,15 +98,15 @@ int mk_pid_file(void)
 {
    FILE *f;
 
-   if (!(f = fopen(setup.pid_file, "w")))
+   if (!(f = fopen(CNF(pid_file), "w")))
    {
-      log_msg(L_ERROR, "could not create pid_file %s: %s", setup.pid_file, strerror(errno));
+      log_msg(L_ERROR, "could not create pid_file %s: %s", CNF(pid_file), strerror(errno));
       return -1;
    }
 
    fprintf(f, "%d\n", getpid());
    fclose(f);
-   log_debug("pid_file %s created, pid = %d", setup.pid_file, getpid());
+   log_debug("pid_file %s created, pid = %d", CNF(pid_file), getpid());
 
    return 0;
 }
@@ -148,24 +148,24 @@ int main(int argc, char *argv[])
       switch (c)
       {
          case 'a':
-            setup.create_clog = 1;
+            CNF(create_clog) = 1;
             break;
 
          case 'b':
-            setup.daemon = 1;
+            CNF(daemon) = 1;
             break;
 
          case 'C':
-            setup.controller = 0;
+            CNF(controller) = 0;
             break;
 
          case 'd':
-            setup.debug_level = atoi(optarg);
+            CNF(debug_level) = atoi(optarg);
             break;
 
          case 'f':
-            setup.config_file = optarg;
-            setup.config_read = 0;
+            CNF(config_file) = optarg;
+            CNF(config_read) = 0;
             break;
 
          case 'i':
@@ -173,11 +173,11 @@ int main(int argc, char *argv[])
             break;
 
          case 'l':
-            setup.ocat_listen_port = atoi(optarg);
+            CNF(ocat_listen_port) = atoi(optarg);
             break;
 
          case 'L':
-            setup.logfn = optarg;
+            CNF(logfn) = optarg;
             break;
 
          case 'o':
@@ -185,24 +185,24 @@ int main(int argc, char *argv[])
             break;
 
          case 'p':
-            setup.use_tap = 1;
+            CNF(use_tap) = 1;
             break;
 
          case 'P':
-            setup.pid_file = optarg;
+            CNF(pid_file) = optarg;
             break;
 
          case 'r':
             runasroot = 1;
-            setup.usrname = "root";
+            CNF(usrname) = "root";
             break;
 
          case 's':
-            setup.ocat_dest_port = atoi(optarg);
+            CNF(ocat_dest_port) = atoi(optarg);
             break;
 
          case 't':
-            setup.tor_socks_port = atoi(optarg);
+            CNF(tor_socks_port) = atoi(optarg);
             break;
 
 #ifndef WITHOUT_TUN
@@ -212,11 +212,11 @@ int main(int argc, char *argv[])
 #endif
 
          case 'u':
-            setup.usrname = optarg;
+            CNF(usrname) = optarg;
             break;
 
          case '4':
-            setup.ipv4_enable = 1;
+            CNF(ipv4_enable) = 1;
             break;
 
          case 'h':
@@ -233,74 +233,74 @@ int main(int argc, char *argv[])
 
    if (urlconv == 2)
    {
-      if ((c = inet_pton(AF_INET6, argv[optind], &setup.ocat_addr)) < 0)
+      if ((c = inet_pton(AF_INET6, argv[optind], &CNF(ocat_addr))) < 0)
          log_msg(L_ERROR, "inet_pton failed: %s", strerror(errno)), exit(1);
       else if (!c)
          log_msg(L_ERROR, "%s is not a valid IPv6 address", argv[optind]), exit(1);
-      if (!has_tor_prefix(&setup.ocat_addr))
+      if (!has_tor_prefix(&CNF(ocat_addr)))
          log_msg(L_ERROR, "address does not have TOR prefix"), exit(1);
-      ipv6tonion(&setup.ocat_addr, setup.onion_url);
-      printf("%s.onion\n", setup.onion_url);
+      ipv6tonion(&CNF(ocat_addr), CNF(onion_url));
+      printf("%s.onion\n", CNF(onion_url));
       exit(0);
    }
 
    // convert parameter to IPv6 address
-   strncpy(setup.onion_url, argv[optind], ONION_NAME_SIZE);
-   if ((s = strchr(setup.onion_url, '.')))
+   strncpy(CNF(onion_url), argv[optind], ONION_NAME_SIZE);
+   if ((s = strchr(CNF(onion_url), '.')))
          *s = '\0';
-   if (strlen(setup.onion_url) != 16)
+   if (strlen(CNF(onion_url)) != 16)
       log_msg(L_ERROR, "parameter seems not to be valid onion hostname"), exit(1);
-   if (oniontipv6(setup.onion_url, &setup.ocat_addr) == -1)
+   if (oniontipv6(CNF(onion_url), &CNF(ocat_addr)) == -1)
       log_msg(L_ERROR, "parameter seems not to be valid onion hostname"), exit(1);
-   if (setup.ipv4_enable)
-      oniontipv4(setup.onion_url, &setup.ocat_addr4, ntohl(setup.ocat_addr4_mask));
+   if (CNF(ipv4_enable))
+      oniontipv4(CNF(onion_url), &CNF(ocat_addr4), ntohl(CNF(ocat_addr4_mask)));
 
-   inet_ntop(AF_INET6, &setup.ocat_addr, ip6addr, INET6_ADDRSTRLEN);
+   inet_ntop(AF_INET6, &CNF(ocat_addr), ip6addr, INET6_ADDRSTRLEN);
 
    if (urlconv == 1)
    {
       printf("%s\n", ip6addr);
-      if (setup.ipv4_enable)
-         printf("%s\n", inet_ntoa(setup.ocat_addr4));
+      if (CNF(ipv4_enable))
+         printf("%s\n", inet_ntoa(CNF(ocat_addr4)));
       exit(0);
    }
 
    log_msg(L_NOTICE, "%s (c) Bernhard R. Fischer -- compiled %s %s", PACKAGE_STRING, __DATE__, __TIME__);
 
 #if 0
-   if (setup.config_file)
+   if (CNF(config_file))
    {
-      log_msg(L_NOTICE, "reading config file %s", setup.config_file);
-      if ((c = open(setup.config_file, O_RDONLY)) == -1)
+      log_msg(L_NOTICE, "reading config file %s", CNF(config_file));
+      if ((c = open(CNF(config_file), O_RDONLY)) == -1)
          log_msg(L_ERROR, "error opening file: %s", strerror(errno)), exit(1);
       ctrl_handler((void*) c);
    }
 #endif
 
-   memcpy(&setup.ocat_hwaddr[3], &setup.ocat_addr.s6_addr[13], 3);
-   if (setup.use_tap);
+   memcpy(&CNF(ocat_hwaddr[3]), &CNF(ocat_addr.s6_addr[13]), 3);
+   if (CNF(use_tap));
    {
       log_msg(L_NOTICE, "MAC address %02x:%02x:%02x:%02x:%02x:%02x",
-            setup.ocat_hwaddr[0], setup.ocat_hwaddr[1], setup.ocat_hwaddr[2], setup.ocat_hwaddr[3], setup.ocat_hwaddr[4], setup.ocat_hwaddr[5]);
-      /*if (pipe(setup.icmpv6fd) == -1)
+            CNF(ocat_hwaddr[0]), CNF(ocat_hwaddr[1]), CNF(ocat_hwaddr[2]), CNF(ocat_hwaddr[3]), CNF(ocat_hwaddr[4]), CNF(ocat_hwaddr[5]));
+      /*if (pipe(CNF(icmpv6fd)) == -1)
          log_msg(L_FATAL, "cannot create multicast pipe: %s", strerror(errno)), exit(1);
       run_ocat_thread("icmpv6", icmpv6_handler, NULL);*/
    }
 
 #ifndef WITHOUT_TUN
    // create TUN device
-   setup.tunfd[0] = setup.tunfd[1] = tun_alloc(tunname, setup.ocat_addr);
+   CNF(tunfd[0]) = CNF(tunfd[1]) = tun_alloc(tunname, CNF(ocat_addr));
 #endif
 
    log_msg(L_NOTICE, "IPv6 address %s", ip6addr);
    log_msg(L_NOTICE, "TUN/TAP device %s", tunname);
-   if (setup.ipv4_enable)
-      log_msg(L_NOTICE, "IP address %s", inet_ntoa(setup.ocat_addr4));
+   if (CNF(ipv4_enable))
+      log_msg(L_NOTICE, "IP address %s", inet_ntoa(CNF(ocat_addr4)));
  
-   log_debug("tun frameheader v6 = 0x%08x, v4 = 0x%08x", ntohl(setup.fhd_key[IPV6_KEY]), ntohl(setup.fhd_key[IPV4_KEY]));
+   log_debug("tun frameheader v6 = 0x%08x, v4 = 0x%08x", ntohl(CNF(fhd_key[IPV6_KEY])), ntohl(CNF(fhd_key[IPV4_KEY])));
 
    // daemonize of required
-   if (setup.daemon)
+   if (CNF(daemon))
       background();
 
    // start socket receiver thread
@@ -312,15 +312,15 @@ int main(int argc, char *argv[])
 
    // getting passwd info for user
    errno = 0;
-   if (!(pwd = getpwnam(setup.usrname)))
-      log_msg(L_FATAL, "can't get information for user \"%s\": \"%s\"", setup.usrname, errno ? strerror(errno) : "user not found"), exit(1);
+   if (!(pwd = getpwnam(CNF(usrname))))
+      log_msg(L_FATAL, "can't get information for user \"%s\": \"%s\"", CNF(usrname), errno ? strerror(errno) : "user not found"), exit(1);
 
    // create pid_file
    mk_pid_file();
 
    if (!runasroot && !getuid())
    {
-      log_msg(L_NOTICE, "running as root, changing uid/gid to %s (uid %d/gid %d)", setup.usrname, pwd->pw_uid, pwd->pw_gid);
+      log_msg(L_NOTICE, "running as root, changing uid/gid to %s (uid %d/gid %d)", CNF(usrname), pwd->pw_uid, pwd->pw_gid);
       if (setgid(pwd->pw_gid))
          log_msg(L_ERROR, "could not change gid: \"%s\"", strerror(errno)), exit(1);
       if (setuid(pwd->pw_uid))
@@ -331,7 +331,7 @@ int main(int argc, char *argv[])
    // opening logfile
    open_logfile();
 
-   if (setup.create_clog)
+   if (CNF(create_clog))
       open_connect_log(pwd->pw_dir);
 
    // create socks connector thread
@@ -341,14 +341,19 @@ int main(int argc, char *argv[])
    run_ocat_thread("dequeuer", packet_dequeuer, NULL);
 #endif
    // start controller socket thread
-   if (setup.controller)
+   if (CNF(controller))
       run_ocat_thread("controller", ocat_controller, NULL);
 
+   // initiate connections to permanent root peers
+   log_debug("connecting root peers");
+   for (c = 0; c < ROOT_PEERS; c++)
+      socks_queue(&CNF(root_peer[c]), 1);
+
    // reading config file
-   if (setup.config_file)
+   if (CNF(config_file))
    {
-      log_msg(L_NOTICE, "reading config file %s", setup.config_file);
-      if ((c = open(setup.config_file, O_RDONLY)) == -1)
+      log_msg(L_NOTICE, "reading config file %s", CNF(config_file));
+      if ((c = open(CNF(config_file), O_RDONLY)) == -1)
          log_msg(L_ERROR, "error opening file: %s", strerror(errno)), exit(1);
       ctrl_handler((void*) c);
    }

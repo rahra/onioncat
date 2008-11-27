@@ -347,7 +347,7 @@ int ndp_solicit(char *buf, int rlen)
          return -1;
       }
    memcpy(eh->ether_dhost, eh->ether_shost, ETH_ALEN);
-   memcpy(eh->ether_shost, setup.ocat_hwaddr, ETH_ALEN);
+   memcpy(eh->ether_shost, CNF(ocat_hwaddr), ETH_ALEN);
 
    // init ip6 header
    memcpy(&ip6->ip6_dst, &ip6->ip6_src, sizeof(struct in6_addr));
@@ -359,14 +359,14 @@ int ndp_solicit(char *buf, int rlen)
    nda->nd_na_hdr.icmp6_cksum = 0;
    nda->nd_na_flags_reserved = ND_NA_FLAG_SOLICITED;
    ohd->nd_opt_type = ND_OPT_TARGET_LINKADDR;
-   memcpy(ohd + 1, setup.ocat_hwaddr, ETH_ALEN);
+   memcpy(ohd + 1, CNF(ocat_hwaddr), ETH_ALEN);
 
    ckb = malloc_ckbuf(&ip6->ip6_src, &ip6->ip6_dst, ntohs(ip6->ip6_plen), IPPROTO_ICMPV6, icmp6);
    nda->nd_na_hdr.icmp6_cksum = checksum(ckb, ntohs(ip6->ip6_plen) + sizeof(struct ip6_psh));
    free_ckbuf(ckb);
 
-   log_debug("writing %d bytes to tunfd %d", rlen, setup.tunfd[1]);
-   if (write(setup.tunfd[1], buf, rlen) < rlen)
+   log_debug("writing %d bytes to tunfd %d", rlen, CNF(tunfd[1]));
+   if (write(CNF(tunfd[1]), buf, rlen) < rlen)
       log_msg(L_ERROR, "short write");
 
    return 0;

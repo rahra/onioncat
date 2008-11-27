@@ -15,7 +15,7 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*! ocatsetup.c
+/*! ocatsetup_.c
  *  This file contains the global settings structure.
  *
  *  @author Bernhard Fischer <rahra _at_ cypherpunk at>
@@ -30,7 +30,8 @@
 
 #include "ocat.h"
 
-struct OcatSetup setup = {
+struct OcatSetup setup_ =
+{
    // fhd_keys
    {0, 0},
    // fhd_key_len
@@ -45,13 +46,17 @@ struct OcatSetup setup = {
    {0x00, 0x00, 0x6c, 0x00, 0x00, 0x00},   // ocat_hwaddr (OnionCat MAC address)
    PID_FILE,
    NULL, NULL,                             // logfile
-   0                                       // daemon
+   0,                                      // daemon
+   {
+      {{{0xfd, 0x87, 0xd8, 0x7e, 0xeb, 0x43,
+           0xed, 0xb1, 0x8, 0xe4, 0x35, 0x88, 0xe5, 0x46, 0x35, 0xca}}} // initial permanent peer "5wyqrzbvrdsumnok"
+   }
 };
 
 
 void init_setup(void)
 {
-   setup.logf = stderr;
+   setup_.logf = stderr;
 }
 
 
@@ -59,74 +64,81 @@ void init_setup(void)
 
 void print_setup_struct(FILE *f)
 {
-   char ip[_SB], nm[_SB], ip6[_SB], hw[_SB], logf[_SB];
+   char ip[_SB], nm[_SB], ip6[_SB], hw[_SB], logf[_SB], rp[ROOT_PEERS][_SB];
+   int i;
 
-   inet_ntop(AF_INET, &setup.ocat_addr4, ip, _SB);
-   inet_ntop(AF_INET, &setup.ocat_addr4_mask, nm, _SB);
-   inet_ntop(AF_INET6, &setup.ocat_addr, ip6, _SB);
-   mac_hw2str(setup.ocat_hwaddr, hw);
+   inet_ntop(AF_INET, &setup_.ocat_addr4, ip, _SB);
+   inet_ntop(AF_INET, &setup_.ocat_addr4_mask, nm, _SB);
+   inet_ntop(AF_INET6, &setup_.ocat_addr, ip6, _SB);
+   mac_hw2str(setup_.ocat_hwaddr, hw);
+   for (i = 0; i < ROOT_PEERS; i++)
+      inet_ntop(AF_INET6, &setup_.root_peer[i], rp[i], _SB);
 
-   if (setup.logf == stderr)
+   if (setup_.logf == stderr)
       strcpy(logf, "stderr");
    else
-      sprintf(logf, "%p", setup.logf);
+      sprintf(logf, "%p", setup_.logf);
 
    fprintf(f,
-         "fhd_key[]        = [IPV4(%d) => 0x%04x, IPV6(%d) => 0x%04x]\n"
-         "fhd_key_len      = %d\n"
-         "tor_socks_port   = %d\n"
-         "ocat_listen_port = %d\n"
-         "ocat_dest_port   = %d\n"
-         "ocat_ctrl_port   = %d\n"
-         "tunfd[]          = [(0) => %d, (1) => %d]\n"
-         "debug_level      = %d\n"
-         "usrname          = \"%s\"\n"
-         "onion_url        = \"%s\"\n"
-         "ocat_addr        = %s\n"
-         "create_clog      = %d\n"
-         "runasroot        = %d\n"
-         "controller       = %d\n"
-         "ocat_dir         = \"%s\"\n"
-         "tun_dev          = \"%s\"\n"
-         "ipv4_enable      = %d\n"
-         "ocat_addr4       = %s\n"
-         "ocat_addr4_mask  = %s\n"
-         "config_file      = \"%s\"\n"
-         "config_read      = %d\n"
-         "use_tap          = %d\n"
-         "ocat_hwaddr      = %s\n"
-         "pid_file         = \"%s\"\n"
-         "logfn            = \"%s\"\n"
-         "logf             = %s\n"
-         "daemon           = %d\n",
-
-         IPV4_KEY, ntohl(setup.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup.fhd_key[IPV6_KEY]),
-         setup.fhd_key_len,
-         setup.tor_socks_port,
-         setup.ocat_listen_port,
-         setup.ocat_dest_port,
-         setup.ocat_ctrl_port,
-         setup.tunfd[0], setup.tunfd[1],
-         setup.debug_level,
-         setup.usrname,
-         setup.onion_url,
+         "fhd_key[IPV4(%d)]  = 0x%04x\n"
+         "fhd_key[IPV6(%d)]  = 0x%04x\n"
+         "fhd_key_len       = %d\n"
+         "tor_socks_port    = %d\n"
+         "ocat_listen_port  = %d\n"
+         "ocat_dest_port    = %d\n"
+         "ocat_ctrl_port    = %d\n"
+         "tunfd[0]          = %d\n"
+         "tunfd[1]          = %d\n"
+         "debug_level       = %d\n"
+         "usrname           = \"%s\"\n"
+         "onion_url         = \"%s\"\n"
+         "ocat_addr         = %s\n"
+         "create_clog       = %d\n"
+         "runasroot         = %d\n"
+         "controller        = %d\n"
+         "ocat_dir          = \"%s\"\n"
+         "tun_dev           = \"%s\"\n"
+         "ipv4_enable       = %d\n"
+         "ocat_addr4        = %s\n"
+         "ocat_addr4_mask   = %s\n"
+         "config_file       = \"%s\"\n"
+         "config_read       = %d\n"
+         "use_tap           = %d\n"
+         "ocat_hwaddr       = %s\n"
+         "pid_file          = \"%s\"\n"
+         "logfn             = \"%s\"\n"
+         "logf              = %s\n"
+         "daemon            = %d\n"
+         "root_peer[0]      = %s\n",
+ 
+         IPV4_KEY, ntohl(setup_.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup_.fhd_key[IPV6_KEY]),
+         setup_.fhd_key_len,
+         setup_.tor_socks_port,
+         setup_.ocat_listen_port,
+         setup_.ocat_dest_port,
+         setup_.ocat_ctrl_port,
+         setup_.tunfd[0], setup_.tunfd[1],
+         setup_.debug_level,
+         setup_.usrname,
+         setup_.onion_url,
          ip6,
-         setup.create_clog,
-         setup.runasroot,
-         setup.controller,
-         setup.ocat_dir,
-         setup.tun_dev,
-         setup.ipv4_enable,
+         setup_.create_clog,
+         setup_.runasroot,
+         setup_.controller,
+         setup_.ocat_dir,
+         setup_.tun_dev,
+         setup_.ipv4_enable,
          ip,
          nm,
-         setup.config_file,
-         setup.config_read,
-         setup.use_tap,
+         setup_.config_file,
+         setup_.config_read,
+         setup_.use_tap,
          hw,
-         setup.pid_file,
-         setup.logfn,
+         setup_.pid_file,
+         setup_.logfn,
          logf,
-         setup.daemon
+         setup_.daemon,
+         rp[0]
          );
 }
 
