@@ -96,9 +96,9 @@ void print_setup_struct(FILE *f)
          "use_tap          = %d\n"
          "ocat_hwaddr      = %s\n"
          "pid_file         = \"%s\"\n"
-         "logfn            = \"%s\""
-         "logf             = %s"
-         "daemon           = %d",
+         "logfn            = \"%s\"\n"
+         "logf             = %s\n"
+         "daemon           = %d\n",
 
          IPV4_KEY, ntohl(setup.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup.fhd_key[IPV6_KEY]),
          setup.fhd_key_len,

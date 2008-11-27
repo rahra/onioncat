@@ -355,6 +355,8 @@ void *socks_connector(void *);
 void *socket_cleaner(void *);
 void *ocat_controller(void *);
 void *ctrl_handler(void *);
+int insert_peer(int, const SocksQueue_t *, time_t);
+
 
 /* ocatthread.c */
 const OcatThread_t *init_ocat_thread(const char *);
@@ -396,6 +398,13 @@ int mac_get_mac(const struct in6_addr *, uint8_t *);
 void print_mac_tbl(FILE *);
 void mac_cleanup(void);
 char *mac_hw2str(const uint8_t *, char *);
+
+/* ocatsocks.c */
+void socks_queue(const struct in6_addr *, int);
+
+/* ocatlibe.c */
+void oe_close(int);
+int oe_remtr(char *);
 
 
 #endif
