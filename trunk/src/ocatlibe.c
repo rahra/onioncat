@@ -33,6 +33,7 @@
 #include "ocat.h"
 
 
+/*! oe_close is a more robust close() function */
 void oe_close(int fd)
 {
    int r;
@@ -51,6 +52,7 @@ void oe_close(int fd)
 }
 
 
+/*! Remove leading and trailing spaces of a string. */
 int oe_remtr(char *s)
 {
    if (!s[0])
