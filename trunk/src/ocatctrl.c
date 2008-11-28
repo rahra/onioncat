@@ -28,27 +28,27 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <fcntl.h>
+//#include <fcntl.h>
 #include <pthread.h>
 #include <arpa/inet.h>
 #include <errno.h>
-#include <sys/time.h>
-#include <sys/select.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#ifdef HAVE_LINUX_SOCKIOS_H
-#include <linux/sockios.h>
-#endif
-#ifdef HAVE_NETINET_IN_SYSTM_H
-#include <netinet/in_systm.h>
-#endif
-#ifdef HAVE_NETINET_IP_H
-#include <netinet/ip.h>
-#endif
+//#include <sys/time.h>
+//#include <sys/select.h>
+//#include <sys/types.h>
+//#include <sys/stat.h>
+//#include <sys/socket.h>
+//#include <sys/ioctl.h>
+//#ifdef HAVE_LINUX_SOCKIOS_H
+//#include <linux/sockios.h>
+//#endif
+//#ifdef HAVE_NETINET_IN_SYSTM_H
+//#include <netinet/in_systm.h>
+//#endif
+//#ifdef HAVE_NETINET_IP_H
+//#include <netinet/ip.h>
+//#endif
 
-#include <net/ethernet.h>
+//#include <net/ethernet.h>
 
 #include "ocat.h"
 
