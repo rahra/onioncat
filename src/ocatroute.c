@@ -63,8 +63,6 @@
 
 // file descriptor of tcp listener
 int sockfd_[2];
-// file descriptors of control port
-//static int ctrlfd_[2];
 // file descriptors of socket_receiver pipe
 // used for internal communication
 static int lpfd_[2];
@@ -833,7 +831,7 @@ void packet_forwarder(void)
 }
 
 
-int send_keepalive(const OcatPeer_t *peer)
+int send_keepalive(OcatPeer_t *peer)
 {
    struct ip6_hdr hdr;
    int len;
