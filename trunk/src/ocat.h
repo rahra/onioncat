@@ -163,7 +163,7 @@ struct OcatSetup
    int config_read;
    int use_tap;
    //! local OnionCat MAC address
-   uint8_t ocat_hwaddr[ETH_ALEN];
+   uint8_t ocat_hwaddr[ETHER_ADDR_LEN];
    char *pid_file;
    char *logfn;
    FILE *logf;
@@ -256,7 +256,7 @@ typedef struct MACTable
       struct in6_addr in6addr;
       struct in_addr inaddr;
    };
-   uint8_t hwaddr[ETH_ALEN];
+   uint8_t hwaddr[ETHER_ADDR_LEN];
    time_t age;
 } MACTable_t;
 
@@ -363,6 +363,7 @@ int run_local_listeners(short, int *, int (action_accept)(int));
 const OcatThread_t *init_ocat_thread(const char *);
 int run_ocat_thread(const char *, void *(*)(void*), void*);
 const OcatThread_t *get_thread(void);
+int set_thread_name(const char *);
 
 /* ocatcompat.c */
 #ifndef HAVE_STRLCAT

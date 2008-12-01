@@ -141,3 +141,23 @@ const OcatThread_t *get_thread(void)
    return th;
 }
 
+
+int set_thread_name(const char *n)
+{
+   int e = -1;
+   OcatThread_t *th;
+   pthread_t thread = pthread_self();
+
+   pthread_mutex_lock(&thread_mutex_);
+   for (th = octh_; th; th = th->next)
+      if (th->handle == thread)
+      {
+         strlcpy(th->name, n, THREAD_NAME_LEN);
+         e = 0;
+         break;
+      }
+   pthread_mutex_unlock(&thread_mutex_);
+
+   return e;
+}
+
