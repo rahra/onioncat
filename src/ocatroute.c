@@ -360,16 +360,27 @@ void *socket_receiver(void *p)
             unlock_peer(peer);
             continue;
          }
+
          log_debug("received %d bytes on %d", len, peer->tcpfd);
          // if len == 0 EOF reached => close session
          if (!len)
          {
             log_msg(LOG_INFO | LOG_FCONN, "fd %d reached EOF, closing.", peer->tcpfd);
             oe_close(peer->tcpfd);
+            // restart connection of permanent peers
+            if (peer->perm)
+            {
+               log_debug("reconnection permanent peer");
+               socks_queue(&peer->addr, 1);
+            }
             unlock_peer(peer);
+
+            // deleting peer
+            // FIXME: there might be a race-condition with restarted permanent peers
             lock_peers();
             delete_peer(peer);
             unlock_peers();
+
             continue;
          }
 
@@ -481,7 +492,7 @@ void *socket_receiver(void *p)
                   {
                      *((uint32_t*) buf) = *peer->tunhdr;
                      memcpy(buf + 4 + sizeof(struct ether_header), peer->fragbuf, len);
-                     memcpy(eh->ether_shost, CNF(ocat_hwaddr), ETH_ALEN);
+                     memcpy(eh->ether_shost, CNF(ocat_hwaddr), ETHER_ADDR_LEN);
 
                      if (*peer->tunhdr == CNF(fhd_key[IPV6_KEY]))
                         eh->ether_type = htons(ETHERTYPE_IPV6);
@@ -763,7 +774,7 @@ void packet_forwarder(void)
       // in case of TAP device handle ethernet header
       if (CNF(use_tap))
       {
-         if (!memcmp(eh->ether_dhost, CNF(ocat_hwaddr), ETH_ALEN))
+         if (!memcmp(eh->ether_dhost, CNF(ocat_hwaddr), ETHER_ADDR_LEN))
             // remove ethernet header from buffer
             // FIXME: it would be better to adjust pointers instead of moving data
             memmove(eh, eh + 1, rlen - 4 - sizeof(struct ether_header));

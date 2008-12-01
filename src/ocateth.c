@@ -68,7 +68,7 @@ static pthread_mutex_t mac_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 
 
 /*! Convert an ethernet hardware address to a string.
- *  @param hwaddr Pointer to hardware address. Must be of len ETH_ALEN (6).
+ *  @param hwaddr Pointer to hardware address. Must be of len ETHER_ADDR_LEN (6).
  *  @param str Pointer to string. Must have at least 18 bytes!
  */
 char *mac_hw2str(const uint8_t *hwaddr, char *str)
@@ -76,7 +76,7 @@ char *mac_hw2str(const uint8_t *hwaddr, char *str)
    char *s = str;
    int i;
 
-   for (i = 0; i < ETH_ALEN; i++, str += 3, hwaddr++)
+   for (i = 0; i < ETHER_ADDR_LEN; i++, str += 3, hwaddr++)
       sprintf(str, "%02x:", *hwaddr);
    str--;
    *str = '\0';
@@ -134,7 +134,7 @@ int mac_get_mac(const struct in6_addr *in6, uint8_t *hwaddr)
    for (i = mac_cnt_ - 1; i >= 0; i--)
       if (IN6_ARE_ADDR_EQUAL(in6, &mac_tbl_[i].in6addr))
       {
-         memcpy(hwaddr, &mac_tbl_[i].hwaddr, ETH_ALEN);
+         memcpy(hwaddr, &mac_tbl_[i].hwaddr, ETHER_ADDR_LEN);
          mac_tbl_[i].age = time(NULL);
          break;
       }
@@ -154,7 +154,7 @@ int mac_add_entry(const uint8_t *hwaddr, const struct in6_addr *in6)
    if (mac_cnt_ < MAX_MAC_ENTRY)
    {
       log_debug("adding entry to MAC table %d", mac_cnt_);
-      memcpy(&mac_tbl_[mac_cnt_].hwaddr, hwaddr, ETH_ALEN);
+      memcpy(&mac_tbl_[mac_cnt_].hwaddr, hwaddr, ETHER_ADDR_LEN);
       memcpy(&mac_tbl_[mac_cnt_].in6addr, in6, sizeof(struct in6_addr));
       mac_tbl_[mac_cnt_].age = time(NULL);
       mac_tbl_[mac_cnt_].family = AF_INET6;
@@ -174,7 +174,7 @@ int mac_get_ip(const uint8_t *hwaddr, struct in6_addr *in6)
    pthread_mutex_lock(&mac_mutex_);
 
    for (i = mac_cnt_ - 1; i >= 0; i--)
-      if (!memcmp(hwaddr, &mac_tbl_[i].hwaddr, ETH_ALEN))
+      if (!memcmp(hwaddr, &mac_tbl_[i].hwaddr, ETHER_ADDR_LEN))
       {
          memcpy(in6, &mac_tbl_[i].in6addr, sizeof(struct in6_addr));
          mac_tbl_[i].age = time(NULL);
@@ -346,8 +346,8 @@ int ndp_solicit(char *buf, int rlen)
          log_msg(LOG_ERR, "MAC table full");
          return -1;
       }
-   memcpy(eh->ether_dhost, eh->ether_shost, ETH_ALEN);
-   memcpy(eh->ether_shost, CNF(ocat_hwaddr), ETH_ALEN);
+   memcpy(eh->ether_dhost, eh->ether_shost, ETHER_ADDR_LEN);
+   memcpy(eh->ether_shost, CNF(ocat_hwaddr), ETHER_ADDR_LEN);
 
    // init ip6 header
    memcpy(&ip6->ip6_dst, &ip6->ip6_src, sizeof(struct in6_addr));
@@ -359,7 +359,7 @@ int ndp_solicit(char *buf, int rlen)
    nda->nd_na_hdr.icmp6_cksum = 0;
    nda->nd_na_flags_reserved = ND_NA_FLAG_SOLICITED;
    ohd->nd_opt_type = ND_OPT_TARGET_LINKADDR;
-   memcpy(ohd + 1, CNF(ocat_hwaddr), ETH_ALEN);
+   memcpy(ohd + 1, CNF(ocat_hwaddr), ETHER_ADDR_LEN);
 
    ckb = malloc_ckbuf(&ip6->ip6_src, &ip6->ip6_dst, ntohs(ip6->ip6_plen), IPPROTO_ICMPV6, icmp6);
    nda->nd_na_hdr.icmp6_cksum = checksum(ckb, ntohs(ip6->ip6_plen) + sizeof(struct ip6_psh));

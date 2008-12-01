@@ -138,7 +138,6 @@ void socks_queue(const struct in6_addr *addr, int perm)
 
    pthread_mutex_lock(&socks_queue_mutex_);
    for (squeue = socks_queue_; squeue; squeue = squeue->next)
-      //if (!memcmp(&squeue->addr, addr, sizeof(struct in6_addr)))
       if (IN6_ARE_ADDR_EQUAL(&squeue->addr, addr))
          break;
    if (!squeue)
@@ -164,6 +163,7 @@ void *socks_connector(void *p)
    OcatPeer_t *peer;
    SocksQueue_t **squeue, *sq;
    int i, rc, ps, run = 1;
+   char thn[THREAD_NAME_LEN] = "cn:", on[17];
 
    if ((rc = pthread_detach(pthread_self())))
       log_msg(LOG_ERR, "couldn't detach: \"%s\"", rc);
@@ -191,6 +191,11 @@ void *socks_connector(void *p)
          run_ocat_thread("connector", socks_connector, NULL);
       pthread_mutex_unlock(&socks_queue_mutex_);
 
+      // changing thread name
+      ipv6tonion(&(*squeue)->addr, on);
+      strlcat(thn, on, THREAD_NAME_LEN);
+      set_thread_name(thn);
+
       // search for existing peer
       lock_peers();
       peer = search_peer(&(*squeue)->addr);
@@ -198,9 +203,11 @@ void *socks_connector(void *p)
 
       // connect via SOCKS if no peer exists
       if (!peer)
-         for (i = 0, ps = -1; i < SOCKS_MAX_RETRY && ps < 0; i++)
+         for (i = 0, ps = -1; ((i < SOCKS_MAX_RETRY) || (*squeue)->perm) && ps < 0; i++)
+         {
+            log_debug("%d. SOCKS connection attempt", i + 1);
             ps = socks_connect(*squeue);
-            //ps = socks_connect(&(*squeue)->addr);
+         }
       else
          log_msg(LOG_INFO, "peer already exists, ignoring");
 
