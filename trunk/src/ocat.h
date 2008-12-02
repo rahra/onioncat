@@ -37,7 +37,10 @@
 #elif HAVE_SYS_ENDIAN_H
 #include <sys/endian.h>
 #endif
-#include <net/ethernet.h>
+#ifdef HAVE_NETINET_IF_ETHER_H
+#include <netinet/if_ether.h>
+#endif
+#include <netinet/icmp6.h>
 #include <syslog.h>
 
 #ifndef ETHERTYPE_IPV6
@@ -118,6 +121,12 @@
 #define E_RT_NULLPTR -5
 #define E_RT_NOTORGW -6
 #define E_RT_GWSELF -7
+
+#define E_ETH_TRUNC -8
+#define E_ETH_ILLDEST -9
+#define E_ETH_ILLPROTO -10
+#define E_ETH_INTERCEPT -11
+
 
 //! maximum number of MAC address entries in table
 #define MAX_MAC_ENTRY 128
@@ -260,6 +269,19 @@ typedef struct MACTable
    time_t age;
 } MACTable_t;
 
+typedef struct ndp6
+{
+   struct ether_header eth;
+   struct ip6_hdr ip6;
+   union
+   {
+      struct icmp6_hdr icmp6;
+      struct nd_neighbor_solicit ndp_sol;
+      struct nd_neighbor_advert ndp_adv;
+   };
+   //struct nd_opt_hdr ndp_opt;
+} __attribute__((packed)) ndp6_t;
+
 /*
 // next header value for ocat internal use (RFC3692)
 #define OCAT_NEXT_HEADER 254
@@ -337,6 +359,10 @@ char *ipv6tonion(const struct in6_addr *, char *);
 int oniontipv6(const char *, struct in6_addr *);
 int oniontipv4(const char *, struct in_addr *, int);
 int has_tor_prefix(const struct in6_addr *);
+/*
+#define IN6_HAS_TOR_PREFIX(a) ((((__const uint32_t *) (a))[0] == ((__const uint32_t*)(TOR_PREFIX))[0]) \
+      && (((__const uint16_t*)(a))[2] == ((__const uint16_t*)(TOR_PREFIX))[2]))
+      */
 
 /* ocattun.c */
 #ifndef WITHOUT_TUN
@@ -397,10 +423,11 @@ void print_routes(FILE *);
 
 /* ocateth.c */
 int eth_check(char *, int);
-int mac_get_mac(const struct in6_addr *, uint8_t *);
+int mac_set(const struct in6_addr *, uint8_t *);
 void print_mac_tbl(FILE *);
 void mac_cleanup(void);
 char *mac_hw2str(const uint8_t *, char *);
+int ndp_solicit(const struct in6_addr *, const struct in6_addr *);
 
 /* ocatsocks.c */
 void socks_queue(const struct in6_addr *, int);

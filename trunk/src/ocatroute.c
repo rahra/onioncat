@@ -48,8 +48,9 @@
 #ifdef HAVE_NETINET_IP_H
 #include <netinet/ip.h>
 #endif
-
-#include <net/ethernet.h>
+#ifdef HAVE_NETINET_IF_ETHER_H
+#include <netinet/if_ether.h>
+#endif
 
 #include "ocat.h"
 
@@ -484,9 +485,11 @@ void *socket_receiver(void *p)
                   log_debug("creating ethernet header");
 
                   // FIXME: should differentiate between IPv6 and IP!!
-                  if (mac_get_mac(&((struct ip6_hdr*)peer->fragbuf)->ip6_dst, eh->ether_dhost) == -1)
+                  memset(eh->ether_dhost, 0, ETHER_ADDR_LEN);
+                  if (mac_set(&((struct ip6_hdr*)peer->fragbuf)->ip6_dst, eh->ether_dhost) == -1)
                   {
-                     log_debug("dest MAC unknown, must resolve...not implemented");
+                     log_debug("dest MAC unknown, resolving");
+                     ndp_solicit(&((struct ip6_hdr*)peer->fragbuf)->ip6_src, &((struct ip6_hdr*)peer->fragbuf)->ip6_dst);
                   }
                   else
                   {
@@ -513,7 +516,6 @@ void *socket_receiver(void *p)
                log_msg(LOG_ERR, "dropping packet with %d bytes", len);
                drop = 0;
             }
-
 
             peer->fraglen -= len;
             if (peer->fraglen)
@@ -774,17 +776,12 @@ void packet_forwarder(void)
       // in case of TAP device handle ethernet header
       if (CNF(use_tap))
       {
-         if (!memcmp(eh->ether_dhost, CNF(ocat_hwaddr), ETHER_ADDR_LEN))
-            // remove ethernet header from buffer
-            // FIXME: it would be better to adjust pointers instead of moving data
-            memmove(eh, eh + 1, rlen - 4 - sizeof(struct ether_header));
-         else
-         {
-            log_debug("forwarding %d bytes eth handler", rlen);
-            //ndp_solicit(buf, rlen);
-            eth_check(buf, rlen);
+         if (eth_check(buf, rlen))
             continue;
-         }
+
+         // removing ethernet header
+         // FIXME: it would be better to adjust pointers instead of moving data
+         memmove(eh, eh + 1, rlen - 4 - sizeof(struct ether_header));
       }
 
       if (*((uint32_t*) buf) == CNF(fhd_key[IPV6_KEY]))
