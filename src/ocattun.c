@@ -46,7 +46,9 @@
 #ifdef HAVE_NET_IF_TUN_H
 #include <net/if_tun.h>
 #endif
-#include <net/ethernet.h>
+#ifdef HAVE_NETINET_IF_ETHER_H
+#include <netinet/if_ether.h>
+#endif
 
 #include "ocat.h"
 

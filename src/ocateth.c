@@ -47,9 +47,11 @@
 #ifdef HAVE_NETINET_IP_H
 #include <netinet/ip.h>
 #endif
-
-#include <net/ethernet.h>
+#include <netinet/in.h>
 #include <netinet/icmp6.h>
+#ifdef HAVE_NETINET_IF_ETHER_H
+#include <netinet/if_ether.h>
+#endif
 
 #include "ocat.h"
 
@@ -61,6 +63,8 @@ static pthread_mutex_t mac_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 
 /*! Pseudo header for IPv6 checksum calculation.
  *  RFC2460 8.1, (RFC1885 2.3) RFC2463, RFC1071. */
+/* RFC2461, rfc2462, RFC2464 ipv6 ethernet enc.
+ * 2373 addrassng ipv6 */
 
 /* IPv6 Ethernet Multicast: (MAC) 33:33:xx:xx:xx:xx, xx -> 4 lowest order bytes of IPv6 destination
  * Solicited-Node address: (IPv6) FF02:0:0:0:0:1:ffxx:xxxx, -> xx -> 3 lowest order bytes of IPv6 destination (RFC4291)
@@ -106,6 +110,8 @@ void print_mac_tbl(FILE *f)
 }
 
 
+/*! Scan MAC table for outages (age > MAX_MAC_AGE) and remove entries.
+ */
 void mac_cleanup(void)
 {
    int i;
@@ -125,7 +131,12 @@ void mac_cleanup(void)
 }
 
 
-int mac_get_mac(const struct in6_addr *in6, uint8_t *hwaddr)
+/*! Lookup an entry in the MAC-table by IP, update age.
+ *  If hwaddr != NULL and MAC eq 00:00:00:00:00:00 then copy MAC entry
+ *  from MAC table to hwaddr, otherwise copy hwaddr to MAC table.
+ *  @return -1 if no entry available, otherwise index of entry in table starting with 0.
+ */
+int mac_set(const struct in6_addr *in6, uint8_t *hwaddr)
 {
    int i;
 
@@ -134,7 +145,13 @@ int mac_get_mac(const struct in6_addr *in6, uint8_t *hwaddr)
    for (i = mac_cnt_ - 1; i >= 0; i--)
       if (IN6_ARE_ADDR_EQUAL(in6, &mac_tbl_[i].in6addr))
       {
-         memcpy(hwaddr, &mac_tbl_[i].hwaddr, ETHER_ADDR_LEN);
+         if (hwaddr)
+         {
+            if (!hwaddr[0] && !hwaddr[1] && !hwaddr[2] && !hwaddr[3] && !hwaddr[4] && !hwaddr[5])
+               memcpy(hwaddr, &mac_tbl_[i].hwaddr, ETHER_ADDR_LEN);
+            else
+               memcpy(&mac_tbl_[i].hwaddr, hwaddr, ETHER_ADDR_LEN);
+         }
          mac_tbl_[i].age = time(NULL);
          break;
       }
@@ -145,6 +162,11 @@ int mac_get_mac(const struct in6_addr *in6, uint8_t *hwaddr)
 }
 
 
+/*! Add MAC/IPv6-pair to MAC table.
+ *  @param hwaddr MAC address.
+ *  @param in6 IPv6 address.
+ *  @return Index of entry (starting with 0) or -1 if MAC table is full (MAX_MAC_ENTRY)
+ */
 int mac_add_entry(const uint8_t *hwaddr, const struct in6_addr *in6)
 {
    int e = -1;
@@ -167,6 +189,12 @@ int mac_add_entry(const uint8_t *hwaddr, const struct in6_addr *in6)
 }
 
 
+/*! Lookup entry by MAC address in MAC-table. It returns the first
+ *  occurence and updates the age.
+ *  @param hwaddr MAC address to search for.
+ *  @param in6 If not NULL, this buffer is filled with the IPv6 address.
+ *  @return Index of entry or -1 if no entry exists.
+ */
 int mac_get_ip(const uint8_t *hwaddr, struct in6_addr *in6)
 {
    int i;
@@ -176,7 +204,8 @@ int mac_get_ip(const uint8_t *hwaddr, struct in6_addr *in6)
    for (i = mac_cnt_ - 1; i >= 0; i--)
       if (!memcmp(hwaddr, &mac_tbl_[i].hwaddr, ETHER_ADDR_LEN))
       {
-         memcpy(in6, &mac_tbl_[i].in6addr, sizeof(struct in6_addr));
+         if (in6)
+            memcpy(in6, &mac_tbl_[i].in6addr, sizeof(struct in6_addr));
          mac_tbl_[i].age = time(NULL);
          break;
       }
@@ -187,9 +216,10 @@ int mac_get_ip(const uint8_t *hwaddr, struct in6_addr *in6)
 }
 
 
-/*! Calculate 16 bit one's complement sum (RFC1071).
+/*! Calculate 16 bit one's complement checksum (RFC1071) suitable for ICMPv6.
  *  @param buf Pointer to buffer.
  *  @param len Number of bytes in buffer.
+ *  @return Checksum of buffer.
  */
 uint16_t checksum(const uint16_t *buf, int len)
 {
@@ -213,12 +243,16 @@ uint16_t checksum(const uint16_t *buf, int len)
 }
 
 
+/*! Free checksum buffer.
+ */
 void free_ckbuf(uint16_t *buf)
 {
    free(buf);
 }
 
 
+/*! Malloc and fill buffer suitable for ICMPv6 checksum calculation.
+ */
 uint16_t *malloc_ckbuf(const struct in6_addr *src, const struct in6_addr *dst, uint16_t plen, uint8_t proto, const void *payload)
 {
    struct ip6_psh *psh;
@@ -240,129 +274,147 @@ uint16_t *malloc_ckbuf(const struct in6_addr *src, const struct in6_addr *dst, u
 }
 
 
-/*
-int ndp_(const struct in6_addr *in6)
+/*! Send NDP solicitation for dst to appropriate IPv6 multicast address.
+ *  @param src Source address.
+ *  @param dst Solicited target address.
+ *  @return Returns always 0.
+ */
+int ndp_solicit(const struct in6_addr *src, const struct in6_addr *dst)
 {
-   char buf[FRAME_SIZE];
-   struct ether_header *eh = (struct ether_header*) (buf + 4);
-   struct ip6_hdr *ip6 = (struct ip6_hdr*) (eh + 1); // ip6 header starts behind ether_header
-   struct nd_neighbor_solicit *nds = (struct nd_neighbor_solicit*) ip6;
-   struct nd_opt_hdr *ohd = (struct nd_opt_hdr*) (nds + 1);
-   uint16_t *ckb, cksum;
+   char buf[sizeof(ndp6_t) + sizeof(struct nd_opt_hdr) + 4 + ETHER_ADDR_LEN];
+   ndp6_t *ndp6 = (ndp6_t*) (buf + 4);
+   struct nd_opt_hdr *ohd = (struct nd_opt_hdr*) (ndp6 + 1);
+   uint16_t *ckb;
+   struct in6_addr mcastd = {{{0xff, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0xff, 0, 0, 0}}};
 
-   return -1;
-}
-*/
+   // clear buffer and setup ipv6 multicast destination
+   memset(buf, 0, sizeof(buf));
+   memcpy(((char*) &mcastd) + 13, ((char*) dst) + 13, 3);
 
+   // tunnel header
+   *((uint32_t*) buf) = htonl(CNF(fhd_key[IPV6_KEY]));
 
-int ndp_solicit(char *buf, int rlen)
-{
-   struct ether_header *eh = (struct ether_header*) (buf + 4);
-   struct ip6_hdr *ip6 = (struct ip6_hdr*) (eh + 1); // ip6 header starts behind ether_header
-   struct icmp6_hdr *icmp6 = (struct icmp6_hdr*) (ip6 + 1); // imcp6 header starts behind ip6 header
-   struct nd_neighbor_solicit *nds = (struct nd_neighbor_solicit*) icmp6;
-   struct nd_neighbor_advert *nda = (struct nd_neighbor_advert*) icmp6;
-   struct nd_opt_hdr *ohd = (struct nd_opt_hdr*) (nds + 1);
-   uint16_t *ckb, cksum;
-   struct in6_addr in6;
-   int minlen = 4 + sizeof(struct ether_header) + sizeof(struct ip6_hdr) + sizeof(struct icmp6_hdr);
+   // ethernet header
+   *((uint16_t*) ndp6->eth.ether_dhost) = 0x3333;
+   memcpy(&ndp6->eth.ether_dhost[2], ((char*) &mcastd) + 12, 4);
+   memcpy(ndp6->eth.ether_shost, CNF(ocat_hwaddr), ETHER_ADDR_LEN);
+   ndp6->eth.ether_type = htons(ETHERTYPE_IPV6);
 
-   char mb[100];
-//   uint8_t md[4] = {0xff};
+   // ipv6 header
+   ndp6->ip6.ip6_vfc = 0x60;
+   ndp6->ip6.ip6_plen = htons(sizeof(struct nd_neighbor_advert) + sizeof(struct nd_opt_hdr) + ETHER_ADDR_LEN);
+   ndp6->ip6.ip6_nxt = IPPROTO_ICMPV6;
+   ndp6->ip6.ip6_hlim = 255;
+   memcpy(&ndp6->ip6.ip6_src, src, sizeof(struct in6_addr));
+   memcpy(&ndp6->ip6.ip6_dst, &mcastd, sizeof(struct in6_addr));
 
-   if (rlen < minlen)
-   {
-      log_debug("frame too short for ICMP6 %d < %d", rlen, minlen);
-      return -1;
-   }
+   // icmpv6 header (partially)
+   ndp6->icmp6.icmp6_type = ND_NEIGHBOR_SOLICIT;
 
-   if (eh->ether_type != htons(ETHERTYPE_IPV6))
-   {
-      log_debug("protocol 0x%04x not implemented yet", htons(eh->ether_type));
-      return -1;
-   }
+   // ndp solicit header
+   memcpy(&ndp6->ndp_sol.nd_ns_target, dst, sizeof(struct in6_addr));
 
-   // check for right multicast destination on ethernet
-   if (eh->ether_dhost[2] != 0xff)
-   {
-      log_debug("ethernet multicast destination %s cannot be solicited node address", mac_hw2str(eh->ether_dhost, mb));
-      return -1;
-   }
+   // icmpv6 ndp option
+   ohd->nd_opt_type = ND_OPT_SOURCE_LINKADDR;
+   ohd->nd_opt_len = 1;
+   memcpy(ohd + 1, ndp6->eth.ether_shost, ETHER_ADDR_LEN);
 
-   // check for right multicast destination in IPv6
-   if (!IN6_IS_ADDR_MULTICAST(&ip6->ip6_dst) || !IN6_IS_ADDR_MC_LINKLOCAL(&ip6->ip6_dst))
-   {
-      log_debug("IPv6 multicast destination not solicited node address");
-      return -1;
-   }
-
-   if (!has_tor_prefix(&ip6->ip6_src))
-   {
-      log_debug("source IPv6 is not TOR ipv6");
-      return -1;
-   }
-
-   if (ip6->ip6_nxt != IPPROTO_ICMPV6)
-   {
-      log_debug("frame contains not ICMPV6, next header = %d", ip6->ip6_nxt);
-      return -1;
-   }
-
-   if (icmp6->icmp6_type != ND_NEIGHBOR_SOLICIT)
-   {
-      log_debug("icmpv6 type %d not implemented", icmp6->icmp6_type);
-      return -1;
-   }
-
-   log_debug("ICMPv6 ND_NEIGHBOR_SOLICIT received");
-   minlen = minlen - sizeof(struct icmp6_hdr) + sizeof(struct nd_neighbor_solicit);
-   if (rlen < minlen)
-   {
-      log_debug("frame too short for ND_NEIGHBOR_SOLICIT");
-      return -1;
-   }
-
-   if (!has_tor_prefix(&nds->nd_ns_target))
-   {
-      log_debug("solicit target is not TOR IPv6");
-      return -1;
-   }
-
-   ckb = malloc_ckbuf(&ip6->ip6_src, &ip6->ip6_dst, ntohs(ip6->ip6_plen), IPPROTO_ICMPV6, icmp6);
-   cksum = checksum(ckb, ntohs(ip6->ip6_plen) + sizeof(struct ip6_psh));
+   // calculate checksum
+   ckb = malloc_ckbuf(&ndp6->ip6.ip6_src, &ndp6->ip6.ip6_dst, ntohs(ndp6->ip6.ip6_plen), IPPROTO_ICMPV6, &ndp6->icmp6);
+   ndp6->icmp6.icmp6_cksum = checksum(ckb, ntohs(ndp6->ip6.ip6_plen) + sizeof(struct ip6_psh));
    free_ckbuf(ckb);
+
+   log_debug("writing %d bytes ndp solicitation to tunfd %d", sizeof(buf), CNF(tunfd[1]));
+   if (write(CNF(tunfd[1]), buf, sizeof(buf)) < sizeof(buf))
+      log_msg(LOG_ERR, "short write to tun fd %d", CNF(tunfd[1]));
+
+   return 0;
+}
+
+
+/*! Check neighbor solicitation and generate advertisement.
+ *  @param buf pointer to frame buffer.
+ *  @param rlen buffer length, must be at least sizeof(ICMPv6 header) + 4.
+ *  @return 0 if everything gone write, -1 on failure.
+ */
+int ndp_soladv(char *buf, int rlen)
+{
+   ndp6_t *ndp6 = (ndp6_t*) (buf + 4);
+   struct nd_opt_hdr *ohd = (struct nd_opt_hdr*) (ndp6 + 1);
+   uint16_t *ckb, cksum;
+   char mb[100];
+
+   if (ndp6->eth.ether_dhost[0] & 1)
+   {
+      // check for right multicast destination on ethernet
+      if (ndp6->eth.ether_dhost[2] != 0xff)
+      {
+         log_debug("ethernet multicast destination %s cannot be solicited node address", mac_hw2str(ndp6->eth.ether_dhost, mb));
+         return -1;
+      }
+
+      // check for right multicast destination in IPv6
+      if (!IN6_IS_ADDR_MULTICAST(&ndp6->ip6.ip6_dst) || !IN6_IS_ADDR_MC_LINKLOCAL(&ndp6->ip6.ip6_dst))
+      {
+         log_debug("IPv6 multicast destination not solicited node address");
+         return -1;
+      }
+   }
+
+   ckb = malloc_ckbuf(&ndp6->ip6.ip6_src, &ndp6->ip6.ip6_dst, ntohs(ndp6->ip6.ip6_plen), IPPROTO_ICMPV6, &ndp6->icmp6);
+   cksum = checksum(ckb, ntohs(ndp6->ip6.ip6_plen) + sizeof(struct ip6_psh));
+   free_ckbuf(ckb);
+
    if (cksum)
    {
       log_msg(LOG_ERR, "icmpv6 checksum wrong");
       return -1;
    }
 
+   // check for duplicate address detection
+   if (IN6_IS_ADDR_UNSPECIFIED(&ndp6->ip6.ip6_src))
+   {
+      log_debug("duplicate address detection in progress");
+      //FIXME: we should check something more here. See RFC2462
+      return -1;
+   }
+
+   if (!has_tor_prefix(&ndp6->ndp_sol.nd_ns_target))
+   //if (!IN6_HAS_TOR_PREFIX(&ndp6->ndp_sol.nd_ns_target))
+   {
+      log_debug("solicit target is not TOR IPv6");
+      return -1;
+   }
 
    log_debug("generating response");
-   // set MAC addresses in ethernet header and add MAC to table
-   if (mac_get_ip(eh->ether_shost, &in6) == -1)
-      if (mac_add_entry(eh->ether_shost, &ip6->ip6_src) == -1)
+   // add source MAC to table
+   if (mac_set(&ndp6->ip6.ip6_src, ndp6->eth.ether_shost) == -1)
+      if (mac_add_entry(ndp6->eth.ether_shost, &ndp6->ip6.ip6_src) == -1)
       {
          log_msg(LOG_ERR, "MAC table full");
          return -1;
       }
-   memcpy(eh->ether_dhost, eh->ether_shost, ETHER_ADDR_LEN);
-   memcpy(eh->ether_shost, CNF(ocat_hwaddr), ETHER_ADDR_LEN);
+
+   // set MAC addresses for response
+   memcpy(ndp6->eth.ether_dhost, ndp6->eth.ether_shost, ETHER_ADDR_LEN);
+   memcpy(ndp6->eth.ether_shost, CNF(ocat_hwaddr), ETHER_ADDR_LEN);
 
    // init ip6 header
-   memcpy(&ip6->ip6_dst, &ip6->ip6_src, sizeof(struct in6_addr));
-   memcpy(&ip6->ip6_src, &nds->nd_ns_target, sizeof(struct in6_addr));
+   memcpy(&ndp6->ip6.ip6_dst, &ndp6->ip6.ip6_src, sizeof(struct in6_addr));
+   memcpy(&ndp6->ip6.ip6_src, &ndp6->ndp_sol.nd_ns_target, sizeof(struct in6_addr));
 
    // init nda icmp6 header
-   nda->nd_na_hdr.icmp6_type = ND_NEIGHBOR_ADVERT;
-   nda->nd_na_hdr.icmp6_code = 0;
-   nda->nd_na_hdr.icmp6_cksum = 0;
-   nda->nd_na_flags_reserved = ND_NA_FLAG_SOLICITED;
+   ndp6->ndp_adv.nd_na_hdr.icmp6_type = ND_NEIGHBOR_ADVERT;
+   ndp6->ndp_adv.nd_na_hdr.icmp6_code = 0;
+   ndp6->ndp_adv.nd_na_hdr.icmp6_cksum = 0;
+   ndp6->ndp_adv.nd_na_flags_reserved = ND_NA_FLAG_SOLICITED;
+
+   //FIXME: setting target option does not check total frame length!
    ohd->nd_opt_type = ND_OPT_TARGET_LINKADDR;
    memcpy(ohd + 1, CNF(ocat_hwaddr), ETHER_ADDR_LEN);
 
-   ckb = malloc_ckbuf(&ip6->ip6_src, &ip6->ip6_dst, ntohs(ip6->ip6_plen), IPPROTO_ICMPV6, icmp6);
-   nda->nd_na_hdr.icmp6_cksum = checksum(ckb, ntohs(ip6->ip6_plen) + sizeof(struct ip6_psh));
+   ckb = malloc_ckbuf(&ndp6->ip6.ip6_src, &ndp6->ip6.ip6_dst, ntohs(ndp6->ip6.ip6_plen), IPPROTO_ICMPV6, &ndp6->icmp6);
+   ndp6->ndp_adv.nd_na_hdr.icmp6_cksum = checksum(ckb, ntohs(ndp6->ip6.ip6_plen) + sizeof(struct ip6_psh));
    free_ckbuf(ckb);
 
    log_debug("writing %d bytes to tunfd %d", rlen, CNF(tunfd[1]));
@@ -373,24 +425,80 @@ int ndp_solicit(char *buf, int rlen)
 }
 
 
-int eth_check(char *buf, int rlen)
+/*! Extract source ipv6 and MAC address and add/update MAC table.
+ *  FIXME: there should be some additional checks!
+ */
+int ndp_recadv(char *buf, int len)
 {
-    struct ether_header *eh = (struct ether_header*) (buf + 4);
+   ndp6_t *ndp6 = (ndp6_t*) (buf + 4);
 
-   if (!(eh->ether_dhost[0] & 1))
+   // add source MAC to table
+   if (mac_set(&ndp6->ip6.ip6_src, ndp6->eth.ether_shost) == -1)
+      if (mac_add_entry(ndp6->eth.ether_shost, &ndp6->ip6.ip6_src) == -1)
+      {
+         log_msg(LOG_ERR, "MAC table full");
+         return -1;
+      }
+   return 0;
+}
+
+
+int eth_ndp(char *buf, int len, int ndp_type)
+{
+   switch (ndp_type)
    {
-      log_debug("dest MAC is not multicast");
-      return -1;
-   }
+      case ND_NEIGHBOR_SOLICIT:
+         log_debug("ND_NEIGHBOR_SOLICIT received");
+         (void) ndp_soladv(buf, len);
+         return 0;
 
-   if (*((uint16_t*) &eh->ether_dhost) == 0x3333)
-   {
-      log_debug("dest MAC is IPv6 multicast");
-      return ndp_solicit(buf, rlen);
+      case ND_NEIGHBOR_ADVERT:
+         log_debug("ND_NEIGHBOR_ADVERT received");
+         (void) ndp_recadv(buf, len);
+         return 0;
    }
-
-   log_debug("unknown multicast MAC destination");
    return -1;
 }
 
+
+/*! Check if destination MAC is designated for OnionCat and
+ *  L4-Protocol is ICMPv6.
+ *  @return 0 if packet does not match criteria, -1 else.
+ */
+int eth_check(char *buf, int len)
+{
+   ndp6_t *ndp6= (ndp6_t*) (buf + 4);
+
+   // check minimum frame length
+   if (len < sizeof(struct ether_header) + 4)
+   {
+      log_msg(LOG_ERR, "frame too short, len = %d < 4 + %d", len, sizeof(struct ether_header));
+      return E_ETH_TRUNC;
+   }
+
+   // check ethernet destination
+   if ((*((uint16_t*) &ndp6->eth.ether_dhost) != 0x3333) && memcmp(ndp6->eth.ether_dhost, CNF(ocat_hwaddr), ETHER_ADDR_LEN))
+   {
+      log_debug("unknown destination MAC");
+      return E_ETH_ILLDEST;
+   }
+
+   // check L3 protocol
+   if (ndp6->eth.ether_type != htons(ETHERTYPE_IPV6))
+   {
+      log_msg(LOG_ERR, "L3 protocol not implemented 0x%04x", ntohs(ndp6->eth.ether_type));
+      return E_ETH_ILLPROTO;
+   }
+
+   // check for ndp
+   if ((len >= sizeof(ndp6_t) + 4) && (ndp6->ip6.ip6_nxt == IPPROTO_ICMPV6))
+   {
+      log_debug("ICMPv6 frame intercepted, icmp6_type = %d", ndp6->icmp6.icmp6_type);
+      if (eth_ndp(buf, len, ndp6->icmp6.icmp6_type) != -1)
+         return E_ETH_INTERCEPT;
+   }
+
+   // else forward as usual
+   return 0;
+}
 

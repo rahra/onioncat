@@ -175,6 +175,17 @@ void *socks_connector(void *p)
    while (run)
    {
       pthread_mutex_lock(&socks_queue_mutex_);
+      for (;;)
+      {
+         for (squeue = &socks_queue_; *squeue; squeue = &(*squeue)->next)
+            if (!(*squeue)->state)
+               break;
+         if (*squeue)
+            break;
+         pthread_cond_wait(&socks_queue_cond_, &socks_queue_mutex_);
+      }
+
+      /*
       do
       {
          pthread_cond_wait(&socks_queue_cond_, &socks_queue_mutex_);
@@ -183,6 +194,7 @@ void *socks_connector(void *p)
                break;
       }
       while (!(*squeue));
+      */
 
       // spawn spare thread if there is no one left
       (*squeue)->state = SOCKS_CONNECTING;
