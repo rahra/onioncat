@@ -1,3 +1,10 @@
+* version 
+ - limited IPv6 routing capability
+ - keepalive sent after connection setup (eases identification for remote
+ ocat)
+ - automatic initialization of default connections at startup
+ - implemented TAP device and NDP protocol
+
 * version 0.1.9
  - connect log => $HOME/.ocat/connect_log
  - IPv4 awareness
