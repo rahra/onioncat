@@ -65,8 +65,7 @@ int socks_connect(const SocksQueue_t *sq)
    int fd, t, len;
    char buf[FRAME_SIZE], onion[ONION_NAME_SIZE];
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
-
-   log_debug("called");
+   OcatPeer_t *peer;
 
    memset(&in, 0, sizeof(in));
    in.sin_family = AF_INET;
@@ -128,6 +127,20 @@ int socks_connect(const SocksQueue_t *sq)
 
    insert_peer(fd, sq, time(NULL) - t);
 
+   // Send first keepalive immediately
+   lock_peers();
+   if ((peer = search_peer(&sq->addr)))
+      lock_peer(peer);
+   else
+      log_msg(LOG_EMERG, "newly inserted peer not found, fd = %d", fd);
+   unlock_peers();
+   if (peer)
+   {
+      send_keepalive(peer);
+      unlock_peer(peer);
+   }
+
+   // return new file descriptor
    return fd;
 }
 
