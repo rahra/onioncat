@@ -792,13 +792,16 @@ void packet_forwarder(void)
             continue;
          }
 
+#ifndef CHECK_IPSRC
          if (!check_tor_prefix((struct ip6_hdr*) &buf[4]))
          {
             log_msg(LOG_ERR, "dropping frame");
             continue;
          }
+#endif
 
-         dest = &((struct ip6_hdr*) &buf[4])->ip6_dst;
+         if (!(dest = ipv6_lookup_route(&((struct ip6_hdr*) &buf[4])->ip6_dst)))
+            dest = &((struct ip6_hdr*) &buf[4])->ip6_dst;
       }
       else if (*((uint32_t*) buf) == CNF(fhd_key[IPV4_KEY]))
       {

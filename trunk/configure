@@ -1243,6 +1243,7 @@ Optional Features:
   --enable-packet-log     enable packet logging
   --enable-handle-http    enable handling of accidental HTTP requests
   --enable-packet-queue   enable queueuing of packets while connecting setup
+  --disable-check-ipsrc   disable source ip checking before forwarding
   --disable-dependency-tracking  speeds up one-time build
   --enable-dependency-tracking   do not reject slow dependency extractors
 
@@ -2208,6 +2209,15 @@ if test "${enable_packet_queue+set}" = set; then
   enableval=$enable_packet_queue;
 cat >>confdefs.h <<\_ACEOF
 #define PACKET_QUEUE
+_ACEOF
+
+fi
+
+# Check whether --enable-check-ipsrc was given.
+if test "${enable_check_ipsrc+set}" = set; then
+  enableval=$enable_check_ipsrc;
+cat >>confdefs.h <<\_ACEOF
+#define CHECK_IPSRC
 _ACEOF
 
 fi

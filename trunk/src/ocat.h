@@ -247,6 +247,14 @@ typedef struct IPv4Route
    struct in6_addr gw;
 } IPv4Route_t;
 
+//! IPv6 routing table entry
+typedef struct IPv6Route
+{
+   struct in6_addr dest;
+   int prefixlen;
+   struct in6_addr gw;
+} IPv6Route_t;
+
 //! IPv6 pseudo header used for checksum calculation
 struct ip6_psh
 {
@@ -435,6 +443,9 @@ void socks_queue(const struct in6_addr *, int);
 /* ocatlibe.c */
 void oe_close(int);
 int oe_remtr(char *);
+
+/* ocatipv6route.c */
+struct in6_addr *ipv6_lookup_route(const struct in6_addr *);
 
 
 #endif
