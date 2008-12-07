@@ -25,7 +25,11 @@
 
 #include "config.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
+#include <errno.h>
 
 #include "ocat.h"
 
@@ -33,32 +37,116 @@
 /*! IPv6 Routing table. Each entry contains 3 values:
  *  destination network, prefix length, gateway
  */
-static IPv6Route_t v6route_[] =
-{
-   // enter static IPv6 routes here for each host! (prefix lengths are not supported yet)
-   //
-   // sample entry
-   // route 3001::1 via fd87:d87e:eb43:1e53:0c75:2a27:72dc:c9a8
-   //
-   //{{{{0x30,0x01,0,0,0,0,0,0,0,0,0,0,0,0,0,1}}}, 0, {{{0xfd,0x87,0xd8,0x7e,0xeb,0x43,0x1e,0x53,0x0c,0x75,0x2a,0x27,0x72,0xdc,0xc9,0xa8}}}},
-
-   // do NOT remove this entry, it terminates the array!
-   {IN6ADDR_ANY_INIT, 0, IN6ADDR_ANY_INIT}
-};
+static IPv6Route_t *v6route_ = NULL;
+static int v6route_cnt_ = 0;
+static pthread_mutex_t v6route_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 
 
 /*! Lookup IPv6 route. 
  */
 struct in6_addr *ipv6_lookup_route(const struct in6_addr *dest)
 {
-   int i;
+   int i, n;
 
-   for (i = 0; !IN6_IS_ADDR_UNSPECIFIED(&v6route_[i].dest); i++)
+   pthread_mutex_lock(&v6route_mutex_);
+   n = v6route_cnt_;
+   //for (i = 0; !IN6_IS_ADDR_UNSPECIFIED(&v6route_[i].dest); i++)
+   for (i = 0; i < n; i++)
       if (IN6_ARE_ADDR_EQUAL(&v6route_[i].dest, dest))
       {
          log_debug("IPv6 route found");
-         return &v6route_[i].gw;
+         break;
+         //return &v6route_[i].gw;
       }
-   return NULL;
+   pthread_mutex_unlock(&v6route_mutex_);
+   return i < n ? &v6route_[i].gw : NULL;
+}
+
+
+/*! Add an IPv6 route to IPv6 routing table.
+ *  @return -1 if table is full else return index of entry.
+ */
+int ipv6_add_route(const IPv6Route_t *route)
+{
+   int r = -1;
+   IPv6Route_t *rt;
+
+   pthread_mutex_lock(&v6route_mutex_);
+   if ((rt = realloc(v6route_, sizeof(IPv6Route_t) * (v6route_cnt_ + 1))))
+   {
+      v6route_ = rt;
+      r = v6route_cnt_;
+      memcpy(&v6route_[v6route_cnt_++], route, sizeof(IPv6Route_t));
+   }
+   pthread_mutex_unlock(&v6route_mutex_);
+   return r;
+}
+
+
+void ipv6_print(IPv6Route_t *route, void *f)
+{
+   char addr[INET6_ADDRSTRLEN];
+
+   inet_ntop(AF_INET6, &route->dest, addr, INET6_ADDRSTRLEN);
+   fprintf(f, "IN6 %s %3d ", addr, route->prefixlen);
+   inet_ntop(AF_INET6, &route->gw, addr, INET6_ADDRSTRLEN);
+   fprintf(f, "%s %p\n", addr, route);
+}
+
+
+void ipv6_print_routes(FILE *f)
+{
+   int i;
+
+   pthread_mutex_lock(&v6route_mutex_);
+   for (i = 0; i < v6route_cnt_; i++)
+      ipv6_print(&v6route_[i], f);
+   pthread_mutex_unlock(&v6route_mutex_);
+}
+
+
+/*! Parse IPv6 route and add it to routing table.
+ *  @return index of routing table entry (>= 0) or an integer < 0 on failure.
+ */
+int ipv6_parse_route(const char *rs)
+{
+   char buf[strlen(rs) + 1], *s, *b;
+   IPv6Route_t route6;
+
+   if (!rs)
+      return E_RT_NULLPTR;
+
+   log_debug("IPv6 route parser: \"%s\"", rs);
+
+   strlcpy(buf, rs, strlen(rs) + 1);
+   if (!(s = strtok_r(buf, " \t", &b)))
+      return E_RT_SYNTAX;
+
+   if (inet_pton(AF_INET6, s, &route6.dest) != 1)
+      return E_RT_SYNTAX;
+
+   if (!(s = strtok_r(NULL, " \t", &b)))
+      return E_RT_SYNTAX;
+
+   errno = 0;
+   route6.prefixlen = strtol(s, NULL, 10);
+   if (errno)
+      return E_RT_SYNTAX;
+   if ((route6.prefixlen < 0) || (route6.prefixlen > 128))
+      return E_RT_ILLNM;
+
+   if (!(s = strtok_r(NULL, " \t", &b)))
+      return E_RT_SYNTAX;
+
+   if (inet_pton(AF_INET6, s, &route6.gw) != 1)
+      return E_RT_SYNTAX;
+
+   if (!has_tor_prefix(&route6.gw))
+      return E_RT_NOTORGW;
+
+   if (IN6_ARE_ADDR_EQUAL(&route6.gw, &CNF(ocat_addr)))
+      return E_RT_GWSELF;
+
+   return ipv6_add_route(&route6);
 }
 

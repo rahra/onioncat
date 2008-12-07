@@ -15,7 +15,7 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*! ocatctrl.c
+/*! @file
  *  Contains functions for local controller interface.
  *
  *  @author Bernhard Fischer <rahra _at_ cypherpunk at>
@@ -28,39 +28,23 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-//#include <fcntl.h>
 #include <pthread.h>
 #include <arpa/inet.h>
 #include <errno.h>
-//#include <sys/time.h>
-//#include <sys/select.h>
-//#include <sys/types.h>
-//#include <sys/stat.h>
 #include <sys/socket.h>
-//#include <sys/ioctl.h>
-//#ifdef HAVE_LINUX_SOCKIOS_H
-//#include <linux/sockios.h>
-//#endif
-//#ifdef HAVE_NETINET_IN_SYSTM_H
-//#include <netinet/in_systm.h>
-//#endif
-//#ifdef HAVE_NETINET_IP_H
-//#include <netinet/ip.h>
-//#endif
-
-//#include <net/ethernet.h>
 
 #include "ocat.h"
 
-// file descriptors of control port
+//! file descriptors of control port
 static int ctrlfd_[2];
 
 
-/**! ctrl_handler handles connections to local control port.
- *   @param p void* typcasted to int contains fd of connected socket.
- *   @return Currently always returns NULL.
+/*! ctrl_handler handles connections to local control port.
+ *  @param p void* typcasted to int contains fd of connected socket.
+ *  @return Currently always returns NULL.
+ *
+ *  FIXME: ctrl_handler probably is not thread-safe.
  */
-// FIXME: ctrl_handler probably is not thread-safe.
 void *ctrl_handler(void *p)
 {
    int fd, c;
@@ -74,7 +58,6 @@ void *ctrl_handler(void *p)
 
    if ((rlen = pthread_detach(pthread_self())))
       log_msg(LOG_ERR, "thread couldn't self-detach: \"%s\"", strerror(rlen));
-   log_debug("thread detached");
 
    fd = (int) p;
    if (CNF(config_read))
@@ -84,7 +67,7 @@ void *ctrl_handler(void *p)
          log_msg(LOG_ERR, "could not open %d for writing: %s", fd, strerror(errno));
          return NULL;
       }
-      log_debug("fd %d fdopen'ed", fd);
+      log_debug("fd %d fdopen'ed \"r+\"", fd);
       fo = ff;
    }
    else
@@ -95,10 +78,13 @@ void *ctrl_handler(void *p)
          CNF(config_read) = 1;
          return NULL;
       }
-      log_debug("fd %d fdopen'ed", fd);
+      log_debug("fd %d fdopen'ed \"r\"", fd);
       fo = CNF(logf);
       //CNF(config_read) = 1;
    }
+
+   fprintf(fo, "%s (c) %s -- %s %s\n", PACKAGE_STRING, OCAT_AUTHOR, __DATE__, __TIME__);
+   fprintf(fo, "*** ATTENTION! Controller interface not thread-safe yet! Usage could cause deadlocks. ***\n");
 
    for (;;)
    {
@@ -201,7 +187,8 @@ void *ctrl_handler(void *p)
       {
          if (rlen > 6)
          {
-            c = parse_route(&buf[6]);
+            if ((c = parse_route(&buf[6])) == E_RT_SYNTAX)
+               c = ipv6_parse_route(&buf[6]);
             switch (c)
             {
                case E_RT_NOTORGW:
@@ -219,7 +206,10 @@ void *ctrl_handler(void *p)
                fprintf(ff, "ERR %d %s\n", c, s);
          }
          else
+         {
             print_routes(fo);
+            ipv6_print_routes(fo);
+         }
       }
       else if (!strcmp(buf, "connect"))
       {
@@ -256,20 +246,21 @@ void *ctrl_handler(void *p)
       {
          fprintf(fo,
                "commands:\n"
-               "exit | quit               exit from control interface\n"
-               "terminate                 terminate OnionCat\n"
-               "close <n>                 close file descriptor <n> of a peer\n"
-               "status                    list peer status\n"
-               "threads                   show active threads\n"
-               "fds                       show open file descriptors (w/o peers)\n"
-               "route [<dst IP>           show routing table or add route\n"
-               "       <netmask>\n"
-               "       <IPv6 gw>]\n"
-               "connect <.onion-URL>      connect to a hidden service. if \"perm\" is set,\n"
-               "        [\"perm\"]              connection will stay open forever\n"
-               "macs                      show MAC address table\n"
-               "setup                     show internal setup struct\n"
-               "version                   show version\n"
+               "exit | quit .... exit from control interface\n"
+               "terminate ...... terminate OnionCat\n"
+               "close <n> ...... close file descriptor <n> of a peer\n"
+               "status ......... list peer status\n"
+               "threads ........ show active threads\n"
+               "fds ............ show open file descriptors (w/o peers)\n"
+               "route .......... show routing table\n"
+               "route <dst IP> <netmask> <IPv6 gw>\n"
+               "   ............. add route to routing table\n"
+               "connect <.onion-URL> [\"perm\"]\n"
+               "   ............. connect to a hidden service. if \"perm\" is set,\n"
+               "   ............. connection will stay open forever\n"
+               "macs ........... show MAC address table\n"
+               "setup .......... show internal setup struct\n"
+               "version ........ show version\n"
                );
       }
       else

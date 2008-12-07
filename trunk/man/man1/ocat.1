@@ -30,14 +30,27 @@ ocat \- OnionCat creates a transparent IPv6 layer on top of TOR's hidden service
 .SH DESCRIPTION
 OnionCat creates a transparent IPv6 layer on top of TOR's hidden services. It
 transmits any kind of IP-based data transparently through the TOR network on a
-location hidden basis.  You can think of it as a point-to-multipoint VPN
+location hidden basis. You can think of it as a point-to-multipoint VPN
 between hidden services.
 
 OnionCat is a stand-alone application which runs in userland and is a connector
-between TOR and the local OS.  Any protocol which is based on IP can be
+between TOR and the local OS. Any protocol which is based on IP can be
 transmitted. Of course, UDP and TCP (and probably ICMP) are the most important
 ones but all other protocols can also be forwarded through it.
 
+.TP
+\fB\-a\fR
+OnionCat creates a log file at $HOME/.ocat/connect_log. All incomming connects are
+log to that file. $HOME is determined from the user under which OnionCat runs (see option -u).
+.TP
+\fB\-b\fR
+Run OnionCat in background.
+.TP
+\fB\-C\fR
+Disable the local controller interface. The controller interfaces listens on localhost (127.0.0.1 and ::1 port 8066)
+for incomming connections. It's currently used for debugging purpose and not thread-safe and does not
+have any kind of authentication or authorization mechanism. Hence,
+it should not be used in production environments.
 .TP
 \fB\-T\fR tun_dev
 tun device file to open for creation of tun interface, defaults to
