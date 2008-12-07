@@ -188,11 +188,20 @@ void *ctrl_handler(void *p)
          if (rlen > 6)
          {
             if ((c = parse_route(&buf[6])) == E_RT_SYNTAX)
-               c = ipv6_parse_route(&buf[6]);
+               if ((c = ipv6_parse_route(&buf[6])) > 0)
+                  c = 0;
             switch (c)
             {
                case E_RT_NOTORGW:
                   s = "gateway has not TOR prefix";
+                  break;
+
+               case E_RT_ILLNM:
+                  s = "illegal netmask or prefix length";
+                  break;
+
+               case E_RT_DUP:
+                  s = "route already exists";
                   break;
 
                case E_RT_GWSELF:

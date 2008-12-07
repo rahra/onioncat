@@ -1,4 +1,6 @@
 * version 
+ - bugfixes
+ - IPv6 routes are aware of prefix lengths
  - IPv6 routing table can be manipulated through controller or config file
  - limited IPv6 routing capability
  - keepalive sent after connection setup (eases identification for remote

@@ -1,11 +1,12 @@
 * forward multicasting packets (ff00::/8)
 * frame checking may be improved
-* improve getopt() -- currently many things are hardcoded
 * generally improve tun opening routine
 * header compression
 * log levels and log output are currently somehow random
 * interaction with OS routing table to be able to forward packets to "foreign" networks beside the TOR prefix
 * peer list should be improved
+* IPv6 routing table should be improved (is just a flat list yet)
+* controller interface should be improved (is not thread-safe)
 //* IPv6 adresses are not checked for their validity
 //* garbage collector for packet queue missing
 //* garbage collector for session cleanup
@@ -20,3 +21,4 @@
 //* tun-header packet dependent
 //* IPv4 forwarding + routing
 //* fragment handler
+//* improve getopt() -- currently many things are hardcoded

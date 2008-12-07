@@ -42,22 +42,43 @@ static int v6route_cnt_ = 0;
 static pthread_mutex_t v6route_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 
 
+/*! Reduce IPv6 address to prefix, i.e. cut off host id.
+ *  @param net IPv6 address
+ *  @param prefixlen Prefix length
+ */
+void ipv6_reduce(struct in6_addr *net, int prefixlen)
+{
+   int i;
+   char m;
+
+   for (i = 0; i < ((128 - prefixlen) >> 3); i++)
+      net->s6_addr[15 - i] = 0;
+
+   m = 0xff << (8 - (prefixlen % 8));
+   net->s6_addr[prefixlen >> 3] &= m;
+
+}
+
+
 /*! Lookup IPv6 route. 
  */
 struct in6_addr *ipv6_lookup_route(const struct in6_addr *dest)
 {
+   struct in6_addr addr;
    int i, n;
 
    pthread_mutex_lock(&v6route_mutex_);
    n = v6route_cnt_;
-   //for (i = 0; !IN6_IS_ADDR_UNSPECIFIED(&v6route_[i].dest); i++)
    for (i = 0; i < n; i++)
-      if (IN6_ARE_ADDR_EQUAL(&v6route_[i].dest, dest))
+   {
+      addr = *dest;
+      ipv6_reduce(&addr, v6route_[i].prefixlen);
+      if (IN6_ARE_ADDR_EQUAL(&v6route_[i].dest, &addr))
       {
          log_debug("IPv6 route found");
          break;
-         //return &v6route_[i].gw;
       }
+   }
    pthread_mutex_unlock(&v6route_mutex_);
    return i < n ? &v6route_[i].gw : NULL;
 }
@@ -146,6 +167,10 @@ int ipv6_parse_route(const char *rs)
 
    if (IN6_ARE_ADDR_EQUAL(&route6.gw, &CNF(ocat_addr)))
       return E_RT_GWSELF;
+
+   ipv6_reduce(&route6.dest, route6.prefixlen);
+   if (ipv6_lookup_route(&route6.dest))
+      return E_RT_DUP;
 
    return ipv6_add_route(&route6);
 }
