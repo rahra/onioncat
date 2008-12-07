@@ -75,6 +75,7 @@
 #define OCAT_DIR ".ocat"
 #define OCAT_CONNECT_LOG "connect_log"
 #define PID_FILE "/var/run/ocat.pid"
+#define OCAT_AUTHOR "Bernhard R. Fischer"
 
 //! Maximum frame (packet) size, should be able to keep one maximum size ipv6-packet: 2^16 + 40 + 4
 #define FRAME_SIZE 65580
@@ -127,11 +128,14 @@
 #define E_ETH_ILLPROTO -10
 #define E_ETH_INTERCEPT -11
 
-
 //! maximum number of MAC address entries in table
 #define MAX_MAC_ENTRY 128
 //! maximum age of MAC address in table
 #define MAX_MAC_AGE 120
+/*
+//! maximum number of IPv6 routes
+#define MAX_IPV6_ROUTE 1024
+*/
 
 #define IPV4_KEY 0
 #define IPV6_KEY 1
@@ -239,9 +243,10 @@ typedef struct SocksQueue
    int perm;
 } SocksQueue_t;
 
+//! IPv4 routing table entry
 typedef struct IPv4Route
 {
-   struct IPv4Route *next[2];    //!< next routes in binary tree
+   struct IPv4Route *next[2];    //!< pointer to next routes in binary tree
    uint32_t dest;
    uint32_t netmask;
    struct in6_addr gw;
@@ -392,6 +397,7 @@ void *ocat_controller(void *);
 void *ctrl_handler(void *);
 int insert_peer(int, const SocksQueue_t *, time_t);
 int run_local_listeners(short, int *, int (action_accept)(int));
+int send_keepalive(OcatPeer_t *);
 
 /* ocatthread.c */
 const OcatThread_t *init_ocat_thread(const char *);
@@ -446,6 +452,8 @@ int oe_remtr(char *);
 
 /* ocatipv6route.c */
 struct in6_addr *ipv6_lookup_route(const struct in6_addr *);
+void ipv6_print_routes(FILE *);
+int ipv6_parse_route(const char *);
 
 
 #endif

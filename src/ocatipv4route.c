@@ -46,6 +46,9 @@ static IPv4Route_t *rroot_ = NULL;
 static pthread_mutex_t route_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 
 
+/*! Add an IPv4 route to IPv4 routing table.
+ *  @return 0 on success or < 0 on failure.
+ */
 int ipv4_add_route(IPv4Route_t *route, IPv4Route_t **root, uint32_t cur_nm)
 {
    if (!(*root))
@@ -61,14 +64,12 @@ int ipv4_add_route(IPv4Route_t *route, IPv4Route_t **root, uint32_t cur_nm)
 
    if (route->netmask == cur_nm /*(*root)->netmask*/)
    {
-      //if (!memcmp(&(*root)->gw, &in6addr_any, sizeof(struct in6_addr)))
       if (IN6_ARE_ADDR_EQUAL(&(*root)->gw, &in6addr_any))
       {
          memcpy(&(*root)->gw, &route->gw, sizeof(struct in6_addr));
          return 0;
       }
 
-      //if (!memcmp(&(*root)->gw, &route->gw, sizeof(struct in6_addr)))
       if (IN6_ARE_ADDR_EQUAL(&(*root)->gw, &route->gw))
          return 0;
 
@@ -149,13 +150,11 @@ void ipv4_print(IPv4Route_t *route, void *f)
       return;
 
    iaddr.s_addr = htonl(route->dest);
-   fprintf(f, "%s ", inet_ntoa(iaddr));
+   fprintf(f, "IN  %s ", inet_ntoa(iaddr));
    iaddr.s_addr = htonl(route->netmask);
    fprintf(f, "%s ", inet_ntoa(iaddr));
    inet_ntop(AF_INET6, &route->gw, addr, INET6_ADDRSTRLEN);
-   fprintf(f, "%s", addr);
-   fprintf(f, " %p", route);
-   fprintf(f, "\n");
+   fprintf(f, "%s %p\n", addr, route);
 }
 
 
@@ -174,7 +173,7 @@ int parse_route(const char *rs)
    if (!rs)
       return E_RT_NULLPTR;
 
-   log_debug("parsing route \"%s\"", rs);
+   log_debug("IPv4 route parser: \"%s\"", rs);
 
    strlcpy(buf, rs, strlen(rs) + 1);
    if (!(s = strtok_r(buf, " \t", &b)))

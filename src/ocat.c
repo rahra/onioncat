@@ -265,7 +265,7 @@ int main(int argc, char *argv[])
       exit(0);
    }
 
-   log_msg(LOG_INFO, "%s (c) Bernhard R. Fischer -- compiled %s %s", PACKAGE_STRING, __DATE__, __TIME__);
+   log_msg(LOG_INFO, "%s (c) %s -- compiled %s %s", OCAT_AUTHOR, PACKAGE_STRING, __DATE__, __TIME__);
 
 #if 0
    if (CNF(config_file))
