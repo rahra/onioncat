@@ -19,13 +19,13 @@
 ocat \- OnionCat creates a transparent IPv6 layer on top of TOR's hidden services.
 .SH SYNOPSIS
 .B ocat
--i \fIonion_id                      (1st form)\fR
+-i \fIonion_id                      (1st form)\fP
 .br
 .B ocat
--o \fIIPv6_address                  (2nd form)\fR
+-o \fIIPv6_address                  (2nd form)\fP
 .br
 .B ocat
-[\fIOPTION\fR] \fIonion_id                (3rd form)\fR
+[\fIOPTION\fP] \fIonion_id                (3rd form)\fP
 .br
 .SH DESCRIPTION
 OnionCat creates a transparent IPv6 layer on top of TOR's hidden services. It
@@ -38,28 +38,78 @@ between TOR and the local OS. Any protocol which is based on IP can be
 transmitted. Of course, UDP and TCP (and probably ICMP) are the most important
 ones but all other protocols can also be forwarded through it.
 
+OnionCat opens a TUN device and assigns an IPv6 address to it. All packets forwarded to the TUN device by the
+kernel are forwarded by OnionCat to other OnionCats listening on TOR's hidden service ports.
+The IPv6 address depends on the \fIonion_id\fP of the locally configured hidden service (see \fBtor(8)\fP).
+Depending on the configuration of TOR the \fIonion_id\fP usually can be found at \fI/var/lib/tor/hidden_service/hostname\fP or similar location.
+
+.SS OPTIONS
 .TP
-\fB\-a\fR
+\fB\-4\fP
+Enable IPv4 forwarding.
+.TP
+\fB\-a\fP
 OnionCat creates a log file at $HOME/.ocat/connect_log. All incomming connects are
 log to that file. $HOME is determined from the user under which OnionCat runs (see option -u).
 .TP
-\fB\-b\fR
+\fB\-b\fP
 Run OnionCat in background.
 .TP
-\fB\-C\fR
+\fB\-C\fP
 Disable the local controller interface. The controller interfaces listens on localhost (127.0.0.1 and ::1 port 8066)
 for incomming connections. It's currently used for debugging purpose and not thread-safe and does not
 have any kind of authentication or authorization mechanism. Hence,
 it should not be used in production environments.
 .TP
-\fB\-T\fR tun_dev
-tun device file to open for creation of tun interface, defaults to
-/dev/net/tun. Setup of a tun device needs root permissions. ocat automatically
-changes userid after the tun device is set up correctly.
+\fB\-d\fP \fIn\fP
+Set debug level to \fIn\fP. Default = 7 which is maximum. Debug output will only be created if OnionCat was
+compiled with option DEBUG.
 .TP
-\fB\-u\fR username
-username under which ocat should run. The uid is changed as soon as possible
+\fB\-f\fP \fIconfig file\fP
+Read initial configuration from \fIconfig file\fP. 
+.TP
+\fB\-h\fP
+Display short usage message and shows options.
+.TP
+\fB\-i\fP
+Convert \fIonion_id\fP to IPv6 address and exit.
+.TP
+\fB\-l\fP \fIport\fP
+Local \fIport\fP number OnionCat listens for incoming connections.
+.TP
+\fB\-L\fP \fIlog_file\fP
+Log output to \fIlog_file\fP instead of stderr.
+.TP
+\fB\-o\fP \fIIPv6 address\fP
+Convert \fIIPv6 address\fP to \fIonion_id\fP and exit program.
+.TP
+\fB\-p\fP
+Use TAP device instead of TUN device. There are a view differences. See \fBTAP DEVICE\fP later.
+.TP
+\fB\-P\fP \fIpid file\fP
+Create \fIpid file\fP instead of \fB/var/run/ocat.pid\fP.
+.TP
+\fB\-r\fP
+Run OnionCat as root and don't change user id (see option \fB\-u\fP).
+.TP
+\fB\-s\fP \fIport\fP
+Set OnionCat's virtual hidden service port to \fIport\fP.
+.TP
+\fB\-t\fP \fIport\fP
+Set TOR SOCKS \fIport\fP. 
+.TP
+\fB\-T\fP \fItun_dev\fP
+TUN device file to open for creation of TUN interface, defaults to
+/dev/net/tun. Setup of a TUN device needs root permissions. OnionCat automatically
+changes userid after the TUN device is set up correctly.
+.TP
+\fB\-u\fP \fIusername\fP
+\fIusername\fP under which ocat should run. The uid is changed as soon as possible
 after tun device setup.
+
+.SS TAP DEVICE
+Usually OnionCat opens a TUN device which is a layer 3 interface. With option \fB\-p\fP OnionCat opens a TAP device instead which is a virtual ethernet
+(layer 2) interface.
 
 .SH FILES
 $HOME/.ocat/connect_log
