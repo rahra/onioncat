@@ -265,6 +265,25 @@ int handle_http(const OcatPeer_t *peer)
 #endif
 
 
+int set_peer_dest(struct in6_addr *dest, const struct in6_addr *addr)
+{
+   if (!has_tor_prefix(addr))
+   {
+      log_debug("remote address does not have OC prefix");
+      return -1;
+   }
+
+   if (IN6_ARE_ADDR_EQUAL(addr, &CNF(ocat_addr)))
+   {
+      log_debug("source address is local address");
+      return -1;
+   }
+
+   *dest = *addr;
+   return 0;
+}
+
+
 void *socket_receiver(void *p)
 {
    int maxfd, len;
@@ -448,7 +467,11 @@ void *socket_receiver(void *p)
             if (IN6_IS_ADDR_UNSPECIFIED(&peer->addr))
             {
                if (*peer->tunhdr == CNF(fhd_key[IPV6_KEY]))
-                  memcpy(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src, sizeof(struct in6_addr));
+               {
+                  //memcpy(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src, sizeof(struct in6_addr));
+                  if (set_peer_dest(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src))
+                     drop = 1;
+               }
                else if (*peer->tunhdr == CNF(fhd_key[IPV4_KEY]))
                {
                   // check if there is a route back
@@ -462,7 +485,11 @@ void *socket_receiver(void *p)
                      log_debug("no route back");
                   }
                   else
-                     memcpy(&peer->addr, in6, sizeof(struct in6_addr));
+                  {
+                     //memcpy(&peer->addr, in6, sizeof(struct in6_addr));
+                     if (set_peer_dest(&peer->addr, in6))
+                        drop = 1;
+                  }
                }
 
                if (!drop)
