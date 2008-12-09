@@ -1,4 +1,4 @@
-SUBDIRS = src
+SUBDIRS = src man
+DIST_SUBDIRS = src man
 dist_doc_DATA = README
-man_MANS = man/man1/ocat.1
 
