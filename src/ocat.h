@@ -40,9 +40,6 @@
 #ifdef HAVE_NET_ETHERNET_H
 #include <net/ethernet.h>
 #endif
-//#ifdef HAVE_NETINET_IF_ETHER_H
-//#include <netinet/if_ether.h>
-//#endif
 #include <netinet/icmp6.h>
 #include <syslog.h>
 
