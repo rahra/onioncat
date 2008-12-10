@@ -1,4 +1,6 @@
 * version 
+ - consolidated header files
+ - compiles on FreeBSD and OpenBSD
  - connecting logfile to /dev/null if background option given
  - staying in foreground if failed to open message logfile
  - bugfixes

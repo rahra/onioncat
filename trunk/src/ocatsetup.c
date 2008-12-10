@@ -22,12 +22,6 @@
  *  @version 2008/02/03-01
  */
 
-#include "config.h"
-
-#include <stdio.h>
-#include <string.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
 
 #include "ocat.h"
 
@@ -67,20 +61,19 @@ void init_setup(void)
 
 void print_setup_struct(FILE *f)
 {
-   char ip[_SB], nm[_SB], ip6[_SB], hw[_SB], logf[_SB], rp[ROOT_PEERS][_SB];
+   char ip[_SB], nm[_SB], ip6[_SB], logf[_SB], rp[ROOT_PEERS][_SB];
    int i;
 
    inet_ntop(AF_INET, &setup_.ocat_addr4, ip, _SB);
    inet_ntop(AF_INET, &setup_.ocat_addr4_mask, nm, _SB);
    inet_ntop(AF_INET6, &setup_.ocat_addr, ip6, _SB);
-   mac_hw2str(setup_.ocat_hwaddr, hw);
    for (i = 0; i < ROOT_PEERS; i++)
       inet_ntop(AF_INET6, &setup_.root_peer[i], rp[i], _SB);
 
    if (setup_.logf == stderr)
-      strcpy(logf, "stderr");
+      strlcpy(logf, "stderr", sizeof(logf));
    else
-      sprintf(logf, "%p", setup_.logf);
+      snprintf(logf, sizeof(logf), "%p", setup_.logf);
 
    fprintf(f,
          "fhd_key[IPV4(%d)]  = 0x%04x\n"
@@ -136,7 +129,7 @@ void print_setup_struct(FILE *f)
          setup_.config_file,
          setup_.config_read,
          setup_.use_tap,
-         hw,
+         ether_ntoa((struct ether_addr*) setup_.ocat_hwaddr),
          setup_.pid_file,
          setup_.logfn,
          logf,

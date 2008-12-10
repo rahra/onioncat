@@ -15,17 +15,6 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "config.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdarg.h>
-#include <errno.h>
-#include <time.h>
-#include <pthread.h>
-#include <sys/stat.h>
 
 #include "ocat.h"
 

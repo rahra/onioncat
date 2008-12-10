@@ -22,36 +22,6 @@
  *  @version 2008/10/10
  */
 
-#include "config.h"
-
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <pthread.h>
-#include <arpa/inet.h>
-#include <errno.h>
-#include <sys/time.h>
-#include <sys/select.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#ifdef HAVE_LINUX_SOCKIOS_H
-#include <linux/sockios.h>
-#endif
-#ifdef HAVE_NETINET_IN_SYSTM_H
-#include <netinet/in_systm.h>
-#endif
-#ifdef HAVE_NETINET_IP_H
-#include <netinet/ip.h>
-#endif
-#include <netinet/in.h>
-#include <netinet/icmp6.h>
-/*#ifdef HAVE_NETINET_IF_ETHER_H
-#include <netinet/if_ether.h>
-#endif*/
 
 #include "ocat.h"
 
@@ -71,24 +41,6 @@ static pthread_mutex_t mac_mutex_ = PTHREAD_MUTEX_INITIALIZER;
  * IPv4 Ethernet Multicast: 01:00:5e:0xx:xx:xx, */
 
 
-/*! Convert an ethernet hardware address to a string.
- *  @param hwaddr Pointer to hardware address. Must be of len ETHER_ADDR_LEN (6).
- *  @param str Pointer to string. Must have at least 18 bytes!
- */
-char *mac_hw2str(const uint8_t *hwaddr, char *str)
-{
-   char *s = str;
-   int i;
-
-   for (i = 0; i < ETHER_ADDR_LEN; i++, str += 3, hwaddr++)
-      sprintf(str, "%02x:", *hwaddr);
-   str--;
-   *str = '\0';
-
-   return s;
-}
-
-
 void print_mac_tbl(FILE *f)
 {
    int i;
@@ -99,8 +51,7 @@ void print_mac_tbl(FILE *f)
 
    for (i = 0; i < mac_cnt_; i++)
    {
-      mac_hw2str(mac_tbl_[i].hwaddr, buf);
-      fprintf(f, "%3d %3d %s ", i, (int) (time(NULL) - mac_tbl_[i].age), buf);
+      fprintf(f, "%3d %3d %s ", i, (int) (time(NULL) - mac_tbl_[i].age), ether_ntoa((struct ether_addr*) mac_tbl_[i].hwaddr));
       fprintf(f, "%s ", mac_tbl_[i].family == AF_INET6 ? "IN6" : "IN ");
       inet_ntop(mac_tbl_[i].family, &mac_tbl_[i].in6addr, buf, INET6_ADDRSTRLEN);
       fprintf(f, "%s\n", buf);
@@ -342,14 +293,14 @@ int ndp_soladv(char *buf, int rlen)
    ndp6_t *ndp6 = (ndp6_t*) (buf + 4);
    struct nd_opt_hdr *ohd = (struct nd_opt_hdr*) (ndp6 + 1);
    uint16_t *ckb, cksum;
-   char mb[100];
+   //char mb[100];
 
    if (ndp6->eth.ether_dhost[0] & 1)
    {
       // check for right multicast destination on ethernet
       if (ndp6->eth.ether_dhost[2] != 0xff)
       {
-         log_debug("ethernet multicast destination %s cannot be solicited node address", mac_hw2str(ndp6->eth.ether_dhost, mb));
+         log_debug("ethernet multicast destination %s cannot be solicited node address", ether_ntoa((struct ether_addr*) ndp6->eth.ether_dhost));
          return -1;
       }
 

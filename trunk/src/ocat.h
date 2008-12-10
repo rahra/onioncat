@@ -21,27 +21,73 @@
 #include "config.h"
 
 #include <stdio.h>
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
+#include <stdlib.h>
+#include <stdarg.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <pwd.h>
+#include <errno.h>
 #include <time.h>
-#ifdef HAVE_NETINET_IN_H
-#include <netinet/in.h>
-#endif
-#ifdef HAVE_NETINET_IP6_H
-#include <netinet/ip6.h>
-#endif
 #include <pthread.h>
+#include <signal.h>
+#include <ctype.h>
+#include <syslog.h>
+
+#include <arpa/inet.h>
+
+#include <sys/time.h>
+#include <sys/select.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
 #ifdef HAVE_ENDIAN_H
 #include <endian.h>
 #elif HAVE_SYS_ENDIAN_H
 #include <sys/endian.h>
 #endif
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#ifdef HAVE_NETINET_IN_SYSTM_H
+#include <netinet/in_systm.h>
+#endif
+#ifdef HAVE_NET_IF_H
+#include <net/if.h>
+#endif
+#ifdef HAVE_NETINET_IP_H
+#include <netinet/ip.h>
+#endif
+#ifdef HAVE_NETINET_ICMP6_H
+#include <netinet/icmp6.h>
+#endif
+#ifdef HAVE_NETINET_ETHER_H
+#include <netinet/ether.h>
+#endif
+#ifdef HAVE_NETINET_IF_ETHER_H
+#include <netinet/if_ether.h>
+#endif
+#ifdef HAVE_NETINET_IP6_H
+#include <netinet/ip6.h>
+#endif
 #ifdef HAVE_NET_ETHERNET_H
 #include <net/ethernet.h>
 #endif
-#include <netinet/icmp6.h>
-#include <syslog.h>
+#ifdef HAVE_LINUX_SOCKIOS_H
+#include <linux/sockios.h>
+#endif
+#ifdef HAVE_LINUX_IF_TUN_H
+#include <linux/if_tun.h>
+#endif
+#ifdef HAVE_NET_IF_TUN_H
+#include <net/if_tun.h>
+#endif
 
 #ifndef ETHERTYPE_IPV6
 #define ETHERTYPE_IPV6 0x86dd
