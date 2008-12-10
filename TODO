@@ -1,3 +1,4 @@
+* sometimes a peer is connected a second time for an unknown reason
 * forward multicasting packets (ff00::/8)
 * frame checking may be improved
 * generally improve tun opening routine

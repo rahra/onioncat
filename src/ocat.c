@@ -15,25 +15,6 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "config.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdarg.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <pwd.h>
-#include <errno.h>
-#include <time.h>
-#include <pthread.h>
-#ifdef HAVE_NET_IF_H
-#include <net/if.h>
-#endif
 
 #include "ocat.h"
 
@@ -284,13 +265,7 @@ int main(int argc, char *argv[])
 
    memcpy(&CNF(ocat_hwaddr[3]), &CNF(ocat_addr.s6_addr[13]), 3);
    if (CNF(use_tap));
-   {
-      log_msg(LOG_INFO, "MAC address %02x:%02x:%02x:%02x:%02x:%02x",
-            CNF(ocat_hwaddr[0]), CNF(ocat_hwaddr[1]), CNF(ocat_hwaddr[2]), CNF(ocat_hwaddr[3]), CNF(ocat_hwaddr[4]), CNF(ocat_hwaddr[5]));
-      /*if (pipe(CNF(icmpv6fd)) == -1)
-         log_msg(LOG_EMERG, "cannot create multicast pipe: %s", strerror(errno)), exit(1);
-      run_ocat_thread("icmpv6", icmpv6_handler, NULL);*/
-   }
+      log_msg(LOG_INFO, "MAC address %s", ether_ntoa((struct ether_addr*) CNF(ocat_hwaddr)));
 
 #ifndef WITHOUT_TUN
    // create TUN device

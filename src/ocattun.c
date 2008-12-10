@@ -24,28 +24,6 @@
 
 #ifndef WITHOUT_TUN
 
-#include "config.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <arpa/inet.h>
-#ifdef HAVE_NET_IF_H
-#include <net/if.h>
-#endif
-#ifdef HAVE_LINUX_IF_TUN_H
-#include <linux/if_tun.h>
-#endif
-#ifdef HAVE_NET_IF_TUN_H
-#include <net/if_tun.h>
-#endif
 
 #include "ocat.h"
 
@@ -84,7 +62,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
    strlcpy(dev, ifr.ifr_name, IFNAMSIZ);
    if (!CNF(use_tap))
    {
-      sprintf(buf, "ifconfig %s add %s/%d up", dev, astr, TOR_PREFIX_LEN);
+      snprintf(buf, sizeof(buf), "ifconfig %s add %s/%d up", dev, astr, TOR_PREFIX_LEN);
       log_msg(LOG_INFO, "configuring tun IP: \"%s\"", buf);
       if (system(buf) == -1)
          log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
@@ -119,7 +97,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
 
    if (!CNF(use_tap))
    {
-      sprintf(buf, "ifconfig tun0 inet6 %s/%d up", astr, TOR_PREFIX_LEN);
+      snprintf(buf, sizeof(buf), "ifconfig tun0 inet6 %s/%d up", astr, TOR_PREFIX_LEN);
       log_debug("setting IP on tun: \"%s\"", buf);
       if (system(buf) == -1)
          log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
@@ -130,7 +108,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
    // setting up IPv4 address
    if (CNF(ipv4_enable) && !CNF(use_tap))
    {
-      sprintf(buf, "ifconfig %s %s netmask %s", dev, astr4, inet_ntoa(netmask));
+      snprintf(buf, sizeof(buf), "ifconfig %s %s netmask %s", dev, astr4, inet_ntoa(netmask));
       log_msg(LOG_INFO, "configuring tun IP: \"%s\"", buf);
       if (system(buf) == -1)
          log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
@@ -139,7 +117,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
    // bring up tap device
    if (CNF(use_tap))
    {
-       sprintf(buf, "ifconfig %s up", dev);
+       snprintf(buf, sizeof(buf), "ifconfig %s up", dev);
       log_msg(LOG_INFO, "bringing up TAP device \"%s\"", buf);
       if (system(buf) == -1)
          log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));

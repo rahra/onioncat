@@ -23,11 +23,6 @@
  *  @version 2008/02/03-01
  */
 
-#include "config.h"
-
-#include <ctype.h>
-#include <string.h>
-#include <sys/types.h>
 
 #include "ocat.h"
 

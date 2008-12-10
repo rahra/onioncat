@@ -22,16 +22,6 @@
  *  @version 2008/02/03-01
  */
 
-#include "config.h"
-
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <pthread.h>
-#include <arpa/inet.h>
-#include <errno.h>
-#include <sys/socket.h>
 
 #include "ocat.h"
 

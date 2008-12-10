@@ -2170,7 +2170,6 @@ am__tar='${AMTAR} chof - "$$tardir"'; am__untar='${AMTAR} xf -'
 
 
 
-#AC_CONFIG_SRCDIR([ocatroute.c])
 ac_config_headers="$ac_config_headers config.h"
 
 
@@ -3392,7 +3391,6 @@ fi
 
 # Checks for header files.
 #AC_HEADER_STDC
-#AC_CHECK_HEADERS([arpa/inet.h fcntl.h netinet/in.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h])
 
 
 
@@ -3408,7 +3406,9 @@ fi
 
 
 
-for ac_header in sys/types.h sys/socket.h netinet/in.h netinet/in_systm.h netinet/ip.h netinet/ip6.h netinet/in6.h net/if.h net/if_tun.h linux/if_tun.h linux/sockios.h endian.h sys/endian.h net/ethernet.h netinet/icmp6.h
+
+
+for ac_header in sys/types.h sys/socket.h netinet/in.h netinet/in_systm.h netinet/ip.h netinet/ip6.h netinet/in6.h net/if.h net/if_tun.h linux/if_tun.h linux/sockios.h endian.h sys/endian.h netinet/icmp6.h net/ethernet.h netinet/if_ether.h netinet/ether.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
 { echo "$as_me:$LINENO: checking for $ac_header" >&5
@@ -3434,6 +3434,9 @@ cat >>conftest.$ac_ext <<_ACEOF
 #endif
 #ifdef HAVE_NETINET_IN_SYSTM_H
 #include <netinet/in_systm.h>
+#endif
+#ifdef HAVE_NET_IF_H
+#include <net/if.h>
 #endif
 
 
