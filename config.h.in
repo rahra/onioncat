@@ -21,9 +21,6 @@
 /* Define to 1 if you have the <linux/sockios.h> header file. */
 #undef HAVE_LINUX_SOCKIOS_H
 
-/* Define to 1 if you have the <netinet/if_ether.h> header file. */
-#undef HAVE_NETINET_IF_ETHER_H
-
 /* Define to 1 if you have the <netinet/in6.h> header file. */
 #undef HAVE_NETINET_IN6_H
 
@@ -38,6 +35,9 @@
 
 /* Define to 1 if you have the <netinet/ip.h> header file. */
 #undef HAVE_NETINET_IP_H
+
+/* Define to 1 if you have the <net/ethernet.h> header file. */
+#undef HAVE_NET_ETHERNET_H
 
 /* Define to 1 if you have the <net/if.h> header file. */
 #undef HAVE_NET_IF_H

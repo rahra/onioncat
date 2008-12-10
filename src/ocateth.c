@@ -49,9 +49,9 @@
 #endif
 #include <netinet/in.h>
 #include <netinet/icmp6.h>
-#ifdef HAVE_NETINET_IF_ETHER_H
+/*#ifdef HAVE_NETINET_IF_ETHER_H
 #include <netinet/if_ether.h>
-#endif
+#endif*/
 
 #include "ocat.h"
 

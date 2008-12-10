@@ -48,9 +48,9 @@
 #ifdef HAVE_NETINET_IP_H
 #include <netinet/ip.h>
 #endif
-#ifdef HAVE_NETINET_IF_ETHER_H
+/*#ifdef HAVE_NETINET_IF_ETHER_H
 #include <netinet/if_ether.h>
-#endif
+#endif*/
 
 #include "ocat.h"
 
