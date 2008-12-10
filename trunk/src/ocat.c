@@ -76,7 +76,11 @@ void usage(const char *s)
 }
 
 
-void open_logfile(void)
+/*! Open the message log. It's set by command line option -L.
+ *  @return 0 if file was successfully opened, -1 if stderr is
+ *  used instead.
+ */
+int open_logfile(void)
 {
    if (CNF(logfn))
    {
@@ -86,11 +90,12 @@ void open_logfile(void)
          if (setvbuf(CNF(logf), NULL, _IOLBF, 0))
             log_msg(LOG_ERR, "could not setup line buffering: %s", strerror(errno));
          fflush(CNF(logf));
-         return;
+         return 0;
       }
       CNF(logf) = stderr;
       log_msg(LOG_ERR, "could not open logfile %s: %s. Defaulting to stderr", CNF(logfn), strerror(errno));
    }
+   return -1;
 }
 
 
@@ -329,7 +334,16 @@ int main(int argc, char *argv[])
    log_debug("uid/gid = %d/%d", getuid(), getgid());
 
    // opening logfile
-   open_logfile();
+   if (CNF(daemon) && !CNF(logfn))
+   {
+      log_debug("connecting logfile to /dev/null because of daemon option");
+      CNF(logfn) = "/dev/null";
+   }
+   if ((open_logfile() == -1) && CNF(daemon))
+   {
+      log_msg(LOG_NOTICE, "staying in foreground");
+      CNF(daemon) = 0;
+   }
 
    if (CNF(create_clog))
       open_connect_log(pwd->pw_dir);

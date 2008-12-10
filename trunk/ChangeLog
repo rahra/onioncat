@@ -1,4 +1,6 @@
 * version 
+ - connecting logfile to /dev/null if background option given
+ - staying in foreground if failed to open message logfile
  - bugfixes
  - IPv6 routes are aware of prefix lengths
  - IPv6 routing table can be manipulated through controller or config file
