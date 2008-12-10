@@ -27,9 +27,12 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <arpa/inet.h>
-#include <netinet/in.h>
 #include <errno.h>
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
 
 #include "ocat.h"
 
