@@ -1,4 +1,5 @@
 * version 
+ - seems to run on Darwin yet ;)
  - consolidated header files
  - compiles on FreeBSD and OpenBSD
  - connecting logfile to /dev/null if background option given

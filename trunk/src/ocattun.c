@@ -95,6 +95,17 @@ int tun_alloc(char *dev, struct in6_addr addr)
 
 #endif
 
+#ifdef __APPLE__
+
+// see http://svn.deepdarc.com/code/miredo-osx/trunk/tuntap/README
+#define TUNSIFHEAD  _IOW('t', 96, int)
+
+   int prm = 1;
+   if (ioctl(fd, TUNSIFHEAD, &prm) == -1)
+      log_msg(LOG_EMERG, "could not ioctl:TUNSIFHEAD: %s", strerror(errno)), exit(1);
+
+#endif
+
    if (!CNF(use_tap))
    {
       snprintf(buf, sizeof(buf), "ifconfig tun0 inet6 %s/%d up", astr, TOR_PREFIX_LEN);

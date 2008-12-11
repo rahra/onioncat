@@ -72,7 +72,7 @@ void mac_cleanup(void)
    for (i = 0; i < mac_cnt_; i++)
       if (mac_tbl_[i].age + MAX_MAC_AGE < time(NULL))
       {
-         log_debug("mac table entry %d timed out", i);
+         log_debug("mac table entry %d (%s) timed out", i, ether_ntoa((struct ether_addr*) mac_tbl_[i].hwaddr));
          memmove(&mac_tbl_[i], &mac_tbl_[i + 1], sizeof(MACTable_t) * (MAX_MAC_ENTRY - i));
          mac_cnt_--;
          i--;
