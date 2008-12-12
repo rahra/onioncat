@@ -1,4 +1,5 @@
 * version 
+ - serious framesize bug with TAP device fixed
  - seems to run on Darwin yet ;)
  - consolidated header files
  - compiles on FreeBSD and OpenBSD
