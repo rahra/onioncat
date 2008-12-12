@@ -488,6 +488,9 @@ void print_mac_tbl(FILE *);
 void mac_cleanup(void);
 char *mac_hw2str(const uint8_t *, char *);
 int ndp_solicit(const struct in6_addr *, const struct in6_addr *);
+#ifndef HAVE_ETHER_NTOA_R
+char *ether_ntoa_r(const struct ether_addr *, char *);
+#endif
 
 /* ocatsocks.c */
 void socks_queue(const struct in6_addr *, int);

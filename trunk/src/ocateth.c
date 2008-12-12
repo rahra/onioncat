@@ -51,7 +51,7 @@ void print_mac_tbl(FILE *f)
 
    for (i = 0; i < mac_cnt_; i++)
    {
-      fprintf(f, "%3d %3d %s ", i, (int) (time(NULL) - mac_tbl_[i].age), ether_ntoa((struct ether_addr*) mac_tbl_[i].hwaddr));
+      fprintf(f, "%3d %3d %s ", i, (int) (time(NULL) - mac_tbl_[i].age), ether_ntoa_r((struct ether_addr*) mac_tbl_[i].hwaddr, buf));
       fprintf(f, "%s ", mac_tbl_[i].family == AF_INET6 ? "IN6" : "IN ");
       inet_ntop(mac_tbl_[i].family, &mac_tbl_[i].in6addr, buf, INET6_ADDRSTRLEN);
       fprintf(f, "%s\n", buf);
@@ -66,13 +66,14 @@ void print_mac_tbl(FILE *f)
 void mac_cleanup(void)
 {
    int i;
+   char hw[20];
 
    pthread_mutex_lock(&mac_mutex_);
 
    for (i = 0; i < mac_cnt_; i++)
       if (mac_tbl_[i].age + MAX_MAC_AGE < time(NULL))
       {
-         log_debug("mac table entry %d (%s) timed out", i, ether_ntoa((struct ether_addr*) mac_tbl_[i].hwaddr));
+         log_debug("mac table entry %d (%s) timed out", i, ether_ntoa_r((struct ether_addr*) mac_tbl_[i].hwaddr, hw));
          memmove(&mac_tbl_[i], &mac_tbl_[i + 1], sizeof(MACTable_t) * (MAX_MAC_ENTRY - i));
          mac_cnt_--;
          i--;
@@ -293,14 +294,14 @@ int ndp_soladv(char *buf, int rlen)
    ndp6_t *ndp6 = (ndp6_t*) (buf + 4);
    struct nd_opt_hdr *ohd = (struct nd_opt_hdr*) (ndp6 + 1);
    uint16_t *ckb, cksum;
-   //char mb[100];
+   char hw[20];
 
    if (ndp6->eth.ether_dhost[0] & 1)
    {
       // check for right multicast destination on ethernet
       if (ndp6->eth.ether_dhost[2] != 0xff)
       {
-         log_debug("ethernet multicast destination %s cannot be solicited node address", ether_ntoa((struct ether_addr*) ndp6->eth.ether_dhost));
+         log_debug("ethernet multicast destination %s cannot be solicited node address", ether_ntoa_r((struct ether_addr*) ndp6->eth.ether_dhost, hw));
          return -1;
       }
 
@@ -452,4 +453,22 @@ int eth_check(char *buf, int len)
    // else forward as usual
    return 0;
 }
+
+
+#ifndef HAVE_ETHER_NTOA_R
+
+static pthread_mutex_t ether_ntoa_mutex_ = PTHREAD_MUTEX_INITIALIZER;
+
+char *ether_ntoa_r(const struct ether_addr *addr, char *buf)
+{
+   if (!buf)
+      return NULL;
+
+   pthread_mutex_lock(&ether_ntoa_mutex_);
+   strlcpy(buf, 18, ether_ntoa(addr));
+   pthread_mutex_unlock(&ether_ntoa_mutex_);
+   return buf;
+}
+
+#endif
 
