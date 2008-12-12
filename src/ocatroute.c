@@ -780,7 +780,8 @@ void packet_forwarder(void)
 
          // removing ethernet header
          // FIXME: it would be better to adjust pointers instead of moving data
-         memmove(eh, eh + 1, rlen - 4 - sizeof(struct ether_header));
+         rlen -= sizeof(struct ether_header);
+         memmove(eh, eh + 1, rlen - 4);
       }
 
       if (*((uint32_t*) buf) == CNF(fhd_key[IPV6_KEY]))
