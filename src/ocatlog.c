@@ -15,6 +15,11 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*! @file
+ *  File contains logging functions.
+ *  @author Bernhard R. Fischer
+ *  @version 2008/10/1
+ */
 
 #include "ocat.h"
 
@@ -27,6 +32,12 @@ static const char *flty_[8] = {"emerg", "alert", "crit", "err", "warning", "noti
 static FILE *clog_ = NULL;
 
 
+/*! Open connect log.
+ *  The connect log contains logging entries regarding
+ *  incoming or outgoing connections.
+ *  @param dir Name of directory which should contain the log file
+ *  @return 0 if log was opened or -1 on failure.
+ */
 int open_connect_log(const char *dir)
 {
    char buf[CBUFLEN];
@@ -59,6 +70,12 @@ int open_connect_log(const char *dir)
 }
 
 
+/*! Log a message to a file.
+ *  @param out Open FILE pointer
+ *  @param lf Logging priority (equal to syslog)
+ *  @param fmt Format string
+ *  @param ap Variable parameter list
+ */
 void vlog_msgf(FILE *out, int lf, const char *fmt, va_list ap)
 {
    struct tm *tm;
@@ -82,6 +99,12 @@ void vlog_msgf(FILE *out, int lf, const char *fmt, va_list ap)
 }
 
 
+/*! Log a message. This function automatically determines
+ *  to which streams the message is logged.
+ *  @param lf Log priority.
+ *  @param fmt Format string.
+ *  @param ... arguments
+ */
 void log_msg(int lf, const char *fmt, ...)
 {
    va_list ap;

@@ -3952,7 +3952,8 @@ fi
 #AC_CHECK_FUNCS([clock_gettime memset select socket strchr strerror])
 
 
-for ac_func in strlcat strlcpy
+
+for ac_func in strlcat strlcpy ether_ntoa_r
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
 { echo "$as_me:$LINENO: checking for $ac_func" >&5

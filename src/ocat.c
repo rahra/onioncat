@@ -120,7 +120,7 @@ void background(void)
 
 int main(int argc, char *argv[])
 {
-   char tunname[IFNAMSIZ] = {0}, *s, ip6addr[INET6_ADDRSTRLEN];
+   char tunname[IFNAMSIZ] = {0}, *s, ip6addr[INET6_ADDRSTRLEN], hw[20];
    int c, runasroot = 0;
    struct passwd *pwd;
    int urlconv = 0;
@@ -265,7 +265,7 @@ int main(int argc, char *argv[])
 
    memcpy(&CNF(ocat_hwaddr[3]), &CNF(ocat_addr.s6_addr[13]), 3);
    if (CNF(use_tap));
-      log_msg(LOG_INFO, "MAC address %s", ether_ntoa((struct ether_addr*) CNF(ocat_hwaddr)));
+      log_msg(LOG_INFO, "MAC address %s", ether_ntoa_r((struct ether_addr*) CNF(ocat_hwaddr), hw));
 
 #ifndef WITHOUT_TUN
    // create TUN device

@@ -116,7 +116,7 @@ AC_CHECK_MEMBER([struct sockaddr_in.sin_len],
 #AC_FUNC_STRFTIME
 #AC_FUNC_VPRINTF
 #AC_CHECK_FUNCS([clock_gettime memset select socket strchr strerror])
-AC_CHECK_FUNCS([strlcat strlcpy])
+AC_CHECK_FUNCS([strlcat strlcpy ether_ntoa_r])
 
 AC_CONFIG_FILES([Makefile src/Makefile man/Makefile])
 AC_OUTPUT

@@ -61,7 +61,7 @@ void init_setup(void)
 
 void print_setup_struct(FILE *f)
 {
-   char ip[_SB], nm[_SB], ip6[_SB], logf[_SB], rp[ROOT_PEERS][_SB];
+   char ip[_SB], nm[_SB], ip6[_SB], logf[_SB], hw[_SB], rp[ROOT_PEERS][_SB];
    int i;
 
    inet_ntop(AF_INET, &setup_.ocat_addr4, ip, _SB);
@@ -69,6 +69,8 @@ void print_setup_struct(FILE *f)
    inet_ntop(AF_INET6, &setup_.ocat_addr, ip6, _SB);
    for (i = 0; i < ROOT_PEERS; i++)
       inet_ntop(AF_INET6, &setup_.root_peer[i], rp[i], _SB);
+
+   ether_ntoa_r((struct ether_addr*) setup_.ocat_hwaddr, hw);
 
    if (setup_.logf == stderr)
       strlcpy(logf, "stderr", sizeof(logf));
@@ -129,7 +131,7 @@ void print_setup_struct(FILE *f)
          setup_.config_file,
          setup_.config_read,
          setup_.use_tap,
-         ether_ntoa((struct ether_addr*) setup_.ocat_hwaddr),
+         hw,
          setup_.pid_file,
          setup_.logfn,
          logf,
