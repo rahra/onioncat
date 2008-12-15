@@ -269,6 +269,9 @@ typedef struct OcatPeer
    int fraglen;            //!< current frag buffer size
    pthread_mutex_t mutex;  //!< mutex for thread locking
    int perm;               //!< keep peer permanently open
+   time_t last_io;         //!< timestamp when last I/O packet measurement started
+   unsigned inm;
+   unsigned outm;
 } OcatPeer_t;
 
 typedef struct OcatThread
