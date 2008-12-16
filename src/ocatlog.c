@@ -78,21 +78,28 @@ int open_connect_log(const char *dir)
  */
 void vlog_msgf(FILE *out, int lf, const char *fmt, va_list ap)
 {
+   struct timeval tv;
    struct tm *tm;
    time_t t;
-   char timestr[TIMESTRLEN] = "";
+   char timestr[TIMESTRLEN] = "", timez[TIMESTRLEN] = "";
    const OcatThread_t *th = get_thread();
    int level = LOG_PRI(lf);
 
    if (CNF(debug_level) < level)
       return;
 
-   t = time(NULL);
+   //t = time(NULL);
+   if (gettimeofday(&tv, NULL) == -1)
+      fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, strerror(errno)), exit(1);
+   t = tv.tv_sec;
    if ((tm = localtime(&t)))
-      strftime(timestr, TIMESTRLEN, "%a, %d %b %Y %H:%M:%S %z", tm);
+   {
+      (void) strftime(timestr, TIMESTRLEN, "%a, %d %b %Y %H:%M:%S", tm);
+      (void) strftime(timez, TIMESTRLEN, "%z", tm);
+   }
 
    (void) pthread_mutex_lock(&log_mutex_);
-   fprintf(out, "%s [%d:%-*s:%6s] ", timestr, th->id, THREAD_NAME_LEN - 1, th->name, flty_[level]);
+   fprintf(out, "%s.%03d %s [%d:%-*s:%6s] ", timestr, (int) (tv.tv_usec / 1000), timez, th->id, THREAD_NAME_LEN - 1, th->name, flty_[level]);
    vfprintf(out, fmt, ap);
    fprintf(out, "\n");
    (void) pthread_mutex_unlock(&log_mutex_);

@@ -1,4 +1,7 @@
 * version 
+ - bugfix in ether_ntoa_r()
+ - variable for uptime implemented
+ - routing is setup correctly on MACOSX with TUN dev
  - serious framesize bug with TAP device fixed
  - seems to run on Darwin yet ;)
  - consolidated header files
