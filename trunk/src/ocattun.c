@@ -98,6 +98,8 @@ int tun_alloc(char *dev, struct in6_addr addr)
 #ifdef __APPLE__
 
 // see http://svn.deepdarc.com/code/miredo-osx/trunk/tuntap/README
+// FIXME: this should be included by the right header file
+//        but I couldn't find it
 #define TUNSIFHEAD  _IOW('t', 96, int)
 
    int prm = 1;
@@ -112,6 +114,18 @@ int tun_alloc(char *dev, struct in6_addr addr)
       log_debug("setting IP on tun: \"%s\"", buf);
       if (system(buf) == -1)
          log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+
+#ifdef __APPLE__
+
+      // MacOSX requires the route to be set up manually
+      // FIXME: the prefix shouldn't be hardcoded here
+      snprintf(buf, sizeof(buf), "route add -inet6 -net fd87:d87e:eb43:: -prefixlen %d -gateway %s", TOR_PREFIX_LEN, astr);
+      log_msg(LOG_INFO, "setup routing: \"%s\"", buf);
+      if (system(buf) == -1)
+         log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+ 
+#endif
+
    }
 
 #endif

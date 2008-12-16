@@ -182,6 +182,8 @@
 //! maximum number of IPv6 routes
 #define MAX_IPV6_ROUTE 1024
 */
+//! retry-delay if connection to TOR's SOCKS port fails
+#define TOR_SOCKS_CONN_TIMEOUT 30
 
 #define IPV4_KEY 0
 #define IPV6_KEY 1
@@ -230,6 +232,7 @@ struct OcatSetup
    //! hardcoded permanent peers
 #define ROOT_PEERS 1
    struct in6_addr root_peer[ROOT_PEERS];
+   time_t uptime;
 };
 
 #ifdef PACKET_QUEUE

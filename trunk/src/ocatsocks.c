@@ -61,8 +61,9 @@ int socks_connect(const SocksQueue_t *sq)
    t = time(NULL);
    if (connect(fd, (struct sockaddr*) &in, sizeof(in)) == -1)
    {
-      log_msg(LOG_ERR, "connect() to TOR failed: \"%s\"", strerror(errno));
+      log_msg(LOG_ERR, "connect() to TOR's SOCKS port %d failed: \"%s\". Sleeping for %d seconds.", CNF(tor_socks_port), strerror(errno), TOR_SOCKS_CONN_TIMEOUT);
       oe_close(fd);
+      sleep(TOR_SOCKS_CONN_TIMEOUT);
       return E_SOCKS_CONN;
    }
 
