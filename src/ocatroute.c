@@ -99,7 +99,8 @@ void queue_packet(const struct in6_addr *addr, const char *buf, int buflen)
       return;
    }
 
-   memcpy(&queue->addr, addr, sizeof(struct in6_addr));
+   //memcpy(&queue->addr, addr, sizeof(struct in6_addr));
+   IN6_ADDR_COPY(&queue->addr, addr);
    queue->psize = buflen;
    queue->data = ((char*)queue) + sizeof(PacketQueue_t);
    memcpy(queue->data, buf, buflen);
@@ -363,7 +364,7 @@ void *socket_receiver(void *p)
             if (peer->perm)
             {
                log_debug("reconnection permanent peer");
-               socks_queue(&peer->addr, 1);
+               socks_queue(peer->addr, 1);
             }
             unlock_peer(peer);
 
@@ -573,7 +574,8 @@ int insert_peer(int fd, const SocksQueue_t *sq, /*const struct in6_addr *addr,*/
    peer->sdelay = dly;
    if (sq)
    {
-      memcpy(&peer->addr, &sq->addr, sizeof(struct in6_addr));
+      //memcpy(&peer->addr, &sq->addr, sizeof(struct in6_addr));
+      IN6_ADDR_COPY(&peer->addr, &sq->addr);
       peer->dir = PEER_OUTGOING;
       peer->perm = sq->perm;
    }
@@ -832,7 +834,7 @@ void packet_forwarder(void)
       if (forward_packet(dest, buf + 4, rlen - 4) == E_FWD_NOPEER)
       {
          log_debug("adding destination to SOCKS queue");
-         socks_queue(dest, 0);
+         socks_queue(*dest, 0);
 #ifdef PACKET_QUEUE
          log_debug("queuing packet");
          queue_packet(dest, buf + 4, rlen - 4);
@@ -848,8 +850,10 @@ int send_keepalive(OcatPeer_t *peer)
    int len;
 
    memset(&hdr, 0, sizeof(hdr));
-   memcpy(&hdr.ip6_dst, &peer->addr, sizeof(struct in6_addr));
-   memcpy(&hdr.ip6_src, &CNF(ocat_addr), sizeof(struct in6_addr));
+   //memcpy(&hdr.ip6_dst, &peer->addr, sizeof(struct in6_addr));
+   IN6_ADDR_COPY(&hdr.ip6_dst, &peer->addr);
+   //memcpy(&hdr.ip6_src, &CNF(ocat_addr), sizeof(struct in6_addr));
+   IN6_ADDR_COPY(&hdr.ip6_src, &CNF(ocat_addr));
    hdr.ip6_vfc = 0x60;
    hdr.ip6_nxt = IPPROTO_NONE;
    hdr.ip6_hops = 1;

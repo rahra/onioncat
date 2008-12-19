@@ -219,9 +219,9 @@ void *ctrl_handler(void *p)
             else
             {
                if (!(s = strtok_r(NULL, " \t\r\n", &tokbuf)))
-                  socks_queue(&in6, 0);
+                  socks_queue(in6, 0);
                else if (!strcmp(s, "perm"))
-                  socks_queue(&in6, 1);
+                  socks_queue(in6, 1);
                else
                   fprintf(ff, "ERR unknown param \"%s\"\n", s);
             }
@@ -232,6 +232,10 @@ void *ctrl_handler(void *p)
       else if (!strcmp(buf, "macs"))
       {
          print_mac_tbl(ff);
+      }
+      else if (!strcmp(buf, "queue"))
+      {
+         print_socks_queue(ff);
       }
       else if (!strcmp(buf, "setup"))
       {
@@ -258,6 +262,7 @@ void *ctrl_handler(void *p)
                "   ............. connect to a hidden service. if \"perm\" is set,\n"
                "   ............. connection will stay open forever\n"
                "macs ........... show MAC address table\n"
+               "queue .......... list pending SOCKS connections\n"
                "setup .......... show internal setup struct\n"
                "version ........ show version\n"
                );
