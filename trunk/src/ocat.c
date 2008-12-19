@@ -336,7 +336,8 @@ int main(int argc, char *argv[])
    // initiate connections to permanent root peers
    log_debug("connecting root peers");
    for (c = 0; c < ROOT_PEERS; c++)
-      socks_queue(&CNF(root_peer[c]), 1);
+      if (!IN6_ARE_ADDR_EQUAL(&CNF(root_peer[c]), &CNF(ocat_addr)))
+         socks_queue(CNF(root_peer[c]), 1);
 
    // reading config file
    if (CNF(config_file))

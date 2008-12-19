@@ -34,7 +34,10 @@ static pthread_mutex_t mac_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 /*! Pseudo header for IPv6 checksum calculation.
  *  RFC2460 8.1, (RFC1885 2.3) RFC2463, RFC1071. */
 /* RFC2461, rfc2462, RFC2464 ipv6 ethernet enc.
- * 2373 addrassng ipv6 */
+ * 2373 addrassng ipv6
+ * RFC2461 is obsoleted by RFC4861
+ * RFC4862 IPv6 Stateless Address Autoconfiguration
+ */
 
 /* IPv6 Ethernet Multicast: (MAC) 33:33:xx:xx:xx:xx, xx -> 4 lowest order bytes of IPv6 destination
  * Solicited-Node address: (IPv6) FF02:0:0:0:0:1:ffxx:xxxx, -> xx -> 3 lowest order bytes of IPv6 destination (RFC4291)

@@ -126,6 +126,7 @@
 //! Maximum frame (packet) size, should be able to keep one maximum size ipv6-packet: 2^16 + 40 + 4
 #define FRAME_SIZE 65580
 #define ONION_NAME_SIZE 23
+#define ONION_NAME_LEN ONION_NAME_SIZE
 
 #define DEQUEUER_WAKEUP 3
 //! maximum number a packet stays in queue
@@ -184,6 +185,9 @@
 */
 //! retry-delay if connection to TOR's SOCKS port fails
 #define TOR_SOCKS_CONN_TIMEOUT 30
+
+//! copy an IPv6 address from b to a
+#define IN6_ADDR_COPY(a,b) *((struct in6_addr*)a)=*(struct in6_addr*)b
 
 #define IPV4_KEY 0
 #define IPV6_KEY 1
@@ -499,7 +503,8 @@ char *ether_ntoa_r(const struct ether_addr *, char *);
 #endif
 
 /* ocatsocks.c */
-void socks_queue(const struct in6_addr *, int);
+void socks_queue(struct in6_addr, int);
+void print_socks_queue(FILE *);
 
 /* ocatlibe.c */
 void oe_close(int);
