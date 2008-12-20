@@ -88,6 +88,14 @@
 #ifdef HAVE_NET_IF_TUN_H
 #include <net/if_tun.h>
 #endif
+/*
+#ifdef HAVE_READLINE_READLINE_H
+#include <readline/readline.h>
+#endif
+#ifdef HAVE_READLINE_HISTORY_H
+#include <readline/history.h>
+#endif
+*/
 
 #ifndef ETHERTYPE_IPV6
 #define ETHERTYPE_IPV6 0x86dd
@@ -95,7 +103,7 @@
 
 #define IP6HLEN sizeof(struct ip6_hdr)
 //! TOR prefix: FD87:D87E:EB43::/48
-#define TOR_PREFIX {0xfd,0x87,0xd8,0x7e,0xeb,0x43}
+#define TOR_PREFIX {{{0xfd,0x87,0xd8,0x7e,0xeb,0x43,0,0,0,0,0,0,0,0,0,0}}}
 #define TOR_PREFIX_LEN 48
 #if BYTE_ORDER == LITTLE_ENDIAN
 #define TOR_PREFIX4 {0x0000000a}
@@ -104,8 +112,13 @@
 #define TOR_PREFIX4 {0x0a000000}
 #define TOR_PREFIX4_MASK 0xff000000
 #endif
-//! Len of an .onion-URL (without ".onion" and '\0')
+//! Length of an .onion-URL (without ".onion" and '\0')
 #define ONION_URL_LEN 16
+//! Total length of .onion-URL
+#define ONION_NAME_SIZE (ONION_URL_LEN + 7)
+//! Total length of .onion-URL (equal to ONION_NAME_SIZE)
+#define ONION_NAME_LEN ONION_NAME_SIZE
+
 #define MAXPEERS 1024
 //! Local listening port for incoming connections from TOR.
 #define OCAT_LISTEN_PORT 8060
@@ -125,8 +138,6 @@
 
 //! Maximum frame (packet) size, should be able to keep one maximum size ipv6-packet: 2^16 + 40 + 4
 #define FRAME_SIZE 65580
-#define ONION_NAME_SIZE 23
-#define ONION_NAME_LEN ONION_NAME_SIZE
 
 #define DEQUEUER_WAKEUP 3
 //! maximum number a packet stays in queue

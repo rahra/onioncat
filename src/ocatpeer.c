@@ -119,6 +119,7 @@ void delete_peer(OcatPeer_t *peer)
    for (p = &peer_; *p; p = &(*p)->next)
       if (*p == peer)
       {
+         log_debug("going to delete peer at %p", peer);
          // unlink peer from list
          lock_peer(peer);
          *p = peer->next;

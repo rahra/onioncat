@@ -15,7 +15,8 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*! ocatv6conv.c
+/*! @file
+ *  ocatv6conv.c
  *  These functions convert IPv6 addresses to onion URLs
  *  and vice versa.
  *
@@ -27,33 +28,30 @@
 #include "ocat.h"
 
 static const char BASE32[] = "abcdefghijklmnopqrstuvwxyz234567";
-static const char tor_prefix_[] = TOR_PREFIX;
-
-
-int is_testping(const struct in6_addr *addr)
-{
-   char to[10] = {0,0,0,0,0,0,0,0,0,1};
-   return memcmp((char*) addr + 6, to, 10) == 0;
-}
+static const struct in6_addr tor_prefix_ = TOR_PREFIX;
 
 
 int has_tor_prefix(const struct in6_addr *addr)
 {
-   return memcmp(addr, tor_prefix_, 6) == 0;
+   return memcmp(addr, &tor_prefix_, 6) == 0;
 }
 
 
 void set_tor_prefix(struct in6_addr *addr)
 {
-   memcpy(addr, tor_prefix_, 6);
+   memcpy(addr, &tor_prefix_, 6);
 }
 
 
+/*! Shift byte buffer of size ONION_URL_LEN (=17) 5 bits to the left.
+ *  @param bin Pointer to byte buffer, must be at least ONION_URL_LEN
+ *             bytes long.
+ */
 void shl5(char *bin)
 {
    int i;
 
-   for (i = 0; i < 15; i++)
+   for (i = 0; i < ONION_URL_LEN - 1; i++)
    {
       bin[i] <<= 5;
       bin[i] |= (bin[i + 1] >> 3) & 0x1f;
@@ -99,14 +97,20 @@ int oniontipv4(const char *onion, struct in_addr *ip, int prefix_mask)
 }
 
 
+/*! Convert IPv6 address to onion-URL (without ".onion").
+ *  @param ip6 Pointer to IPv6 address of type struct in6_addr.
+ *  @param onion Pointer to buffer to should receive onion-URL.
+ *         The buffer *must* be at least ONION_URL_LEN + 1 (=17) bytes long.
+ *  @return Returns always again pointer to buffer.
+ */
 char *ipv6tonion(const struct in6_addr *ip6, char *onion)
 {
    int i;
-   char bin[16], *r = onion;
+   char bin[ONION_URL_LEN], *r = onion;
 
-   memcpy(bin, (char*) ip6 + 6, 16);
+   memcpy(bin, (char*) ip6 + 6, 10);
 
-   for (i = 0; i < 16; i++, onion++)
+   for (i = 0; i < ONION_URL_LEN; i++, onion++)
    {
       *onion = BASE32[bin[0] >> 3 & 0x1f];
       shl5(bin);

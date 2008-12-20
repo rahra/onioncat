@@ -26,18 +26,21 @@
 #include "ocat.h"
 
 
-/*! oe_close is a more robust close() function */
+/*! oe_close is a more robust close() function.
+ *  @param fd File descriptor to close.
+ */
 void oe_close(int fd)
 {
    int r;
 
+   log_debug("closing %d", fd);
    while (close(fd) == -1)
    {
       r = errno;
-      log_msg(LOG_ERR, "failed to close %d: \"%s\"", fd, strerror(r));
+      log_msg(LOG_CRIT, "close(%d) failed: \"%s\"", fd, strerror(r));
       if (r == EINTR)
       {
-         log_debug("re-closing %d", fd);
+         log_msg(LOG_ERR, "close(%d) failed: \"%s\". restarting...", fd, strerror(r));
          continue;
       }
       break;
@@ -45,7 +48,10 @@ void oe_close(int fd)
 }
 
 
-/*! Remove leading and trailing spaces of a string. */
+/*! Remove leading and trailing spaces of a string.
+ *  @param s Pointer to string.
+ *  @return Length of string after character removal.
+ */ 
 int oe_remtr(char *s)
 {
    if (!s[0])
