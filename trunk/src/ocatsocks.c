@@ -255,7 +255,7 @@ void *socks_connector(void *p)
 void print_socks_queue(FILE *f)
 {
    int i;
-   char addrstr[INET6_ADDRSTRLEN];
+   char addrstr[INET6_ADDRSTRLEN], onstr[ONION_NAME_LEN];
    SocksQueue_t *squeue;
 
    pthread_mutex_lock(&socks_queue_mutex_);
@@ -267,9 +267,11 @@ void print_socks_queue(FILE *f)
          log_msg(LOG_ERR, "inet_ntop returned NULL pointer: \"%s\"", strerror(errno));
          strlcpy(addrstr, "ERROR", INET6_ADDRSTRLEN);
       }
-      fprintf(f, "%d %s %s(%d) %s(%d)\n",
+
+      fprintf(f, "%d %39s %s.onion %s(%d) %s(%d)\n",
             i, 
             addrstr, 
+            ipv6tonion(&squeue->addr, onstr),
             squeue->state == SOCKS_CONNECTING ? "CONNECTING" : "QUEUED", 
             squeue->state,
             squeue->perm ? "PERMANENT" : "TEMPORARY",

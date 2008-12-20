@@ -19,6 +19,7 @@ AC_PROG_CC
 # Checks for libraries.
 AC_CHECK_LIB([pthread], [pthread_create])
 #AC_CHECK_LIB([rt], [clock_gettime])
+#AC_CHECK_LIB([readline], [main])
 
 # Checks for header files.
 #AC_HEADER_STDC
@@ -41,6 +42,7 @@ AC_CHECK_HEADERS([sys/types.h sys/socket.h netinet/in.h netinet/in_systm.h netin
 #endif
 ]]
 )
+AC_CHECK_HEADERS([readline/readline.h readline/history.h], [], [], [])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -116,7 +118,7 @@ AC_CHECK_MEMBER([struct sockaddr_in.sin_len],
 #AC_FUNC_STRFTIME
 #AC_FUNC_VPRINTF
 #AC_CHECK_FUNCS([clock_gettime memset select socket strchr strerror])
-AC_CHECK_FUNCS([strlcat strlcpy ether_ntoa_r])
+AC_CHECK_FUNCS([strlcat strlcpy ether_ntoa_r readline])
 
 AC_CONFIG_FILES([Makefile src/Makefile man/Makefile])
 AC_OUTPUT
