@@ -46,7 +46,9 @@ struct OcatSetup setup_ =
    0,                                      // daemon
    {
       {{{0xfd, 0x87, 0xd8, 0x7e, 0xeb, 0x43,
-           0xed, 0xb1, 0x8, 0xe4, 0x35, 0x88, 0xe5, 0x46, 0x35, 0xca}}} // initial permanent peer "5wyqrzbvrdsumnok"
+           0xed, 0xb1, 0x08, 0xe4, 0x35, 0x88, 0xe5, 0x46, 0x35, 0xca}}}, // initial permanent peer "5wyqrzbvrdsumnok" (mail.root-servers.cat)
+      {{{0xfd, 0x87, 0xd8, 0x7e, 0xeb, 0x43,
+           0xf6, 0x83, 0x64, 0xac, 0x73, 0xf9, 0x61, 0xac, 0x9a, 0x00}}}  // initial permanent peer "62bwjldt7fq2zgqa" (dot.cat)
    },
    0
 };
@@ -63,15 +65,12 @@ void init_setup(void)
 
 void print_setup_struct(FILE *f)
 {
-   char ip[SBUF], nm[SBUF], ip6[SBUF], logf[SBUF], hw[SBUF], rp[ROOT_PEERS][SBUF];
+   char ip[SBUF], nm[SBUF], ip6[SBUF], logf[SBUF], hw[SBUF], rp[SBUF];
    int i, t;
 
    inet_ntop(AF_INET, &setup_.ocat_addr4, ip, SBUF);
    inet_ntop(AF_INET, &setup_.ocat_addr4_mask, nm, SBUF);
    inet_ntop(AF_INET6, &setup_.ocat_addr, ip6, SBUF);
-   for (i = 0; i < ROOT_PEERS; i++)
-      inet_ntop(AF_INET6, &setup_.root_peer[i], rp[i], SBUF);
-
    ether_ntoa_r((struct ether_addr*) setup_.ocat_hwaddr, hw);
 
    if (setup_.logf == stderr)
@@ -111,7 +110,6 @@ void print_setup_struct(FILE *f)
          "logfn             = \"%s\"\n"
          "logf              = %s\n"
          "daemon            = %d\n"
-         "root_peer[0]      = %s\n"
          "uptime            = %d days, %d:%02d\n",
  
          IPV4_KEY, ntohl(setup_.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup_.fhd_key[IPV6_KEY]),
@@ -141,8 +139,11 @@ void print_setup_struct(FILE *f)
          setup_.logfn,
          logf,
          setup_.daemon,
-         rp[0],
          t / (3600 * 24), t / 3600 % 24, t / 60 % 60
          );
+
+   for (i = 0; i < ROOT_PEERS; i++)
+      if (inet_ntop(AF_INET6, &setup_.root_peer[i], rp, SBUF))
+         fprintf(f, "root_peer[%d]      = %s\n", i, rp);
 }
 
