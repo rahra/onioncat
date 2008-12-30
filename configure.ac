@@ -11,6 +11,7 @@ AC_ARG_ENABLE([packet-log], AC_HELP_STRING([--enable-packet-log], [enable packet
 AC_ARG_ENABLE([handle-http], AC_HELP_STRING([--enable-handle-http], [enable handling of accidental HTTP requests]), AC_DEFINE([HANDLE_HTTP], [], [enable handling of accidental HTTP requests]))
 AC_ARG_ENABLE([packet-queue], AC_HELP_STRING([--enable-packet-queue], [enable queueuing of packets while connecting setup]), AC_DEFINE([PACKET_QUEUE], [], [enable packet queue]))
 AC_ARG_ENABLE([check-ipsrc], AC_HELP_STRING([--disable-check-ipsrc], [disable source ip checking before forwarding]), AC_DEFINE([CHECK_IPSRC], [], [disable source ip checking]))
+AC_ARG_ENABLE([rtt], AC_HELP_STRING([--enable-rtt], [enable inband RTT measurement]), AC_DEFINE([MEASURE_RTT], [], [enable RTT measurement]))
 
 # Checks for programs.
 AC_PROG_CC

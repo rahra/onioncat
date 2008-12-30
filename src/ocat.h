@@ -211,7 +211,7 @@ struct OcatSetup
    uint32_t fhd_key[2];
    int fhd_key_len;
    //! TCP port of SOCKS port of local Tor proxy
-   uint16_t tor_socks_port;
+   //uint16_t tor_socks_port;
    //! reload port of OnionCat listening for connections
    uint16_t ocat_listen_port;
    //! virtual port of OnionCat hidden service
@@ -248,6 +248,8 @@ struct OcatSetup
 #define ROOT_PEERS 2
    struct in6_addr root_peer[ROOT_PEERS];
    time_t uptime;
+   char *frandn;
+   struct sockaddr *socks_dst;
 };
 
 #ifdef PACKET_QUEUE
@@ -512,6 +514,10 @@ int ndp_solicit(const struct in6_addr *, const struct in6_addr *);
 #ifndef HAVE_ETHER_NTOA_R
 char *ether_ntoa_r(const struct ether_addr *, char *);
 #endif
+uint16_t checksum(const uint16_t *, int);
+void free_ckbuf(uint16_t *);
+uint16_t *malloc_ckbuf(const struct in6_addr *, const struct in6_addr *, uint16_t, uint8_t, const void *);
+
 
 /* ocatsocks.c */
 void socks_queue(struct in6_addr, int);

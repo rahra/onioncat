@@ -33,42 +33,52 @@ static OcatPeer_t *peer_ = NULL;
 static pthread_mutex_t peer_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 
 
+/*! Return pointer to first peer. */
 OcatPeer_t *get_first_peer(void)
 {
    return peer_;
 }
 
 
+/*! Return double pointer to first peer. */
 OcatPeer_t **get_first_peer_ptr(void)
 {
    return &peer_;
 }
 
 
+/*! Lock complete peer list. */
 int lock_peers(void)
 {
    return pthread_mutex_lock(&peer_mutex_);
 }
 
 
+/*! Unlock peer list. */
 int unlock_peers(void)
 {
    return pthread_mutex_unlock(&peer_mutex_);
 }
 
 
+/*! Lock specific peer. Peer list MUST be locked before and
+ *  maybe unlock directly after lock_peer(). */
 int lock_peer(OcatPeer_t *peer)
 {
    return pthread_mutex_lock(&peer->mutex);
 }
 
 
+/*! Unlock secific peer. Lock must NOT be reclaimed without
+ *  calling lock_peers() before! */
 int unlock_peer(OcatPeer_t *peer)
 {
    return pthread_mutex_unlock(&peer->mutex);
 }
 
 
+/*! Search a specific peer by IPv6 address.
+ *  Peer list MUST be locked before. */
 OcatPeer_t *search_peer(const struct in6_addr *addr)
 {
    OcatPeer_t *peer;
@@ -81,6 +91,8 @@ OcatPeer_t *search_peer(const struct in6_addr *addr)
 }
 
 
+/*! Create a new empty peer and add it to the peer list.
+ *  Peer list MUST be locked befored. */
 OcatPeer_t *get_empty_peer(void)
 {
    int rc;
@@ -108,7 +120,7 @@ OcatPeer_t *get_empty_peer(void)
 }
 
 
-/** peer list must be locked with lock_peers() in advance!
+/*! peer list MUST be locked with lock_peers() in advance!
  *  @param peer pointer to peer that shall be deleted.
  */
 void delete_peer(OcatPeer_t *peer)
