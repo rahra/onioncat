@@ -31,7 +31,8 @@ struct OcatSetup setup_ =
    {0, 0},
    // fhd_key_len
    sizeof(uint32_t),
-   TOR_SOCKS_PORT, OCAT_LISTEN_PORT, OCAT_DEST_PORT, OCAT_CTRL_PORT, 
+   //TOR_SOCKS_PORT, 
+   OCAT_LISTEN_PORT, OCAT_DEST_PORT, OCAT_CTRL_PORT, 
    //! default tunfd is stdin/stdout
    {0, 1},
    //! default debug level
@@ -50,14 +51,26 @@ struct OcatSetup setup_ =
       {{{0xfd, 0x87, 0xd8, 0x7e, 0xeb, 0x43,
            0xf6, 0x83, 0x64, 0xac, 0x73, 0xf9, 0x61, 0xac, 0x9a, 0x00}}}  // initial permanent peer "62bwjldt7fq2zgqa" (dot.cat)
    },
-   0
+   0,
+   "/dev/urandom",
+   NULL
 };
+
+static struct sockaddr_in socks_dst_;
 
 
 void init_setup(void)
 {
    setup_.logf = stderr;
    setup_.uptime = time(NULL);
+
+   socks_dst_.sin_family = AF_INET;
+   socks_dst_.sin_port = htons(TOR_SOCKS_PORT);
+   socks_dst_.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+#ifdef HAVE_SIN_LEN
+   socks_dst_.sin_len = sizeof(socks_dst_);
+#endif
+   setup_.socks_dst = (struct sockaddr*) &socks_dst_;
 }
 
 
@@ -65,7 +78,7 @@ void init_setup(void)
 
 void print_setup_struct(FILE *f)
 {
-   char ip[SBUF], nm[SBUF], ip6[SBUF], logf[SBUF], hw[SBUF], rp[SBUF];
+   char ip[SBUF], nm[SBUF], ip6[SBUF], logf[SBUF], hw[SBUF], rp[SBUF], sk[SBUF];
    int i, t;
 
    inet_ntop(AF_INET, &setup_.ocat_addr4, ip, SBUF);
@@ -80,11 +93,13 @@ void print_setup_struct(FILE *f)
 
    t = time(NULL) - setup_.uptime;
 
+   inet_ntop(socks_dst_.sin_family, &socks_dst_.sin_addr, sk, SBUF);
+
    fprintf(f,
          "fhd_key[IPV4(%d)]  = 0x%04x\n"
          "fhd_key[IPV6(%d)]  = 0x%04x\n"
          "fhd_key_len       = %d\n"
-         "tor_socks_port    = %d\n"
+         //"tor_socks_port    = %d\n"
          "ocat_listen_port  = %d\n"
          "ocat_dest_port    = %d\n"
          "ocat_ctrl_port    = %d\n"
@@ -110,11 +125,15 @@ void print_setup_struct(FILE *f)
          "logfn             = \"%s\"\n"
          "logf              = %s\n"
          "daemon            = %d\n"
-         "uptime            = %d days, %d:%02d\n",
+         "uptime            = %d days, %d:%02d\n"
+         "socks_dst.sin_family = %d\n"
+         "socks_dst.sin_port = %d\n"
+         "socks_dst.sin_addr = %s\n",
+
  
          IPV4_KEY, ntohl(setup_.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup_.fhd_key[IPV6_KEY]),
          setup_.fhd_key_len,
-         setup_.tor_socks_port,
+         //setup_.tor_socks_port,
          setup_.ocat_listen_port,
          setup_.ocat_dest_port,
          setup_.ocat_ctrl_port,
@@ -139,7 +158,10 @@ void print_setup_struct(FILE *f)
          setup_.logfn,
          logf,
          setup_.daemon,
-         t / (3600 * 24), t / 3600 % 24, t / 60 % 60
+         t / (3600 * 24), t / 3600 % 24, t / 60 % 60,
+         ((struct sockaddr_in*) setup_.socks_dst)->sin_family,
+         ntohs(((struct sockaddr_in*) setup_.socks_dst)->sin_port),
+         sk
          );
 
    for (i = 0; i < ROOT_PEERS; i++)

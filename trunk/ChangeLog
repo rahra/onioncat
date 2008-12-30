@@ -1,4 +1,5 @@
 * version 
+ - SOCKS destination IP configurable (v4 only)
  - disabled self connections to root nodes
  - fatal memory error in SOCKS queue fixed
  - bugfix in ether_ntoa_r()

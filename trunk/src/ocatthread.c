@@ -16,7 +16,8 @@
  */
 
 /*! ocatthread.c
- *  contains thread management functions.
+ *  contains thread management functions. Basically these are
+ *  wrapper functions around create_pthread.
  *
  *  @author Bernhard R. Fischer <rahra _at_ cypherpunk at>
  *  @version 2008/02/03-01

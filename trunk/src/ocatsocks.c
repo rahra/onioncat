@@ -36,12 +36,13 @@ static pthread_cond_t socks_queue_cond_ = PTHREAD_COND_INITIALIZER;
 
 int socks_connect(const SocksQueue_t *sq)
 {
-   struct sockaddr_in in;
+//   struct sockaddr_in in;
    int fd, t, len;
    char buf[FRAME_SIZE], onion[ONION_NAME_SIZE];
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
    OcatPeer_t *peer;
 
+   /*
    memset(&in, 0, sizeof(in));
    in.sin_family = AF_INET;
    in.sin_port = htons(CNF(tor_socks_port));
@@ -49,6 +50,7 @@ int socks_connect(const SocksQueue_t *sq)
 #ifdef HAVE_SIN_LEN
    in.sin_len = sizeof(in);
 #endif
+*/
 
    ipv6tonion(&sq->addr, onion);
    strlcat(onion, ".onion", sizeof(onion));
@@ -59,9 +61,9 @@ int socks_connect(const SocksQueue_t *sq)
       return E_SOCKS_SOCK;
 
    t = time(NULL);
-   if (connect(fd, (struct sockaddr*) &in, sizeof(in)) == -1)
+   if (connect(fd, CNF(socks_dst), sizeof(*CNF(socks_dst))) == -1)
    {
-      log_msg(LOG_ERR, "connect() to TOR's SOCKS port %d failed: \"%s\". Sleeping for %d seconds.", CNF(tor_socks_port), strerror(errno), TOR_SOCKS_CONN_TIMEOUT);
+      log_msg(LOG_ERR, "connect() to TOR's SOCKS port %d failed: \"%s\". Sleeping for %d seconds.", ntohs(((struct sockaddr_in*) CNF(socks_dst))->sin_port), strerror(errno), TOR_SOCKS_CONN_TIMEOUT);
       oe_close(fd);
       sleep(TOR_SOCKS_CONN_TIMEOUT);
       return E_SOCKS_CONN;

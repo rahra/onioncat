@@ -38,7 +38,7 @@ void usage(const char *s)
          "   -P <pid_file>         create pid file at location of <pid_file> (default = %s)\n"
          "   -r                    run as root, i.e. do not change uid/gid\n"
          "   -s <port>             set hidden service virtual port, default = %d\n"
-         "   -t <port>             set tor SOCKS port, default = %d\n"
+         "   -t [<ip>:]<port>      set Tor SOCKS ip and port, default = %d\n"
 #ifndef WITHOUT_TUN
          "   -T <tun_device>       path to tun character device, default = \"%s\"\n"
 #endif
@@ -48,7 +48,7 @@ void usage(const char *s)
          // option defaults start here
          OCAT_DIR, OCAT_CONNECT_LOG, CNF(create_clog), CNF(debug_level), CNF(ocat_listen_port),
          CNF(pid_file),
-         CNF(ocat_dest_port), CNF(tor_socks_port), 
+         CNF(ocat_dest_port), ((struct sockaddr_in*) CNF(socks_dst))->sin_port, 
 #ifndef WITHOUT_TUN
          TUN_DEV,
 #endif
@@ -188,7 +188,16 @@ int main(int argc, char *argv[])
             break;
 
          case 't':
-            CNF(tor_socks_port) = atoi(optarg);
+            s = optarg;
+            if (strchr(optarg, ':'))
+            {
+               s = strtok(optarg, ":");
+               if (!inet_pton(AF_INET, optarg, &((struct sockaddr_in*) CNF(socks_dst))->sin_addr))
+                  log_msg(LOG_ALERT, "\"%s\" is not a valid IPv4 address", optarg), exit(1);
+               s = strtok(NULL, ":");
+            }
+
+            ((struct sockaddr_in*) CNF(socks_dst))->sin_port = htons(atoi(s));
             break;
 
 #ifndef WITHOUT_TUN

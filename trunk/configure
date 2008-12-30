@@ -1284,6 +1284,7 @@ Optional Features:
   --enable-handle-http    enable handling of accidental HTTP requests
   --enable-packet-queue   enable queueuing of packets while connecting setup
   --disable-check-ipsrc   disable source ip checking before forwarding
+  --enable-rtt            enable inband RTT measurement
   --disable-dependency-tracking  speeds up one-time build
   --enable-dependency-tracking   do not reject slow dependency extractors
 
@@ -2258,6 +2259,15 @@ if test "${enable_check_ipsrc+set}" = set; then
   enableval=$enable_check_ipsrc;
 cat >>confdefs.h <<\_ACEOF
 #define CHECK_IPSRC
+_ACEOF
+
+fi
+
+# Check whether --enable-rtt was given.
+if test "${enable_rtt+set}" = set; then
+  enableval=$enable_rtt;
+cat >>confdefs.h <<\_ACEOF
+#define MEASURE_RTT
 _ACEOF
 
 fi
