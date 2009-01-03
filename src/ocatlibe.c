@@ -63,3 +63,76 @@ int oe_remtr(char *s)
    return strlen(s);
 }
 
+
+/*! Convert character string into struct sockaddr of appropriate address family.
+ *  AF_INET and AF_INET6 are supported yet.
+ *  @param src Pointer to character string.
+ *  @param addr Pointer to struct sockaddr of appropriate type (and size).
+ *         It should be pre-initialized. strsockaddr() will not init all fields.
+ *  @return address family on success or -1 on error.
+ */
+int strsockaddr(const char *src, struct sockaddr *addr)
+{
+   char *s, buf[100];
+   int p;
+
+   strlcpy(buf, src, 100);
+   if ((s = strchr(buf, '[')))
+   {
+      s++;
+      ((struct sockaddr_in6*) addr)->sin6_family = AF_INET6;
+      s = strtok(s, "]");
+      if (!inet_pton(AF_INET6, s, &((struct sockaddr_in6*) addr)->sin6_addr))
+      {
+         log_msg(LOG_ALERT, "\"%s\" contains no valid IPv6 address", s);
+         return -1;
+      }
+      if ((s = strtok(NULL, " ")))
+      {
+         if (*s == ':')
+         {
+            s++;
+            if ((p = atoi(s)) > 0)
+               ((struct sockaddr_in6*) addr)->sin6_port = htons(p);
+         }
+      }
+      return AF_INET6;
+   }
+
+   if (strchr(buf, '.'))
+   {
+      ((struct sockaddr_in*) addr)->sin_family = AF_INET;
+      s = strtok(buf, ":");
+      if (!inet_pton(AF_INET, s, &((struct sockaddr_in*) addr)->sin_addr))
+      {
+         log_msg(LOG_ALERT, "\"%s\" is not a valid IPv4 address", s);
+         return -1;
+      }
+      s = strtok(NULL, ":");
+      if (s)
+         if ((p = atoi(s)) > 0)
+            ((struct sockaddr_in*) addr)->sin_port = htons(p);
+      return AF_INET;
+   }
+
+   if ((p = atoi(buf)) > 0)
+   {
+      switch (((struct sockaddr_in*) addr)->sin_family)
+      {
+         case AF_INET:
+            ((struct sockaddr_in*) addr)->sin_port = htons(p);
+            return AF_INET;
+
+         case AF_INET6:
+            ((struct sockaddr_in6*) addr)->sin6_port = htons(p);
+            return AF_INET;
+
+         default:
+            log_debug("adress family %04x not supported", ((struct sockaddr_in*) addr)->sin_family);
+            return -1;
+      }
+   }
+
+   return -1;
+}
+

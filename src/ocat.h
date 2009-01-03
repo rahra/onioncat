@@ -203,6 +203,8 @@
 #define IPV4_KEY 0
 #define IPV6_KEY 1
 
+#define SOCKADDR_SIZE(x) (x->sa_family == AF_INET ? sizeof(struct sockaddr_in) : x->sa_family == AF_INET6 ? sizeof(struct sockaddr_in6) : 0)
+
 
 struct OcatSetup
 {
@@ -249,7 +251,14 @@ struct OcatSetup
    struct in6_addr root_peer[ROOT_PEERS];
    time_t uptime;
    char *frandn;
-   struct sockaddr *socks_dst;
+   //! destination socket address of Tor's SOCKS port
+   union
+   {
+      struct sockaddr_in *socks_dst;
+      struct sockaddr_in6 *socks_dst6;
+   };
+   //! local listening socket address for incoming connections
+   struct sockaddr **oc_listen;
 };
 
 #ifdef PACKET_QUEUE
@@ -526,6 +535,7 @@ void print_socks_queue(FILE *);
 /* ocatlibe.c */
 void oe_close(int);
 int oe_remtr(char *);
+int strsockaddr(const char *, struct sockaddr *);
 
 /* ocatipv6route.c */
 struct in6_addr *ipv6_lookup_route(const struct in6_addr *);
