@@ -38,7 +38,7 @@ int socks_connect(const SocksQueue_t *sq)
 {
 //   struct sockaddr_in in;
    int fd, t, len;
-   char buf[FRAME_SIZE], onion[ONION_NAME_SIZE];
+   char buf[FRAME_SIZE], onion[ONION_NAME_SIZE], addr[INET6_ADDRSTRLEN];
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
    OcatPeer_t *peer;
 
@@ -57,13 +57,13 @@ int socks_connect(const SocksQueue_t *sq)
 
    log_msg(LOG_INFO, "trying to connect to \"%s\" [%s]", onion, inet_ntop(AF_INET6, &sq->addr, buf, FRAME_SIZE));
 
-   if ((fd = socket(PF_INET, SOCK_STREAM, 0)) < 0)
+   if ((fd = socket(CNF(socks_dst)->sin_family == AF_INET ? PF_INET : PF_INET6, SOCK_STREAM, 0)) < 0)
       return E_SOCKS_SOCK;
 
    t = time(NULL);
-   if (connect(fd, CNF(socks_dst), sizeof(*CNF(socks_dst))) == -1)
+   if (connect(fd, (struct sockaddr*) CNF(socks_dst), sizeof(struct sockaddr_in6)) == -1)
    {
-      log_msg(LOG_ERR, "connect() to TOR's SOCKS port %d failed: \"%s\". Sleeping for %d seconds.", ntohs(((struct sockaddr_in*) CNF(socks_dst))->sin_port), strerror(errno), TOR_SOCKS_CONN_TIMEOUT);
+      log_msg(LOG_ERR, "connect() to TOR's SOCKS port %s:%d failed: \"%s\". Sleeping for %d seconds.", inet_ntop(CNF(socks_dst)->sin_family, CNF(socks_dst)->sin_family == AF_INET ? (char*) &CNF(socks_dst)->sin_addr : (char*) &CNF(socks_dst6)->sin6_addr, addr, sizeof(addr)), ntohs(CNF(socks_dst)->sin_port), strerror(errno), TOR_SOCKS_CONN_TIMEOUT);
       oe_close(fd);
       sleep(TOR_SOCKS_CONN_TIMEOUT);
       return E_SOCKS_CONN;

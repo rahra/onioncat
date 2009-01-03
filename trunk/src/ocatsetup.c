@@ -25,6 +25,11 @@
 
 #include "ocat.h"
 
+
+static struct sockaddr_in6 socks_dst6_;
+static struct sockaddr_in6 oc_listen6_;
+static struct sockaddr* oc_listen_a_[] = {(struct sockaddr*) &oc_listen6_, NULL};
+
 struct OcatSetup setup_ =
 {
    // fhd_keys
@@ -32,7 +37,8 @@ struct OcatSetup setup_ =
    // fhd_key_len
    sizeof(uint32_t),
    //TOR_SOCKS_PORT, 
-   OCAT_LISTEN_PORT, OCAT_DEST_PORT, OCAT_CTRL_PORT, 
+   OCAT_LISTEN_PORT, 
+   OCAT_DEST_PORT, OCAT_CTRL_PORT, 
    //! default tunfd is stdin/stdout
    {0, 1},
    //! default debug level
@@ -53,10 +59,9 @@ struct OcatSetup setup_ =
    },
    0,
    "/dev/urandom",
-   NULL
+   {(struct sockaddr_in*) &socks_dst6_},
+   oc_listen_a_
 };
-
-static struct sockaddr_in socks_dst_;
 
 
 void init_setup(void)
@@ -64,13 +69,21 @@ void init_setup(void)
    setup_.logf = stderr;
    setup_.uptime = time(NULL);
 
-   socks_dst_.sin_family = AF_INET;
-   socks_dst_.sin_port = htons(TOR_SOCKS_PORT);
-   socks_dst_.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+   setup_.socks_dst->sin_family = AF_INET;
+   setup_.socks_dst->sin_port = htons(TOR_SOCKS_PORT);
+   setup_.socks_dst->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 #ifdef HAVE_SIN_LEN
-   socks_dst_.sin_len = sizeof(socks_dst_);
+   setup_.socks_dst->sin_len = sizeof(socks_dst6_);
 #endif
-   setup_.socks_dst = (struct sockaddr*) &socks_dst_;
+
+   /*
+   ((struct sockaddr_in*) *setup_.oc_listen)->sin_family = AF_INET;
+   setup_.oc_listen->sin_port = htons(OCAT_LISTEN_PORT);
+   setup_.oc_listen->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+#ifdef HAVE_SIN_LEN
+   setup_.oc_listen->sin_len = sizeof(oc_listen6_);
+#endif
+*/
 }
 
 
@@ -93,43 +106,38 @@ void print_setup_struct(FILE *f)
 
    t = time(NULL) - setup_.uptime;
 
-   inet_ntop(socks_dst_.sin_family, &socks_dst_.sin_addr, sk, SBUF);
 
    fprintf(f,
-         "fhd_key[IPV4(%d)]  = 0x%04x\n"
-         "fhd_key[IPV6(%d)]  = 0x%04x\n"
-         "fhd_key_len       = %d\n"
+         "fhd_key[IPV4(%d)]       = 0x%04x\n"
+         "fhd_key[IPV6(%d)]       = 0x%04x\n"
+         "fhd_key_len            = %d\n"
          //"tor_socks_port    = %d\n"
-         "ocat_listen_port  = %d\n"
-         "ocat_dest_port    = %d\n"
-         "ocat_ctrl_port    = %d\n"
-         "tunfd[0]          = %d\n"
-         "tunfd[1]          = %d\n"
-         "debug_level       = %d\n"
-         "usrname           = \"%s\"\n"
-         "onion_url         = \"%s\"\n"
-         "ocat_addr         = %s\n"
-         "create_clog       = %d\n"
-         "runasroot         = %d\n"
-         "controller        = %d\n"
-         "ocat_dir          = \"%s\"\n"
-         "tun_dev           = \"%s\"\n"
-         "ipv4_enable       = %d\n"
-         "ocat_addr4        = %s\n"
-         "ocat_addr4_mask   = %s\n"
-         "config_file       = \"%s\"\n"
-         "config_read       = %d\n"
-         "use_tap           = %d\n"
-         "ocat_hwaddr       = %s\n"
-         "pid_file          = \"%s\"\n"
-         "logfn             = \"%s\"\n"
-         "logf              = %s\n"
-         "daemon            = %d\n"
-         "uptime            = %d days, %d:%02d\n"
-         "socks_dst.sin_family = %d\n"
-         "socks_dst.sin_port = %d\n"
-         "socks_dst.sin_addr = %s\n",
-
+         "ocat_listen_port       = %d\n"
+         "ocat_dest_port         = %d\n"
+         "ocat_ctrl_port         = %d\n"
+         "tunfd[0]               = %d\n"
+         "tunfd[1]               = %d\n"
+         "debug_level            = %d\n"
+         "usrname                = \"%s\"\n"
+         "onion_url              = \"%s\"\n"
+         "ocat_addr              = %s\n"
+         "create_clog            = %d\n"
+         "runasroot              = %d\n"
+         "controller             = %d\n"
+         "ocat_dir               = \"%s\"\n"
+         "tun_dev                = \"%s\"\n"
+         "ipv4_enable            = %d\n"
+         "ocat_addr4             = %s\n"
+         "ocat_addr4_mask        = %s\n"
+         "config_file            = \"%s\"\n"
+         "config_read            = %d\n"
+         "use_tap                = %d\n"
+         "ocat_hwaddr            = %s\n"
+         "pid_file               = \"%s\"\n"
+         "logfn                  = \"%s\"\n"
+         "logf                   = %s\n"
+         "daemon                 = %d\n"
+         "uptime                 = %d days, %d:%02d\n",
  
          IPV4_KEY, ntohl(setup_.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup_.fhd_key[IPV6_KEY]),
          setup_.fhd_key_len,
@@ -158,14 +166,63 @@ void print_setup_struct(FILE *f)
          setup_.logfn,
          logf,
          setup_.daemon,
-         t / (3600 * 24), t / 3600 % 24, t / 60 % 60,
-         ((struct sockaddr_in*) setup_.socks_dst)->sin_family,
-         ntohs(((struct sockaddr_in*) setup_.socks_dst)->sin_port),
-         sk
+         t / (3600 * 24), t / 3600 % 24, t / 60 % 60
          );
 
    for (i = 0; i < ROOT_PEERS; i++)
       if (inet_ntop(AF_INET6, &setup_.root_peer[i], rp, SBUF))
          fprintf(f, "root_peer[%d]      = %s\n", i, rp);
+
+   if (setup_.socks_dst->sin_family == AF_INET)
+   {
+      inet_ntop(setup_.socks_dst->sin_family, &setup_.socks_dst->sin_addr, sk, SBUF);
+      fprintf(f,
+         "socks_dst.sin_family   = %04x\n"
+         "socks_dst.sin_port     = %d\n"
+         "socks_dst.sin_addr     = %s\n",
+         setup_.socks_dst->sin_family,
+         ntohs(setup_.socks_dst->sin_port),
+         sk
+         );
+   }
+   else
+   {
+      inet_ntop(setup_.socks_dst6->sin6_family, &setup_.socks_dst6->sin6_addr, sk, SBUF);
+      fprintf(f,
+         "socks_dst6.sin6_family = %04x\n"
+         "socks_dst6.sin6_port   = %d\n"
+         "socks_dst6.sin6_addr   = %s\n",
+         setup_.socks_dst6->sin6_family,
+         ntohs(setup_.socks_dst6->sin6_port),
+         sk
+         );
+   }
+
+   /*
+   if (setup_.oc_listen->sin_family == AF_INET)
+   {
+      inet_ntop(setup_.oc_listen->sin_family, &setup_.oc_listen->sin_addr, sk, SBUF);
+      fprintf(f,
+         "socks_dst.sin_family   = %04x\n"
+         "socks_dst.sin_port     = %d\n"
+         "socks_dst.sin_addr     = %s\n",
+         setup_.oc_listen->sin_family,
+         ntohs(setup_.oc_listen->sin_port),
+         sk
+         );
+   }
+   else
+   {
+      inet_ntop(setup_.oc_listen6->sin6_family, &setup_.oc_listen6->sin6_addr, sk, SBUF);
+      fprintf(f,
+         "oc_listen6.sin6_family = %04x\n"
+         "oc_listen6.sin6_port   = %d\n"
+         "oc_listen6.sin6_addr   = %s\n",
+         setup_.oc_listen6->sin6_family,
+         ntohs(setup_.oc_listen6->sin6_port),
+         sk
+         );
+   }
+   */
 }
 

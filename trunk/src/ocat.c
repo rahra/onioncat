@@ -31,14 +31,14 @@ void usage(const char *s)
          "   -d <n>                set debug level to n, default = %d\n"
          "   -f <config_file>      read config from config_file\n"
          "   -i                    convert onion hostname to IPv6 and exit\n"
-         "   -l <port>             set ocat listen port, default = %d\n"
+         "   -l [<ip>:]<port>      set ocat listen address and port, default = 127.0.0.1:%d\n"
          "   -L <log_file>         log output to <log_file> (default = stderr)\n"
          "   -o <ipv6_addr>        convert IPv6 address to onion url and exit\n"
          "   -p                    use TAP device instead of TUN\n"
          "   -P <pid_file>         create pid file at location of <pid_file> (default = %s)\n"
          "   -r                    run as root, i.e. do not change uid/gid\n"
          "   -s <port>             set hidden service virtual port, default = %d\n"
-         "   -t [<ip>:]<port>      set Tor SOCKS ip and port, default = %d\n"
+         "   -t [<ip>:]<port>      set Tor SOCKS address and port, default = 127.0.0.1:%d\n"
 #ifndef WITHOUT_TUN
          "   -T <tun_device>       path to tun character device, default = \"%s\"\n"
 #endif
@@ -46,9 +46,9 @@ void usage(const char *s)
          "   -4                    enable IPv4 support (default = %d)\n"
          , PACKAGE_STRING, __DATE__, __TIME__, s,
          // option defaults start here
-         OCAT_DIR, OCAT_CONNECT_LOG, CNF(create_clog), CNF(debug_level), CNF(ocat_listen_port),
+         OCAT_DIR, OCAT_CONNECT_LOG, CNF(create_clog), CNF(debug_level), OCAT_LISTEN_PORT,
          CNF(pid_file),
-         CNF(ocat_dest_port), ((struct sockaddr_in*) CNF(socks_dst))->sin_port, 
+         CNF(ocat_dest_port), CNF(socks_dst)->sin_port, 
 #ifndef WITHOUT_TUN
          TUN_DEV,
 #endif
@@ -159,7 +159,9 @@ int main(int argc, char *argv[])
             break;
 
          case 'l':
-            CNF(ocat_listen_port) = atoi(optarg);
+            //CNF(ocat_listen_port) = atoi(optarg);
+            if (strsockaddr(optarg, (struct sockaddr*) CNF(oc_listen)) == -1)
+               exit(1);
             break;
 
          case 'L':
@@ -188,16 +190,8 @@ int main(int argc, char *argv[])
             break;
 
          case 't':
-            s = optarg;
-            if (strchr(optarg, ':'))
-            {
-               s = strtok(optarg, ":");
-               if (!inet_pton(AF_INET, optarg, &((struct sockaddr_in*) CNF(socks_dst))->sin_addr))
-                  log_msg(LOG_ALERT, "\"%s\" is not a valid IPv4 address", optarg), exit(1);
-               s = strtok(NULL, ":");
-            }
-
-            ((struct sockaddr_in*) CNF(socks_dst))->sin_port = htons(atoi(s));
+            if (strsockaddr(optarg, (struct sockaddr*) CNF(socks_dst)) == -1)
+               exit(1);
             break;
 
 #ifndef WITHOUT_TUN

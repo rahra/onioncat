@@ -641,6 +641,83 @@ int create_listener(struct sockaddr *addr, int sock_len)
 }
 
 
+/** run_listeners(...) is a generic socket acceptor for
+ *  local TCP ports (IPv4+IPv6).
+ *  It listens on a given list of sockets.
+ *  Every time a connection comes in the function action_accept is
+ *  called with the incoming file descriptor as parameter.
+ *  @param addr Double pointer to sockaddr structs. It MUST be terminated by a null pointer.
+ *  @param sockfd Points to an int array. The array must contain at least 
+ *         as much entries as the sockaddr pointer has entries.
+ *  @param action_accept Function pointer to function that should be called if a
+ *         connection arrives.
+ *  @return File descriptor or -1 on error.
+ */
+int run_listeners(struct sockaddr **addr, int *sockfd, int (action_accept)(int))
+{
+   int fd;
+   struct sockaddr *saddr;
+   struct sockaddr_in6 in6;
+   fd_set rset;
+   int maxfd, i, cnt;
+   socklen_t alen;
+   char iabuf[INET6_ADDRSTRLEN];
+
+   for (i = 0, saddr = *addr; saddr; saddr = addr[i], i++)
+   {
+      log_debug("create listener");
+      if ((sockfd[i] = create_listener(saddr, SOCKADDR_SIZE(saddr))) == -1)
+         log_msg(LOG_EMERG, "exiting"), exit(1);
+   }
+   cnt = i;
+
+   for (;;)
+   {
+      log_debug("setting up fd_set");
+      FD_ZERO(&rset);
+      maxfd = 0;
+      for (i = 0; i < cnt; i++)
+      {
+         FD_SET(sockfd[i], &rset);
+         if (sockfd[i] > maxfd)
+            maxfd = sockfd[i];
+      }
+
+      log_debug("selecting locally (maxfd = %d)", maxfd);
+      if ((maxfd = select(maxfd + 1, &rset, NULL, NULL, NULL)) == -1)
+      {
+         log_debug("select returned: \"%s\"", strerror(errno));
+         continue;
+      }
+      log_debug("select returned %d fds ready", maxfd);
+
+      for (i = 0; maxfd && (i < cnt); i++)
+      {
+         log_debug("checking fd %d (maxfd = %d, i = %d)", sockfd[i], maxfd, i);
+         if (!FD_ISSET(sockfd[i], &rset))
+            continue;
+         maxfd--;
+         alen = sizeof(in6);
+         log_debug("accepting connection on %d", sockfd[i]);
+         if ((fd = accept(sockfd[i], (struct sockaddr*) &in6, &alen)) < 0)
+         {
+            log_msg(LOG_ERR, "error accepting connection on %d: \"%s\"", sockfd[i], strerror(errno));
+            // FIXME: there should be additional error handling!
+            continue;
+         }
+
+         inet_ntop(in6.sin6_family,
+               in6.sin6_family == AF_INET6 ? &in6.sin6_addr :
+               (void*) &((struct sockaddr_in*) &in6)->sin_addr,
+               iabuf, INET6_ADDRSTRLEN);
+         log_msg(LOG_INFO | LOG_FCONN, "connection %d [%d] accepted on listener %d from %s port %d", fd, i, sockfd[i], iabuf, ntohs(in6.sin6_port));
+         (void) action_accept(fd);
+      }
+   }
+   return 0;
+}
+
+
 /** run_local_listeners(...) is a generic socket acceptor for
  *  local TCP ports (IPv4+IPv6).
  *  Every time a connection comes in the function action_accept is
