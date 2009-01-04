@@ -37,6 +37,7 @@ void usage(const char *s)
          "   -p                    use TAP device instead of TUN\n"
          "   -P <pid_file>         create pid file at location of <pid_file> (default = %s)\n"
          "   -r                    run as root, i.e. do not change uid/gid\n"
+         "   -R                    generate a random local onion URL\n"
          "   -s <port>             set hidden service virtual port, default = %d\n"
          "   -t [<ip>:]<port>      set Tor SOCKS address and port, default = 127.0.0.1:%d\n"
 #ifndef WITHOUT_TUN
@@ -48,7 +49,7 @@ void usage(const char *s)
          // option defaults start here
          OCAT_DIR, OCAT_CONNECT_LOG, CNF(create_clog), CNF(debug_level), OCAT_LISTEN_PORT,
          CNF(pid_file),
-         CNF(ocat_dest_port), CNF(socks_dst)->sin_port, 
+         CNF(ocat_dest_port), ntohs(CNF(socks_dst)->sin_port), 
 #ifndef WITHOUT_TUN
          TUN_DEV,
 #endif
@@ -130,7 +131,7 @@ int main(int argc, char *argv[])
    if (argc < 2)
       usage(argv[0]), exit(1);
 
-   while ((c = getopt(argc, argv, "abCd:f:hriopl:t:T:s:u:4L:P:")) != -1)
+   while ((c = getopt(argc, argv, "abCd:f:hrRiopl:t:T:s:u:4L:P:")) != -1)
       switch (c)
       {
          case 'a':
@@ -185,6 +186,10 @@ int main(int argc, char *argv[])
             CNF(usrname) = "root";
             break;
 
+         case 'R':
+            CNF(rand_addr) = 1;
+            break;
+
          case 's':
             CNF(ocat_dest_port) = atoi(optarg);
             break;
@@ -214,7 +219,7 @@ int main(int argc, char *argv[])
             exit(1);
       }
 
-   if (!argv[optind])
+   if (!CNF(rand_addr) && !argv[optind])
       usage(argv[0]), exit(1);
 
    // init main thread
@@ -233,8 +238,14 @@ int main(int argc, char *argv[])
       exit(0);
    }
 
+   // copy onion-URL from command line
+   if (!CNF(rand_addr))
+      strncpy(CNF(onion_url), argv[optind], ONION_NAME_SIZE);
+   // ...or generate a random one
+   else
+      rand_onion(CNF(onion_url));
+
    // convert parameter to IPv6 address
-   strncpy(CNF(onion_url), argv[optind], ONION_NAME_SIZE);
    if ((s = strchr(CNF(onion_url), '.')))
          *s = '\0';
    if (strlen(CNF(onion_url)) != 16)

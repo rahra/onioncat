@@ -119,3 +119,19 @@ char *ipv6tonion(const struct in6_addr *ip6, char *onion)
    return r;
 }
 
+
+/*! Generate a random onion-URL.
+ *  @paran onion must be of at least ONION_URL_LEN + 1 (=17).
+ */
+void rand_onion(char *onion)
+{
+   int i;
+
+   if (RAND_MAX < 32)
+      log_msg(LOG_WARNING, "weak randomness: RAND_MAX = %d < 32", RAND_MAX);
+
+   for (i = 0; i < ONION_URL_LEN; i++, onion++)
+      *onion = BASE32[rand() & 0x1f];
+   *onion = '\0';
+}
+

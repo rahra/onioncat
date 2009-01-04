@@ -1,4 +1,6 @@
 * version 
+ - man page updated
+ - Local onion-URL may be generated randomly (option -R)
  - SOCKS destination IP configurable (v4 only)
  - disabled self connections to root nodes
  - fatal memory error in SOCKS queue fixed
