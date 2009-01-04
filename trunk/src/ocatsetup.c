@@ -60,12 +60,21 @@ struct OcatSetup setup_ =
    0,
    "/dev/urandom",
    {(struct sockaddr_in*) &socks_dst6_},
-   oc_listen_a_
+   oc_listen_a_,
+   //! rand_addr
+   0
 };
 
 
 void init_setup(void)
 {
+   struct timeval tv;
+
+   // seeding PRNG rand()
+   if (gettimeofday(&tv, NULL) == -1)
+      log_msg(LOG_WARNING, "could gettimeofday(): \"%s\"", strerror(errno));
+   srand(tv.tv_sec ^ tv.tv_usec);
+
    setup_.logf = stderr;
    setup_.uptime = time(NULL);
 
