@@ -135,3 +135,36 @@ void rand_onion(char *onion)
    *onion = '\0';
 }
 
+
+/*! Convert struct sockaddr to stuct sockaddr_str which holds the address
+ *  in string representation.
+ *  @param saddr Const pointer to source of type struct sockaddr-
+ *  @param sas Pointer to destination of type struct sockaddr_str.
+ *  @return Pointer to string (sas->sstr_addr) or NULL on error. In the
+ *          latter case errno will be set correctly.
+ */
+const char *inet_ntops(const struct sockaddr *saddr, struct sockaddr_str *sas)
+{
+   char *src;
+
+   switch (saddr->sa_family)
+   {
+      case AF_INET:
+         src = (char*) &((struct sockaddr_in*) saddr)->sin_addr;
+         sas->sstr_port = ((struct sockaddr_in*) saddr)->sin_port;
+         break;
+
+      case AF_INET6:
+         src = (char*) &((struct sockaddr_in6*) saddr)->sin6_addr;
+         sas->sstr_port = ((struct sockaddr_in6*) saddr)->sin6_port;
+         break;
+
+      default:
+         errno = EAFNOSUPPORT;
+         return NULL;
+   }
+
+   sas->sstr_family = saddr->sa_family;
+   return inet_ntop(saddr->sa_family, src, sas->sstr_addr, sizeof(sas->sstr_addr));
+}
+

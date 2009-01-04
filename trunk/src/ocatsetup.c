@@ -100,8 +100,9 @@ void init_setup(void)
 
 void print_setup_struct(FILE *f)
 {
-   char ip[SBUF], nm[SBUF], ip6[SBUF], logf[SBUF], hw[SBUF], rp[SBUF], sk[SBUF];
+   char *c, ip[SBUF], nm[SBUF], ip6[SBUF], logf[SBUF], hw[SBUF], rp[SBUF];
    int i, t;
+   struct sockaddr_str sas;
 
    inet_ntop(AF_INET, &setup_.ocat_addr4, ip, SBUF);
    inet_ntop(AF_INET, &setup_.ocat_addr4_mask, nm, SBUF);
@@ -180,58 +181,21 @@ void print_setup_struct(FILE *f)
 
    for (i = 0; i < ROOT_PEERS; i++)
       if (inet_ntop(AF_INET6, &setup_.root_peer[i], rp, SBUF))
-         fprintf(f, "root_peer[%d]      = %s\n", i, rp);
+         fprintf(f, "root_peer[%d]           = %s\n", i, rp);
 
-   if (setup_.socks_dst->sin_family == AF_INET)
+   if (inet_ntops((struct sockaddr*) setup_.socks_dst, &sas))
    {
-      inet_ntop(setup_.socks_dst->sin_family, &setup_.socks_dst->sin_addr, sk, SBUF);
+      c = sas.sstr_family == AF_INET6 ? "6" : "";
       fprintf(f,
-         "socks_dst.sin_family   = %04x\n"
-         "socks_dst.sin_port     = %d\n"
-         "socks_dst.sin_addr     = %s\n",
-         setup_.socks_dst->sin_family,
-         ntohs(setup_.socks_dst->sin_port),
-         sk
-         );
+         "socks_dst%s.sin_family   = 0x%04x\n"
+         "socks_dst%s.sin_port     = %d\n"
+         "socks_dst%s.sin_addr     = %s\n",
+         c, sas.sstr_family,
+         c, ntohs(sas.sstr_port),
+         c, sas.sstr_addr);
    }
    else
-   {
-      inet_ntop(setup_.socks_dst6->sin6_family, &setup_.socks_dst6->sin6_addr, sk, SBUF);
-      fprintf(f,
-         "socks_dst6.sin6_family = %04x\n"
-         "socks_dst6.sin6_port   = %d\n"
-         "socks_dst6.sin6_addr   = %s\n",
-         setup_.socks_dst6->sin6_family,
-         ntohs(setup_.socks_dst6->sin6_port),
-         sk
-         );
-   }
-
-   /*
-   if (setup_.oc_listen->sin_family == AF_INET)
-   {
-      inet_ntop(setup_.oc_listen->sin_family, &setup_.oc_listen->sin_addr, sk, SBUF);
-      fprintf(f,
-         "socks_dst.sin_family   = %04x\n"
-         "socks_dst.sin_port     = %d\n"
-         "socks_dst.sin_addr     = %s\n",
-         setup_.oc_listen->sin_family,
-         ntohs(setup_.oc_listen->sin_port),
-         sk
-         );
-   }
-   else
-   {
-      inet_ntop(setup_.oc_listen6->sin6_family, &setup_.oc_listen6->sin6_addr, sk, SBUF);
-      fprintf(f,
-         "oc_listen6.sin6_family = %04x\n"
-         "oc_listen6.sin6_port   = %d\n"
-         "oc_listen6.sin6_addr   = %s\n",
-         setup_.oc_listen6->sin6_family,
-         ntohs(setup_.oc_listen6->sin6_port),
-         sk
-         );
-   }
-   */
+      log_msg(LOG_WARNING, "could not convert struct sockaddr: \"%s\"", strerror(errno));
+ 
 }
 
