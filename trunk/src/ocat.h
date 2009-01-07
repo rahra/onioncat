@@ -205,6 +205,7 @@
 
 #define SOCKADDR_SIZE(x) (x->sa_family == AF_INET ? sizeof(struct sockaddr_in) : x->sa_family == AF_INET6 ? sizeof(struct sockaddr_in6) : 0)
 
+#define VERSION_STRING_LEN 256
 
 struct OcatSetup
 {
@@ -233,7 +234,10 @@ struct OcatSetup
    int runasroot;
    int controller;
    char *ocat_dir;
+   //! name of tunnel charcter device
    char *tun_dev;
+   //! tunnel interface name
+   char tunname[IFNAMSIZ];
    int ipv4_enable;
    struct in_addr ocat_addr4;
    int ocat_addr4_mask;
@@ -260,6 +264,8 @@ struct OcatSetup
    //! local listening socket address for incoming connections
    struct sockaddr **oc_listen;
    int rand_addr;
+   char version[VERSION_STRING_LEN];
+   int sizeof_setup;
 };
 
 #ifdef PACKET_QUEUE

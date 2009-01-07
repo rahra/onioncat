@@ -73,7 +73,7 @@ void *ctrl_handler(void *p)
       //CNF(config_read) = 1;
    }
 
-   fprintf(fo, "%s (c) %s -- %s %s\n", PACKAGE_STRING, OCAT_AUTHOR, __DATE__, __TIME__);
+   fprintf(fo, "%s\n", CNF(version));
    fprintf(fo, "*** ATTENTION! Controller interface not thread-safe yet! Usage could cause deadlocks. ***\n");
 
    for (;;)

@@ -44,6 +44,7 @@ struct OcatSetup setup_ =
    //! default debug level
    LOG_DEBUG,
    OCAT_UNAME, {0}, {{{0}}}, 0, 0, 1, OCAT_DIR, TUN_DEV,
+   {'\0'},                                // tunname
    0, TOR_PREFIX4, TOR_PREFIX4_MASK,
    NULL, 1,
    0,                                      // use_tap
@@ -62,7 +63,9 @@ struct OcatSetup setup_ =
    {(struct sockaddr_in*) &socks_dst6_},
    oc_listen_a_,
    //! rand_addr
-   0
+   0,
+   {0},
+   sizeof(struct OcatSetup)
 };
 
 
@@ -93,6 +96,8 @@ void init_setup(void)
    setup_.oc_listen->sin_len = sizeof(oc_listen6_);
 #endif
 */
+
+   snprintf(setup_.version, VERSION_STRING_LEN, "%s (c) %s -- compiled %s %s", PACKAGE_STRING, OCAT_AUTHOR, __DATE__, __TIME__);
 }
 
 
@@ -136,6 +141,7 @@ void print_setup_struct(FILE *f)
          "controller             = %d\n"
          "ocat_dir               = \"%s\"\n"
          "tun_dev                = \"%s\"\n"
+         "tunname                = \"%s\"\n"
          "ipv4_enable            = %d\n"
          "ocat_addr4             = %s\n"
          "ocat_addr4_mask        = %s\n"
@@ -147,8 +153,10 @@ void print_setup_struct(FILE *f)
          "logfn                  = \"%s\"\n"
          "logf                   = %s\n"
          "daemon                 = %d\n"
-         "uptime                 = %d days, %d:%02d\n",
- 
+         "uptime                 = %d days, %d:%02d\n"
+         "version[%3d+1/%3d]     = \"%s\"\n"
+         "sizeof_setup           = %d\n"
+         ,
          IPV4_KEY, ntohl(setup_.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup_.fhd_key[IPV6_KEY]),
          setup_.fhd_key_len,
          //setup_.tor_socks_port,
@@ -165,6 +173,7 @@ void print_setup_struct(FILE *f)
          setup_.controller,
          setup_.ocat_dir,
          setup_.tun_dev,
+         setup_.tunname,
          setup_.ipv4_enable,
          ip,
          nm,
@@ -176,7 +185,9 @@ void print_setup_struct(FILE *f)
          setup_.logfn,
          logf,
          setup_.daemon,
-         t / (3600 * 24), t / 3600 % 24, t / 60 % 60
+         t / (3600 * 24), t / 3600 % 24, t / 60 % 60,
+         strlen(setup_.version), VERSION_STRING_LEN, setup_.version,
+         setup_.sizeof_setup
          );
 
    for (i = 0; i < ROOT_PEERS; i++)
