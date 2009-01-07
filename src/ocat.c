@@ -22,7 +22,7 @@
 void usage(const char *s)
 {
    fprintf(stderr, 
-         "%s (c) Bernhard R. Fischer -- compiled %s %s\n"
+         "%s\n"
          "usage: %s [OPTIONS] <onion_hostname>\n"
          "   -a                    create connect log at \"$HOME/%s/%s\" (default = %d)\n"
          "   -b                    daemonize\n"
@@ -45,7 +45,7 @@ void usage(const char *s)
 #endif
          "   -u <user>             change UID to user, default = \"%s\"\n"
          "   -4                    enable IPv4 support (default = %d)\n"
-         , PACKAGE_STRING, __DATE__, __TIME__, s,
+         , CNF(version), s,
          // option defaults start here
          OCAT_DIR, OCAT_CONNECT_LOG, CNF(create_clog), CNF(debug_level), OCAT_LISTEN_PORT,
          CNF(pid_file),
@@ -121,7 +121,8 @@ void background(void)
 
 int main(int argc, char *argv[])
 {
-   char tunname[IFNAMSIZ] = {0}, *s, ip6addr[INET6_ADDRSTRLEN], hw[20];
+   //char tunname[IFNAMSIZ] = {0}, 
+   char *s, ip6addr[INET6_ADDRSTRLEN], hw[20];
    int c, runasroot = 0;
    struct passwd *pwd;
    int urlconv = 0;
@@ -283,11 +284,11 @@ int main(int argc, char *argv[])
 
 #ifndef WITHOUT_TUN
    // create TUN device
-   CNF(tunfd[0]) = CNF(tunfd[1]) = tun_alloc(tunname, CNF(ocat_addr));
+   CNF(tunfd[0]) = CNF(tunfd[1]) = tun_alloc(CNF(tunname), CNF(ocat_addr));
 #endif
 
    log_msg(LOG_INFO, "IPv6 address %s", ip6addr);
-   log_msg(LOG_INFO, "TUN/TAP device %s", tunname);
+   log_msg(LOG_INFO, "TUN/TAP device %s", CNF(tunname));
    if (CNF(ipv4_enable))
       log_msg(LOG_INFO, "IP address %s", inet_ntoa(CNF(ocat_addr4)));
  

@@ -1,8 +1,11 @@
 
 AC_PREREQ(2.61)
-AC_INIT([onioncat], [0.1.9], [rahra@cypherpunk.at])
+define([svnversion], esyscmd([sh -c "svnversion | tr -d '\n'"]))dnl
+AC_INIT([onioncat], [0.1.9-svnversion], [rahra@cypherpunk.at])
 AM_INIT_AUTOMAKE([-Wall -Werror])
 AC_CONFIG_HEADERS([config.h])
+
+AC_DEFINE(SVN_REVISION, "svnversion", [SVN Revision])
 
 AC_SUBST([CFLAGS], [-Wall])
 
