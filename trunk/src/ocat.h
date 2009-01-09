@@ -251,7 +251,7 @@ struct OcatSetup
    FILE *logf;
    int daemon;
    //! hardcoded permanent peers
-#define ROOT_PEERS 2
+#define ROOT_PEERS 1
    struct in6_addr root_peer[ROOT_PEERS];
    time_t uptime;
    char *frandn;
