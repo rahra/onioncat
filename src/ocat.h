@@ -216,7 +216,7 @@ struct OcatSetup
    //! TCP port of SOCKS port of local Tor proxy
    //uint16_t tor_socks_port;
    //! reload port of OnionCat listening for connections
-   uint16_t ocat_listen_port;
+   //uint16_t ocat_listen_port;
    //! virtual port of OnionCat hidden service
    uint16_t ocat_dest_port;
    //! local port of controller interface

@@ -35,7 +35,7 @@ struct OcatSetup setup_ =
    // fhd_key_len
    sizeof(uint32_t),
    //TOR_SOCKS_PORT, 
-   OCAT_LISTEN_PORT, 
+   //OCAT_LISTEN_PORT, 
    OCAT_DEST_PORT, OCAT_CTRL_PORT, 
    //! default tunfd is stdin/stdout
    {0, 1},
@@ -128,7 +128,7 @@ void print_setup_struct(FILE *f)
          "fhd_key[IPV6(%d)]       = 0x%04x\n"
          "fhd_key_len            = %d\n"
          //"tor_socks_port    = %d\n"
-         "ocat_listen_port       = %d\n"
+         //"ocat_listen_port       = %d\n"
          "ocat_dest_port         = %d\n"
          "ocat_ctrl_port         = %d\n"
          "tunfd[0]               = %d\n"
@@ -161,7 +161,7 @@ void print_setup_struct(FILE *f)
          IPV4_KEY, ntohl(setup_.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup_.fhd_key[IPV6_KEY]),
          setup_.fhd_key_len,
          //setup_.tor_socks_port,
-         setup_.ocat_listen_port,
+         //setup_.ocat_listen_port,
          setup_.ocat_dest_port,
          setup_.ocat_ctrl_port,
          setup_.tunfd[0], setup_.tunfd[1],
