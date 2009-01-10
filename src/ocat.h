@@ -263,6 +263,8 @@ struct OcatSetup
    };
    //! local listening socket address for incoming connections
    struct sockaddr **oc_listen;
+   int *oc_listen_fd;
+   int oc_listen_cnt;
    int rand_addr;
    char version[VERSION_STRING_LEN];
    int sizeof_setup;
@@ -543,7 +545,6 @@ uint16_t checksum(const uint16_t *, int);
 void free_ckbuf(uint16_t *);
 uint16_t *malloc_ckbuf(const struct in6_addr *, const struct in6_addr *, uint16_t, uint8_t, const void *);
 
-
 /* ocatsocks.c */
 void socks_queue(struct in6_addr, int);
 void print_socks_queue(FILE *);
@@ -552,6 +553,8 @@ void print_socks_queue(FILE *);
 void oe_close(int);
 int oe_remtr(char *);
 int strsockaddr(const char *, struct sockaddr *);
+void add_local_listeners(void);
+void add_listener(const char *, const char *);
 
 /* ocatipv6route.c */
 struct in6_addr *ipv6_lookup_route(const struct in6_addr *);

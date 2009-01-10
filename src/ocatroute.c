@@ -35,7 +35,7 @@
 #endif
 
 // file descriptor of tcp listener
-int sockfd_[2];
+//int sockfd_[2];
 // file descriptors of socket_receiver pipe
 // used for internal communication
 static int lpfd_[2];
@@ -663,10 +663,10 @@ int run_listeners(struct sockaddr **addr, int *sockfd, int (action_accept)(int))
    socklen_t alen;
    char iabuf[INET6_ADDRSTRLEN];
 
-   for (i = 0, saddr = *addr; saddr; saddr = addr[i], i++)
+   for (i = 0; i < CNF(oc_listen_cnt); i++)
    {
       log_debug("create listener");
-      if ((sockfd[i] = create_listener(saddr, SOCKADDR_SIZE(saddr))) == -1)
+      if ((sockfd[i] = create_listener(CNF(oc_listen)[i], SOCKADDR_SIZE(CNF(oc_listen)[i]))) == -1)
          log_msg(LOG_EMERG, "exiting"), exit(1);
    }
    cnt = i;
@@ -802,7 +802,8 @@ int run_local_listeners(short port, int *sockfd, int (action_accept)(int))
 
 void *socket_acceptor(void *p)
 {
-   run_local_listeners(CNF(ocat_listen_port), sockfd_, insert_anon_peer);
+   //run_local_listeners(CNF(ocat_listen_port), sockfd_, insert_anon_peer);
+   run_listeners(CNF(oc_listen), CNF(oc_listen_fd), insert_anon_peer);
    return NULL;
 }
 
