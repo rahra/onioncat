@@ -128,11 +128,29 @@ int strsockaddr(const char *src, struct sockaddr *addr)
             return AF_INET;
 
          default:
-            log_debug("adress family %04x not supported", ((struct sockaddr_in*) addr)->sin_family);
+            log_debug("adress family 0x%04x not supported", ((struct sockaddr_in*) addr)->sin_family);
             return -1;
       }
    }
 
    return -1;
+}
+
+
+void add_listener(const char *buf, const char *def)
+{
+   CNF(oc_listen_cnt)++;
+   if (!(CNF(oc_listen) = realloc(CNF(oc_listen), sizeof(struct sockaddr*) * CNF(oc_listen_cnt))))
+      log_msg(LOG_ERR, "could not get memory for listener list: \"%s\"", strerror(errno)), exit(1);
+   if (!(CNF(oc_listen_fd) = realloc(CNF(oc_listen), sizeof(int) * CNF(oc_listen_cnt))))
+      log_msg(LOG_ERR, "could not get memory for listener fds: \"%s\"", strerror(errno)), exit(1);
+
+   if (!(CNF(oc_listen)[CNF(oc_listen_cnt) - 1] = calloc(1, sizeof(struct sockaddr_in6))))
+      log_msg(LOG_ERR, "could not get memory for listener : \"%s\"", strerror(errno)), exit(1);
+   if (def)
+      if (strsockaddr(def, CNF(oc_listen)[CNF(oc_listen_cnt) - 1]) == -1)
+         log_msg(LOG_EMERG, "illegal default string '%s'", def), exit(1);
+   if (strsockaddr(buf, CNF(oc_listen)[CNF(oc_listen_cnt) - 1]) == -1)
+      log_msg(LOG_EMERG, "could not convert address string '%s'", buf), exit(1);
 }
 

@@ -122,10 +122,12 @@ void background(void)
 int main(int argc, char *argv[])
 {
    //char tunname[IFNAMSIZ] = {0}, 
-   char *s, ip6addr[INET6_ADDRSTRLEN], hw[20];
+   char *s, ip6addr[INET6_ADDRSTRLEN], hw[20], def[100];
    int c, runasroot = 0;
    struct passwd *pwd;
    int urlconv = 0;
+
+   snprintf(def, 100, "127.0.0.1:%d", OCAT_LISTEN_PORT);
 
    init_setup();
 
@@ -161,9 +163,7 @@ int main(int argc, char *argv[])
             break;
 
          case 'l':
-            //CNF(ocat_listen_port) = atoi(optarg);
-            if (strsockaddr(optarg, (struct sockaddr*) CNF(oc_listen)) == -1)
-               exit(1);
+            add_listener(optarg, def);
             break;
 
          case 'L':
@@ -297,6 +297,9 @@ int main(int argc, char *argv[])
    // daemonize of required
    if (CNF(daemon))
       background();
+
+   if (!CNF(oc_listen))
+      add_listener(def, def);
 
    // start socket receiver thread
    run_ocat_thread("receiver", socket_receiver, NULL);

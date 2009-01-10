@@ -171,7 +171,7 @@ void *ctrl_handler(void *p)
       }
       else if (!strcmp(buf, "fds"))
       {
-         fprintf(fo, "acceptor sockets: %d/%d\nconntroller sockets: %d/%d\n", sockfd_[0], sockfd_[1], ctrlfd_[0], ctrlfd_[1]);
+         fprintf(fo, "conntroller sockets: %d/%d\n", ctrlfd_[0], ctrlfd_[1]);
       }
       else if (!strcmp(buf, "route"))
       {

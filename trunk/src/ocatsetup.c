@@ -27,8 +27,6 @@
 
 
 static struct sockaddr_in6 socks_dst6_;
-static struct sockaddr_in6 oc_listen6_;
-static struct sockaddr* oc_listen_a_[] = {(struct sockaddr*) &oc_listen6_, NULL};
 
 struct OcatSetup setup_ =
 {
@@ -63,12 +61,20 @@ struct OcatSetup setup_ =
    0,
    "/dev/urandom",
    {(struct sockaddr_in*) &socks_dst6_},
-   oc_listen_a_,
+   // oc_listen
+   NULL,
+   // oc_listen_fd
+   NULL,
+   // oc_listen_cnt
+   0,
    //! rand_addr
    0,
    {0},
    sizeof(struct OcatSetup)
 };
+
+
+#define IADDRSTRLEN 128
 
 
 void init_setup(void)
@@ -90,20 +96,13 @@ void init_setup(void)
    setup_.socks_dst->sin_len = sizeof(socks_dst6_);
 #endif
 
-   /*
-   ((struct sockaddr_in*) *setup_.oc_listen)->sin_family = AF_INET;
-   setup_.oc_listen->sin_port = htons(OCAT_LISTEN_PORT);
-   setup_.oc_listen->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-#ifdef HAVE_SIN_LEN
-   setup_.oc_listen->sin_len = sizeof(oc_listen6_);
-#endif
-*/
-
    snprintf(setup_.version, VERSION_STRING_LEN, "%s (c) %s -- compiled %s %s", PACKAGE_STRING, OCAT_AUTHOR, __DATE__, __TIME__);
+
 }
 
 
 #define SBUF 100
+
 
 void print_setup_struct(FILE *f)
 {
@@ -210,5 +209,13 @@ void print_setup_struct(FILE *f)
    else
       log_msg(LOG_WARNING, "could not convert struct sockaddr: \"%s\"", strerror(errno));
  
+   for (i = 0; i < CNF(oc_listen_cnt); i++)
+   {
+      if (inet_ntops(CNF(oc_listen)[i], &sas))
+         fprintf(f, "oc_listen[%d]          = %s:%d", i, sas.sstr_addr, ntohs(sas.sstr_port));
+      else
+         log_msg(LOG_WARNING, "could not convert struct sockaddr: \"%s\"", strerror(errno));
+      fprintf(f, "oc_listen_fd[%d]       = %d", i, CNF(oc_listen_fd)[i]);
+   }
 }
 
