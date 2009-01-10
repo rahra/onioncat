@@ -208,14 +208,14 @@ void print_setup_struct(FILE *f)
    }
    else
       log_msg(LOG_WARNING, "could not convert struct sockaddr: \"%s\"", strerror(errno));
- 
+
    for (i = 0; i < CNF(oc_listen_cnt); i++)
    {
       if (inet_ntops(CNF(oc_listen)[i], &sas))
-         fprintf(f, "oc_listen[%d]          = %s:%d", i, sas.sstr_addr, ntohs(sas.sstr_port));
+         fprintf(f, "oc_listen[%d]           = %s:%d\n", i, sas.sstr_addr, ntohs(sas.sstr_port));
       else
          log_msg(LOG_WARNING, "could not convert struct sockaddr: \"%s\"", strerror(errno));
-      fprintf(f, "oc_listen_fd[%d]       = %d", i, CNF(oc_listen_fd)[i]);
+      fprintf(f, "oc_listen_fd[%d]        = %d\n", i, CNF(oc_listen_fd)[i]);
    }
 }
 

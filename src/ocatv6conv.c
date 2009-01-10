@@ -147,6 +147,7 @@ const char *inet_ntops(const struct sockaddr *saddr, struct sockaddr_str *sas)
 {
    char *src;
 
+   log_debug("convert sockaddr %p to sockaddr_str %p", saddr, sas);
    switch (saddr->sa_family)
    {
       case AF_INET:
