@@ -147,9 +147,13 @@ void add_listener(const char *buf, const char *def)
 
    if (!(CNF(oc_listen)[CNF(oc_listen_cnt) - 1] = calloc(1, sizeof(struct sockaddr_in6))))
       log_msg(LOG_ERR, "could not get memory for listener : \"%s\"", strerror(errno)), exit(1);
+
+   CNF(oc_listen_fd)[CNF(oc_listen_cnt) - 1] = -1;
+
    if (def)
       if (strsockaddr(def, CNF(oc_listen)[CNF(oc_listen_cnt) - 1]) == -1)
          log_msg(LOG_EMERG, "illegal default string '%s'", def), exit(1);
+
    if (strsockaddr(buf, CNF(oc_listen)[CNF(oc_listen_cnt) - 1]) == -1)
       log_msg(LOG_EMERG, "could not convert address string '%s'", buf), exit(1);
 }

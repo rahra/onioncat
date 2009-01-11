@@ -653,34 +653,42 @@ int create_listener(struct sockaddr *addr, int sock_len)
  *         connection arrives.
  *  @return File descriptor or -1 on error.
  */
-int run_listeners(struct sockaddr **addr, int *sockfd, int (action_accept)(int))
+int run_listeners(struct sockaddr **addr, int *sockfd, int cnt, int (action_accept)(int))
 {
    int fd;
-   struct sockaddr *saddr;
+   //struct sockaddr *saddr;
    struct sockaddr_in6 in6;
    fd_set rset;
-   int maxfd, i, cnt;
+   int maxfd, i;
    socklen_t alen;
    char iabuf[INET6_ADDRSTRLEN];
 
-   for (i = 0; i < CNF(oc_listen_cnt); i++)
+   for (i = 0; i < cnt; i++)
    {
       log_debug("create listener");
-      if ((sockfd[i] = create_listener(CNF(oc_listen)[i], SOCKADDR_SIZE(CNF(oc_listen)[i]))) == -1)
+      if ((sockfd[i] = create_listener(addr[i], SOCKADDR_SIZE(addr[i]))) == -1)
          log_msg(LOG_EMERG, "exiting"), exit(1);
    }
-   cnt = i;
 
    for (;;)
    {
       log_debug("setting up fd_set");
       FD_ZERO(&rset);
-      maxfd = 0;
+      maxfd = -1;
       for (i = 0; i < cnt; i++)
       {
+         if (sockfd[i] == -1)
+            continue;
+
          FD_SET(sockfd[i], &rset);
          if (sockfd[i] > maxfd)
             maxfd = sockfd[i];
+      }
+
+      if (maxfd == -1)
+      {
+         log_debug("no active listener fds available");
+         break;
       }
 
       log_debug("selecting locally (maxfd = %d)", maxfd);
@@ -714,6 +722,7 @@ int run_listeners(struct sockaddr **addr, int *sockfd, int (action_accept)(int))
          (void) action_accept(fd);
       }
    }
+   log_debug("run_listeners returns");
    return 0;
 }
 
@@ -803,7 +812,7 @@ int run_local_listeners(short port, int *sockfd, int (action_accept)(int))
 void *socket_acceptor(void *p)
 {
    //run_local_listeners(CNF(ocat_listen_port), sockfd_, insert_anon_peer);
-   run_listeners(CNF(oc_listen), CNF(oc_listen_fd), insert_anon_peer);
+   run_listeners(CNF(oc_listen), CNF(oc_listen_fd), CNF(oc_listen_cnt), insert_anon_peer);
    return NULL;
 }
 
