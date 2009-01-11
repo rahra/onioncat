@@ -34,7 +34,7 @@ static pthread_mutex_t mac_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 /*! Pseudo header for IPv6 checksum calculation.
  *  RFC2460 8.1, (RFC1885 2.3) RFC2463, RFC1071. */
 /* RFC2461, rfc2462, RFC2464 ipv6 ethernet enc.
- * 2373 addrassng ipv6
+ * RFC2373 is obsoleted by RFC3513 addressing ipv6
  * RFC2461 is obsoleted by RFC4861
  * RFC4862 IPv6 Stateless Address Autoconfiguration
  */
@@ -69,7 +69,9 @@ void print_mac_tbl(FILE *f)
 void mac_cleanup(void)
 {
    int i;
+#ifdef DEBUG
    char hw[20];
+#endif
 
    pthread_mutex_lock(&mac_mutex_);
 
@@ -297,7 +299,9 @@ int ndp_soladv(char *buf, int rlen)
    ndp6_t *ndp6 = (ndp6_t*) (buf + 4);
    struct nd_opt_hdr *ohd = (struct nd_opt_hdr*) (ndp6 + 1);
    uint16_t *ckb, cksum;
+#ifdef DEBUG
    char hw[20];
+#endif
 
    if (ndp6->eth.ether_dhost[0] & 1)
    {

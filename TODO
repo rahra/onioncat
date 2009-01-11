@@ -1,3 +1,4 @@
+* work on header compression (start at RFC2507 or 3095)
 * disconnected permanent peers are not reconnected sometimes
 * peer reconnections timeout should be implemented (to not reconnect to fast)
 * log connect log to OC console
