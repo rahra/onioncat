@@ -171,7 +171,7 @@ void *socks_connector(void *p)
 {
    OcatPeer_t *peer;
    SocksQueue_t *squeue;
-   int i, rc, ps, run = 1;
+   int i, rc, ps, run = 1, t_abs, t_diff;
    char thn[THREAD_NAME_LEN] = "cn:", on[ONION_NAME_LEN];
 
    if ((rc = pthread_detach(pthread_self())))
@@ -225,8 +225,21 @@ void *socks_connector(void *p)
 
       // connect via SOCKS if no peer exists
       if (!peer)
-         for (i = 0, ps = -1; ((i < SOCKS_MAX_RETRY) || squeue->perm) && ps < 0; i++)
+         for (i = 0, ps = -1, t_abs = 0; ((i < SOCKS_MAX_RETRY) || squeue->perm) && ps < 0; i++)
          {
+            // every third connection attempt
+            if (!(i % RECONN_ATTEMPTS))
+            {
+               // check that it does not reconnect too fast
+               t_diff = time(NULL) - t_abs;
+               if (t_diff < MIN_RECONNECT_TIME)
+               {
+                  // and sleep if necessary
+                  log_msg(LOG_WARNING, "reconnecting too fast. sleeping %d seconds", MIN_RECONNECT_TIME - t_diff);
+                  sleep(MIN_RECONNECT_TIME - t_diff);
+               }
+               t_abs = time(NULL);
+            }
             log_debug("%d. SOCKS connection attempt", i + 1);
             ps = socks_connect(squeue);
          }

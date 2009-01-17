@@ -196,6 +196,10 @@
 */
 //! retry-delay if connection to TOR's SOCKS port fails
 #define TOR_SOCKS_CONN_TIMEOUT 30
+//! number of attempts for MIN_RECONNECT_TIME is measured
+#define RECONN_ATTEMPTS 3
+//! RECONN_ATTEMPTS must not be faster than MIN_RECONNECT_TIME
+#define MIN_RECONNECT_TIME 30
 
 //! copy an IPv6 address from b to a
 #define IN6_ADDR_COPY(a,b) *((struct in6_addr*)a)=*(struct in6_addr*)b
