@@ -59,6 +59,8 @@ void *ctrl_handler(void *p)
       }
       log_debug("fd %d fdopen'ed \"r+\"", fd);
       fo = ff;
+      if (setvbuf(ff, NULL, _IONBF, 0))
+         log_msg(LOG_ERR, "could not setup line buffering: %s", strerror(errno));
    }
    else
    {
@@ -92,6 +94,15 @@ void *ctrl_handler(void *p)
          log_debug("^D received.");
          break;
       }
+      else if (c == 0x1b)
+      {
+         log_debug("ESC received");
+         if (ungetc(c, ff) == EOF)
+         {
+            log_debug("received EOF on ungetc");
+            break;
+         }
+      }
       else
       {
          if (ungetc(c, ff) == EOF)
@@ -107,6 +118,12 @@ void *ctrl_handler(void *p)
             log_msg(LOG_ERR, "error reading from %d");
          break;
       }
+
+#ifdef DEBUG
+      for (c = 0; c < strlen(buf); c++)
+         snprintf(&buf[strlen(buf) + 2 + c * 3], FRAME_SIZE - strlen(buf) - 2 - c * 3, "%02x ", buf[c]);
+      log_debug("xenc input buf: %s", &buf[strlen(buf) + 2]);
+#endif 
 
       if (!(rlen = oe_remtr(buf)))
          continue;

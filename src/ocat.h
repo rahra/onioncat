@@ -169,6 +169,8 @@
 #define PEER_OUTGOING 1
 
 #define THREAD_NAME_LEN 11
+//! thread stack size (default stack size on OpenBSD is too small)
+#define THREAD_STACK_SIZE 1048576
 
 #define SOCKS_CONNECTING 1
 #define SOCKS_MAX_RETRY 3
@@ -210,6 +212,8 @@
 #define SOCKADDR_SIZE(x) (x->sa_family == AF_INET ? sizeof(struct sockaddr_in) : x->sa_family == AF_INET6 ? sizeof(struct sockaddr_in6) : 0)
 
 #define VERSION_STRING_LEN 256
+
+typedef enum PeerType {PT_TOR, PT_I2P} PeerType_t;
 
 struct OcatSetup
 {
@@ -293,6 +297,15 @@ typedef struct SocksHdr
    struct in_addr addr;
 } __attribute__((packed)) SocksHdr_t;
 
+typedef struct Socks5Hdr
+{
+   char ver;
+   char cmd;
+   char rsv;
+   char atyp;
+   char addr;
+} __attribute__((packed)) Socks5Hdr_t;
+
 typedef struct OcatPeer
 {
    struct OcatPeer *next;  //!< pointer to next peer in list
@@ -314,12 +327,14 @@ typedef struct OcatPeer
    time_t last_io;         //!< timestamp when last I/O packet measurement started
    unsigned inm;
    unsigned outm;
+   PeerType_t type;
 } OcatPeer_t;
 
 typedef struct OcatThread
 {
    struct OcatThread *next;
    pthread_t handle;
+   pthread_attr_t attr;
    int id;
    char name[THREAD_NAME_LEN];
    void *(*entry)(void*);

@@ -1,4 +1,8 @@
-* version 
+* version 0.1.10
+ - thread stack size configurable (necessary because OpenBSD stacksize seems
+ to be to small)
+
+* version 0.1.9
  - man page updated
  - Local onion-URL may be generated randomly (option -R)
  - SOCKS destination IP configurable (v4 only)

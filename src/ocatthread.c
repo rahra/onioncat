@@ -110,8 +110,19 @@ int run_ocat_thread(const char *name, void *(*thfunc)(void*), void *parm)
    th->entry = thfunc;
    th->parm = parm;
 
+   if ((rc = pthread_attr_init(&th->attr)))
+   {
+      log_msg(LOG_ERR, "could not init pthread attr: \"%s\"", strerror(rc));
+      return rc;
+   }
+   if ((rc - pthread_attr_setstacksize(&th->attr, THREAD_STACK_SIZE)))
+   {
+      log_msg(LOG_EMERG, "could not init thread stack size attr - system may be unstable: \"%s\"", strerror(rc));
+      return rc;
+   }
+
    log_debug("starting [%s]", name);
-   if ((rc = pthread_create(&th->handle, NULL, thread_run, th)))
+   if ((rc = pthread_create(&th->handle, &th->attr, thread_run, th)))
    {
       log_msg(LOG_EMERG, "could not start thread %s: \"%s\"", name, strerror(rc));
       free(th);
