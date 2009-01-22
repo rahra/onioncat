@@ -22,6 +22,7 @@
  *  @version 2008/02/03-01
  */
 
+/* SOCKS5 is defined in RFC1928 */
 
 #include "ocat.h"
 
@@ -32,6 +33,27 @@ static int socks_connect_cnt_ = 0;
 static int socks_thread_cnt_ = 0;
 static pthread_mutex_t socks_queue_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t socks_queue_cond_ = PTHREAD_COND_INITIALIZER;
+
+
+int socks_srv_con(void)
+{
+   int fd, t;
+   char addr[INET6_ADDRSTRLEN];
+
+   if ((fd = socket(CNF(socks_dst)->sin_family == AF_INET ? PF_INET : PF_INET6, SOCK_STREAM, 0)) < 0)
+      return E_SOCKS_SOCK;
+
+   t = time(NULL);
+   if (connect(fd, (struct sockaddr*) CNF(socks_dst), sizeof(struct sockaddr_in6)) == -1)
+   {
+      log_msg(LOG_ERR, "connect() to SOCKS port %s:%d failed: \"%s\". Sleeping for %d seconds.", inet_ntop(CNF(socks_dst)->sin_family, CNF(socks_dst)->sin_family == AF_INET ? (char*) &CNF(socks_dst)->sin_addr : (char*) &CNF(socks_dst6)->sin6_addr, addr, sizeof(addr)), ntohs(CNF(socks_dst)->sin_port), strerror(errno), TOR_SOCKS_CONN_TIMEOUT);
+      oe_close(fd);
+      sleep(TOR_SOCKS_CONN_TIMEOUT);
+      return E_SOCKS_CONN;
+   }
+   log_debug("connected");
+   return fd;
+}
 
 
 int socks_connect(const SocksQueue_t *sq)
@@ -56,7 +78,10 @@ int socks_connect(const SocksQueue_t *sq)
    strlcat(onion, ".onion", sizeof(onion));
 
    log_msg(LOG_INFO, "trying to connect to \"%s\" [%s]", onion, inet_ntop(AF_INET6, &sq->addr, buf, FRAME_SIZE));
+   if ((fd = socks_srv_con()) < 0)
+      return fd;
 
+   /*
    if ((fd = socket(CNF(socks_dst)->sin_family == AF_INET ? PF_INET : PF_INET6, SOCK_STREAM, 0)) < 0)
       return E_SOCKS_SOCK;
 
@@ -68,8 +93,9 @@ int socks_connect(const SocksQueue_t *sq)
       sleep(TOR_SOCKS_CONN_TIMEOUT);
       return E_SOCKS_CONN;
    }
+   */
 
-   log_debug("connected to TOR, doing SOCKS handshake");
+   log_debug("doing SOCKS4a handshake");
 
    shdr->ver = 4;
    shdr->cmd = 1;
@@ -294,5 +320,30 @@ void print_socks_queue(FILE *f)
    }
 
    pthread_mutex_unlock(&socks_queue_mutex_);
+}
+
+
+int socks5_connect(const SocksQueue_t *sq)
+{
+   char buf[256 + sizeof(uint16_t) + sizeof(Socks5Hdr_t)];
+   char dest[ONION_URL_LEN + 1];
+   Socks5Hdr_t *shdr = (Socks5Hdr_t*) buf;
+   int fd;
+
+   log_msg(LOG_INFO, "trying to connect to \"%s\" [%s]", dest, inet_ntop(AF_INET6, &sq->addr, buf, 256));
+   if ((fd = socks_srv_con()) < 0)
+      return fd;
+
+   memset(buf, 0, sizeof(buf));
+   shdr->ver = '\x05';  // Version 5
+   shdr->cmd = '\x01';  // CONNECT
+   shdr->atyp = '\x03'; // DOMAINNAME
+
+   ipv6tonion(&sq->addr, dest);
+   shdr->addr = strlen(dest);
+   memcpy(&buf[sizeof(Socks5Hdr_t)], dest, strlen(dest));
+   *((uint16_t*) &buf[sizeof(Socks5Hdr_t) + strlen(dest)]) = htons(CNF(ocat_dest_port));
+
+   return fd;
 }
 

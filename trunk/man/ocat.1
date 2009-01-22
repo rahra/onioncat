@@ -16,7 +16,7 @@
 .\"
 .TH OCAT 1 2008-12-07 "ocat" "OnionCat User's Manual"
 .SH NAME
-ocat \- OnionCat creates a transparent IPv6 layer on top of TOR's hidden services.
+ocat \- OnionCat creates a transparent IPv6 layer on top of Tor's hidden services.
 .SH SYNOPSIS
 .B ocat
 -i \fIonion_id                      (1st form)\fP
@@ -31,31 +31,32 @@ ocat \- OnionCat creates a transparent IPv6 layer on top of TOR's hidden service
 -R [\fIOPTION\fP]\fI                      (4th form)\fP
 .br
 .SH DESCRIPTION
-OnionCat creates a transparent IPv6 layer on top of TOR's hidden services. It
-transmits any kind of IP-based data transparently through the TOR network on a
+OnionCat creates a transparent IPv6 layer on top of Tor's hidden services. It
+transmits any kind of IP-based data transparently through the Tor network on a
 location hidden basis. You can think of it as a point-to-multipoint VPN
 between hidden services.
 
 OnionCat is a stand-alone application which runs in userland and is a connector
-between TOR and the local OS. Any protocol which is based on IP can be
+between Tor and the local OS. Any protocol which is based on IP can be
 transmitted. Of course, UDP and TCP (and probably ICMP) are the most important
 ones but all other protocols can also be forwarded through it.
 
 OnionCat opens a TUN device and assigns an IPv6 address to it. All packets
 forwarded to the TUN device by the kernel are forwarded by OnionCat to other
-OnionCats listening on TOR's hidden service ports.  The IPv6 address depends on
+OnionCats listening on Tor's hidden service ports.  The IPv6 address depends on
 the \fIonion_id\fP of the locally configured hidden service (see \fBtor(8)\fP).
-Depending on the configuration of TOR the \fIonion_id\fP usually can be found
+Depending on the configuration of Tor the \fIonion_id\fP usually can be found
 at \fI/var/lib/tor/hidden_service/hostname\fP or similar location.
 
 .SS OPTIONS
 .TP
 \fB\-4\fP
-Enable IPv4 forwarding.
+Enable IPv4 forwarding. See http://www.cypherpunk.at/onioncat/wiki/IPv4 for further
+information on IPv4.
 .TP
 \fB\-a\fP
 OnionCat creates a log file at $HOME/.ocat/connect_log. All incomming connects are
-log to that file. $HOME is determined from the user under which OnionCat runs
+logged to that file. $HOME is determined from the user under which OnionCat runs
 (see option -u).
 .TP
 \fB\-b\fP
@@ -70,7 +71,8 @@ in production environments.
 .TP
 \fB\-d\fP \fIn\fP
 Set debug level to \fIn\fP. Default = 7 which is maximum. Debug output will
-only be created if OnionCat was compiled with option DEBUG.
+only be created if OnionCat was compiled with option DEBUG (i.e. configure was
+run with option --enable-debug).
 .TP
 \fB\-f\fP \fIconfig file\fP
 Read initial configuration from \fIconfig file\fP. 
@@ -101,9 +103,10 @@ Create \fIpid file\fP instead of \fB/var/run/ocat.pid\fP.
 Run OnionCat as root and don't change user id (see option \fB\-u\fP).
 .TP
 \fB\-R\fP
+Use this option only if you really know what you do!
 Generate a random local onion_id. With this option it is not necessary to add a
-hidden service to the Tor configuration file \fBtorrc\fP.  With this option set
-one might use OnionCat services within Tor as usualy but it is NOT possible to
+hidden service to the Tor configuration file \fBtorrc\fP.
+One might use OnionCat services within Tor as usualy but it is NOT possible to
 receive incoming connections. If you plan to also receive connections (e.g.
 because you provide a service or you use software which opens sockets for
 incomming connections like Bitorrent) you MUST configure a hidden service and
@@ -113,7 +116,7 @@ supply its hostname to OnionCat on the command line.
 Set OnionCat's virtual hidden service port to \fIport\fP.
 .TP
 \fB\-t\fP \fI(IP|[IP:]port)\fP
-Set TOR SOCKS \fIIP\fP and/or \fIport\fP. If no \fIIP\fP is specified 127.0.0.1
+Set Tor SOCKS \fIIP\fP and/or \fIport\fP. If no \fIIP\fP is specified 127.0.0.1
 will be used, if no \fIport\fP is specified 9050 will be used as defaults. IPv6
 addresses must be escaped by square brackets.
 .TP
@@ -142,9 +145,9 @@ Software and man page written by Bernhard R. Fischer.
 Concept by Bernhard R. Fischer and Daniel Haslinger.
 
 .SH "SEE ALSO"
-OnionCat project page http://www.abenteuerland.at/onioncat/
+OnionCat project page http://www.cypherpunk.at/onioncat/
 
-TOR project homepage http://www.torproject.org/
+Tor project homepage http://www.torproject.org/
 
 .SH COPYRIGHT
 Copyright 2008 Bernhard R. Fischer, Daniel Haslinger.
