@@ -19,6 +19,10 @@
 #include "ocat.h"
 
 
+//! set to one if SIGINT is catched
+static int sig_term_ = 0;
+
+
 void usage(const char *s)
 {
    fprintf(stderr, 
@@ -119,9 +123,57 @@ void background(void)
 }
 
 
+/*! Signal handler for SIGINT. */
+void sig_handler(int sig)
+{
+   sig_term_ = 1;
+}
+
+
+void install_sig(void)
+{
+   struct sigaction sa;
+
+   memset(&sa, 0, sizeof(sa));
+   sa.sa_handler = sig_handler;
+   log_debug("installing signal handler");
+   if (sigaction(SIGINT, &sa, NULL) == -1)
+      log_msg(LOG_ERR, "could not install signal handler: \"%s\"", strerror(errno)), exit(1);
+}
+
+
+void cleanup_system(void)
+{
+   OcatPeer_t *peer;
+
+   log_msg(LOG_NOTICE, "waiting for system cleanup...");
+   // close tunnel interface
+   log_debug("closing tunfd %d (and %d)", CNF(tunfd[0]), CNF(tunfd[1]));
+   oe_close(CNF(tunfd[0]));
+   if (CNF(tunfd[0]) != CNF(tunfd[1]))
+      oe_close(CNF(tunfd[1]));
+
+   // close and delete all peers
+   log_debug("deleting peers");
+   lock_peers();
+   for (peer = get_first_peer(); peer; peer = peer->next)
+   {
+      lock_peer(peer);
+      log_debug("closing tcpfd %d", peer->tcpfd);
+      oe_close(peer->tcpfd);
+      unlock_peer(peer);
+      log_debug("deleting peer at %p", peer);
+      delete_peer(peer);
+   }
+   unlock_peers();
+
+   // join threads
+   join_threads();
+}
+
+
 int main(int argc, char *argv[])
 {
-   //char tunname[IFNAMSIZ] = {0}, 
    char *s, ip6addr[INET6_ADDRSTRLEN], hw[20], def[100];
    int c, runasroot = 0;
    struct passwd *pwd;
@@ -225,6 +277,7 @@ int main(int argc, char *argv[])
 
    // init main thread
    (void) init_ocat_thread("main");
+   detach_thread();
 
    if (urlconv == 2)
    {
@@ -366,10 +419,21 @@ int main(int argc, char *argv[])
       ctrl_handler((void*) c);
    }
 
+   // install signal handler
+   install_sig();
+
    // start forwarding packets from tunnel
    log_msg(LOG_INFO, "starting packet forwarder");
-   packet_forwarder();
+   while (!sig_term_)
+      packet_forwarder();
 
+   log_msg(LOG_NOTICE, "caught termination request");
+   // set global termination flag
+   set_term_req();
+   // initiate termination
+   cleanup_system();
+
+   log_msg(LOG_INFO, "Thanks for using OnionCat. Good Bye!");
    return 0;
 }
 

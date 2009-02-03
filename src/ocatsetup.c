@@ -27,6 +27,11 @@
 
 
 static struct sockaddr_in6 socks_dst6_;
+static struct sockaddr_in ctrl_listen_;
+static struct sockaddr_in6 ctrl_listen6_;
+static struct sockaddr *ctrl_listen_ptr_[] = 
+   {(struct sockaddr*) &ctrl_listen_, (struct sockaddr*) &ctrl_listen6_, NULL};
+static int ctrl_fd_[2] = {-1, -1};
 
 struct OcatSetup setup_ =
 {
@@ -70,7 +75,15 @@ struct OcatSetup setup_ =
    //! rand_addr
    0,
    {0},
-   sizeof(struct OcatSetup)
+   sizeof(struct OcatSetup),
+   0,
+   PTHREAD_MUTEX_INITIALIZER,
+   // ctrl_listen
+   ctrl_listen_ptr_,
+   // oc_listen_fd
+   ctrl_fd_,
+   // oc_listen_cnt
+   2
 };
 
 
@@ -93,10 +106,24 @@ void init_setup(void)
    setup_.socks_dst->sin_port = htons(TOR_SOCKS_PORT);
    setup_.socks_dst->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 #ifdef HAVE_SIN_LEN
-   setup_.socks_dst->sin_len = sizeof(socks_dst6_);
+   setup_.socks_dst->sin_len = SOCKADDR_SIZE(setup_.socks_dst);
 #endif
 
    snprintf(setup_.version, VERSION_STRING_LEN, "%s (c) %s -- compiled %s %s", PACKAGE_STRING, OCAT_AUTHOR, __DATE__, __TIME__);
+
+   ctrl_listen_.sin_family = AF_INET;
+   ctrl_listen_.sin_port = htons(setup_.ocat_ctrl_port);
+   ctrl_listen_.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+#ifdef HAVE_SIN_LEN
+   ctrl_listen_.sin_len = sizeof(ctrl_listen_);
+#endif
+
+   ctrl_listen6_.sin6_family = AF_INET6;
+   ctrl_listen6_.sin6_port = htons(setup_.ocat_ctrl_port);
+   ctrl_listen6_.sin6_addr = in6addr_loopback; //IN6ADDR_LOOPBACK_INIT;
+#ifdef HAVE_SIN_LEN
+   ctrl_listen6_.sin6_len = sizeof(ctrl_listen6_);
+#endif
 
 }
 
@@ -157,6 +184,7 @@ void print_setup_struct(FILE *f)
          "uptime                 = %d days, %d:%02d\n"
          "version[%3d+1/%3d]     = \"%s\"\n"
          "sizeof_setup           = %d\n"
+         "term_req               = %d\n"
          ,
          IPV4_KEY, ntohl(setup_.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup_.fhd_key[IPV6_KEY]),
          setup_.fhd_key_len,
@@ -188,7 +216,8 @@ void print_setup_struct(FILE *f)
          setup_.daemon,
          t / (3600 * 24), t / 3600 % 24, t / 60 % 60,
          strlen(setup_.version), VERSION_STRING_LEN, setup_.version,
-         setup_.sizeof_setup
+         setup_.sizeof_setup,
+         setup_.term_req
          );
 
    for (i = 0; i < ROOT_PEERS; i++)
@@ -217,5 +246,17 @@ void print_setup_struct(FILE *f)
          log_msg(LOG_WARNING, "could not convert struct sockaddr: \"%s\"", strerror(errno));
       fprintf(f, "oc_listen_fd[%d]        = %d\n", i, CNF(oc_listen_fd)[i]);
    }
+}
+
+
+void lock_setup(void)
+{
+   pthread_mutex_lock(&setup_.mutex);
+}
+
+
+void unlock_setup(void)
+{
+   pthread_mutex_unlock(&setup_.mutex);
 }
 

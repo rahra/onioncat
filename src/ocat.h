@@ -151,6 +151,8 @@
 #define STAT_WAKEUP 600
 //! keepalive time
 #define KEEPALIVE_TIME (MAX_IDLE_TIME/2)
+//! select timeout (to avoid endless blocking)
+#define SELECT_TIMEOUT 10
 
 #define LOG_FCONN 0x80
 
@@ -170,7 +172,7 @@
 
 #define THREAD_NAME_LEN 11
 //! thread stack size (default stack size on OpenBSD is too small)
-#define THREAD_STACK_SIZE 1048576
+#define THREAD_STACK_SIZE 262144
 
 #define SOCKS_CONNECTING 1
 #define SOCKS_MAX_RETRY 3
@@ -209,7 +211,7 @@
 #define IPV4_KEY 0
 #define IPV6_KEY 1
 
-#define SOCKADDR_SIZE(x) (x->sa_family == AF_INET ? sizeof(struct sockaddr_in) : x->sa_family == AF_INET6 ? sizeof(struct sockaddr_in6) : 0)
+#define SOCKADDR_SIZE(x) (((struct sockaddr*) x)->sa_family == AF_INET ? sizeof(struct sockaddr_in) : ((struct sockaddr*) x)->sa_family == AF_INET6 ? sizeof(struct sockaddr_in6) : 0)
 
 #define VERSION_STRING_LEN 256
 
@@ -276,6 +278,12 @@ struct OcatSetup
    int rand_addr;
    char version[VERSION_STRING_LEN];
    int sizeof_setup;
+   int term_req;
+   pthread_mutex_t mutex;
+   //! listening sockets for controller interface
+   struct sockaddr **ctrl_listen;
+   int *ctrl_listen_fd;
+   int ctrl_listen_cnt;
 };
 
 #ifdef PACKET_QUEUE
@@ -335,6 +343,7 @@ typedef struct OcatThread
    struct OcatThread *next;
    pthread_t handle;
    pthread_attr_t attr;
+   int detached;
    int id;
    char name[THREAD_NAME_LEN];
    void *(*entry)(void*);
@@ -511,7 +520,7 @@ void *socket_cleaner(void *);
 void *ocat_controller(void *);
 void *ctrl_handler(void *);
 int insert_peer(int, const SocksQueue_t *, time_t);
-int run_local_listeners(short, int *, int (action_accept)(int));
+int run_listeners(struct sockaddr **, int *, int, int (*)(int));
 int send_keepalive(OcatPeer_t *);
 
 /* ocatthread.c */
@@ -519,6 +528,11 @@ const OcatThread_t *init_ocat_thread(const char *);
 int run_ocat_thread(const char *, void *(*)(void*), void*);
 const OcatThread_t *get_thread(void);
 int set_thread_name(const char *);
+void join_threads(void);
+void detach_thread(void);
+void print_threads(FILE *);
+int term_req(void);
+void set_term_req(void);
 
 /* ocatcompat.c */
 #ifndef HAVE_STRLCAT
@@ -544,6 +558,8 @@ void delete_peer(OcatPeer_t *);
 extern struct OcatSetup setup_;
 void print_setup_struct(FILE *);
 void init_setup(void);
+void lock_setup(void);
+void unlock_setup(void);
 
 /* ocatipv4route.c */
 struct in6_addr *ipv4_lookup_route(uint32_t);

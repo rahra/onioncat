@@ -83,6 +83,7 @@ void vlog_msgf(FILE *out, int lf, const char *fmt, va_list ap)
    time_t t;
    char timestr[TIMESTRLEN] = "", timez[TIMESTRLEN] = "";
    const OcatThread_t *th = get_thread();
+   OcatThread_t ths;
    int level = LOG_PRI(lf);
 
    if (CNF(debug_level) < level)
@@ -96,6 +97,14 @@ void vlog_msgf(FILE *out, int lf, const char *fmt, va_list ap)
    {
       (void) strftime(timestr, TIMESTRLEN, "%a, %d %b %Y %H:%M:%S", tm);
       (void) strftime(timez, TIMESTRLEN, "%z", tm);
+   }
+
+   // if thread struct not in list
+   if (!th)
+   {
+      strlcpy(ths.name, "<NEW>", THREAD_NAME_LEN);
+      ths.id = -1;
+      th = &ths;
    }
 
    (void) pthread_mutex_lock(&log_mutex_);

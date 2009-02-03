@@ -158,3 +158,8 @@ void add_listener(const char *buf, const char *def)
       log_msg(LOG_EMERG, "could not convert address string '%s'", buf), exit(1);
 }
 
+
+void delete_listeners(struct sockaddr **adr, int *fd, int cnt)
+{
+}
+
