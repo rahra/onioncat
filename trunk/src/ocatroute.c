@@ -34,8 +34,6 @@
 #define IPHDLEN sizeof(struct ip)
 #endif
 
-// file descriptor of tcp listener
-//int sockfd_[2];
 // file descriptors of socket_receiver pipe
 // used for internal communication
 static int lpfd_[2];
@@ -267,12 +265,17 @@ void *socket_receiver(void *p)
    struct in6_addr *in6;
    int drop = 0;
    struct ether_header *eh = (struct ether_header*) (buf + 4);
+   struct timeval tv;
 
    if (pipe(lpfd_) < 0)
       log_msg(LOG_EMERG, "could not create pipe for socket_receiver: \"%s\"", strerror(errno)), exit(1);
 
    for (;;)
    {
+      // check for termination request
+      if (term_req())
+         break;
+
       FD_ZERO(&rset);
       FD_SET(lpfd_[0], &rset);
       maxfd = lpfd_[0];
@@ -299,8 +302,10 @@ void *socket_receiver(void *p)
       }
       unlock_peers();
 
+      tv.tv_sec = SELECT_TIMEOUT;
+      tv.tv_usec = 0;
       log_debug("selecting...");
-      if ((maxfd = select(maxfd + 1, &rset, NULL, NULL, NULL)) == -1)
+      if ((maxfd = select(maxfd + 1, &rset, NULL, NULL, &tv)) == -1)
       {
          log_msg(LOG_EMERG, "select encountered error: \"%s\", restarting", strerror(errno));
          continue;
@@ -531,6 +536,12 @@ void *socket_receiver(void *p)
         unlock_peer(peer);
       } // while (maxfd)
    } // for (;;)
+
+   // closing pipe
+   oe_close(lpfd_[0]);
+   oe_close(lpfd_[1]);
+
+   return NULL;
 }
 
 
@@ -641,27 +652,27 @@ int create_listener(struct sockaddr *addr, int sock_len)
 }
 
 
-/** run_listeners(...) is a generic socket acceptor for
- *  local TCP ports (IPv4+IPv6).
- *  It listens on a given list of sockets.
- *  Every time a connection comes in the function action_accept is
- *  called with the incoming file descriptor as parameter.
- *  @param addr Double pointer to sockaddr structs. It MUST be terminated by a null pointer.
- *  @param sockfd Points to an int array. The array must contain at least 
- *         as much entries as the sockaddr pointer has entries.
- *  @param action_accept Function pointer to function that should be called if a
- *         connection arrives.
- *  @return File descriptor or -1 on error.
+/*! run_listeners(...) is a generic socket acceptor for TCP ports.  It listens
+ * on a given list of sockets.  Every time a connection comes in the function
+ * action_accept is called with the incoming file descriptor as parameter.
+ *
+ * @param addr Double pointer to sockaddr structs. It MUST be terminated by a
+ * null pointer.  
+ * @param sockfd Points to an int array. The array must contain at least as
+ * much entries as the sockaddr pointer has entries.  
+ * @param action_accept Function pointer to function that should be called if a
+ * connection arrives.  
+ * @return Always 0.
  */
 int run_listeners(struct sockaddr **addr, int *sockfd, int cnt, int (action_accept)(int))
 {
    int fd;
-   //struct sockaddr *saddr;
    struct sockaddr_in6 in6;
    fd_set rset;
    int maxfd, i;
    socklen_t alen;
    char iabuf[INET6_ADDRSTRLEN];
+   struct timeval tv;
 
    for (i = 0; i < cnt; i++)
    {
@@ -672,6 +683,10 @@ int run_listeners(struct sockaddr **addr, int *sockfd, int cnt, int (action_acce
 
    for (;;)
    {
+      // check for termination request
+      if (term_req())
+         break;
+
       log_debug("setting up fd_set");
       FD_ZERO(&rset);
       maxfd = -1;
@@ -691,8 +706,10 @@ int run_listeners(struct sockaddr **addr, int *sockfd, int cnt, int (action_acce
          break;
       }
 
+      tv.tv_sec = SELECT_TIMEOUT;
+      tv.tv_usec = 0;
       log_debug("selecting locally (maxfd = %d)", maxfd);
-      if ((maxfd = select(maxfd + 1, &rset, NULL, NULL, NULL)) == -1)
+      if ((maxfd = select(maxfd + 1, &rset, NULL, NULL, &tv)) == -1)
       {
          log_debug("select returned: \"%s\"", strerror(errno));
          continue;
@@ -720,98 +737,20 @@ int run_listeners(struct sockaddr **addr, int *sockfd, int cnt, int (action_acce
                iabuf, INET6_ADDRSTRLEN);
          log_msg(LOG_INFO | LOG_FCONN, "connection %d [%d] accepted on listener %d from %s port %d", fd, i, sockfd[i], iabuf, ntohs(in6.sin6_port));
          (void) action_accept(fd);
-      }
+      } // for
    }
+
+   // closing listeners
+   for (i = 0; i < cnt; i++)
+      oe_close(sockfd[i]);
+
    log_debug("run_listeners returns");
-   return 0;
-}
-
-
-/** run_local_listeners(...) is a generic socket acceptor for
- *  local TCP ports (IPv4+IPv6).
- *  Every time a connection comes in the function action_accept is
- *  called with the incoming file descriptor as parameter.
- */
-int run_local_listeners(short port, int *sockfd, int (action_accept)(int))
-{
-   int fd;
-   struct sockaddr_in in;
-   struct sockaddr_in6 in6;
-   fd_set rset;
-   int maxfd, i;
-   socklen_t alen;
-   char iabuf[INET6_ADDRSTRLEN];
-
-   memset(&in, 0, sizeof(in));
-   memset(&in6, 0, sizeof(in6));
-
-   in.sin_family = AF_INET;
-   in.sin_port = htons(port);
-   in.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-
-   in6.sin6_family = AF_INET6;
-   in6.sin6_port = htons(port);
-   memcpy(&in6.sin6_addr.s6_addr, &in6addr_loopback, sizeof(in6addr_loopback));
-
-#ifdef HAVE_SIN_LEN
-   in.sin_len = sizeof(in);
-   in6.sin6_len = sizeof(in6);
-#endif
-
-   log_debug("creating IPv4 listener");
-   if ((sockfd[0] = create_listener((struct sockaddr*) &in, sizeof(in))) == -1)
-      log_msg(LOG_EMERG, "exiting"), exit(1);
-
-   log_debug("creating IPv6 listener");
-   if ((sockfd[1] = create_listener((struct sockaddr*) &in6, sizeof(in6))) == -1)
-      log_msg(LOG_EMERG, "exiting"), exit(1);
-
-   for (;;)
-   {
-      log_debug("setting up fd_set");
-      FD_ZERO(&rset);
-      FD_SET(sockfd[0], &rset);
-      FD_SET(sockfd[1], &rset);
-
-      maxfd = sockfd[0] > sockfd[1] ? sockfd[0] : sockfd[1];
-      log_debug("selecting locally (maxfd = %d)", maxfd);
-      if ((maxfd = select(maxfd + 1, &rset, NULL, NULL, NULL)) == -1)
-      {
-         log_debug("select returned: \"%s\"", strerror(errno));
-         continue;
-      }
-      log_debug("select returned %d fds ready", maxfd);
-
-      for (i = 0; maxfd && (i < 2); i++)
-      {
-         log_debug("checking fd %d (maxfd = %d, i = %d)", sockfd[i], maxfd, i);
-         if (!FD_ISSET(sockfd[i], &rset))
-            continue;
-         maxfd--;
-         alen = sizeof(in6);
-         log_debug("accepting connection on %d", sockfd[i]);
-         if ((fd = accept(sockfd[i], (struct sockaddr*) &in6, &alen)) < 0)
-         {
-            log_msg(LOG_ERR, "error accepting connection on %d: \"%s\"", sockfd[i], strerror(errno));
-            // FIXME: there should be additional error handling!
-            continue;
-         }
-
-         inet_ntop(in6.sin6_family,
-               in6.sin6_family == AF_INET6 ? &in6.sin6_addr :
-               (void*) &((struct sockaddr_in*) &in6)->sin_addr,
-               iabuf, INET6_ADDRSTRLEN);
-         log_msg(LOG_INFO | LOG_FCONN, "connection %d accepted on listener %d from %s port %d", fd, sockfd[i], iabuf, ntohs(in6.sin6_port));
-         (void) action_accept(fd);
-      }
-   }
    return 0;
 }
 
 
 void *socket_acceptor(void *p)
 {
-   //run_local_listeners(CNF(ocat_listen_port), sockfd_, insert_anon_peer);
    run_listeners(CNF(oc_listen), CNF(oc_listen_fd), CNF(oc_listen_cnt), insert_anon_peer);
    return NULL;
 }
@@ -840,7 +779,7 @@ void packet_forwarder(void)
          log_debug("read from tun %d returned on error: \"%s\"", CNF(tunfd[0]), strerror(rlen));
          if (rlen == EINTR)
          {
-            log_debug("signal caught, exiting");
+            log_debug("signal caught, exiting from packet_forwarder");
             return;
          }
          log_debug("restart reading");
@@ -970,6 +909,10 @@ void *socket_cleaner(void *ptr)
 
    for (;;)
    {
+      // check for termination request
+      if (term_req())
+         break;
+
       sleep(CLEANER_WAKEUP);
       log_debug("wakeup");
 
@@ -1022,5 +965,6 @@ void *socket_cleaner(void *ptr)
       }
       unlock_peers();
    }
+   return NULL;
 }
 

@@ -25,9 +25,6 @@
 
 #include "ocat.h"
 
-//! file descriptors of control port
-static int ctrlfd_[2];
-
 
 /*! ctrl_handler handles connections to local control port.
  *  @param p void* typcasted to int contains fd of connected socket.
@@ -42,12 +39,10 @@ void *ctrl_handler(void *p)
    char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[ONION_NAME_SIZE], timestr[32], *s, *tokbuf;
    int rlen, cfd;
    struct tm *tm;
-   OcatThread_t *th;
    OcatPeer_t *peer;
    struct in6_addr in6;
 
-   if ((rlen = pthread_detach(pthread_self())))
-      log_msg(LOG_ERR, "thread couldn't self-detach: \"%s\"", strerror(rlen));
+   detach_thread();
 
    fd = (int) p;
    if (CNF(config_read))
@@ -175,20 +170,12 @@ void *ctrl_handler(void *p)
       }
       else if (!strcmp(buf, "threads"))
       {
-         pthread_mutex_lock(&thread_mutex_);
-         for (th = octh_; th; th = th->next)
-            fprintf(ff, "%2d: %s\n", th->id, th->name);
-         pthread_mutex_unlock(&thread_mutex_);
+         print_threads(ff);
       }
       else if (!strcmp(buf, "terminate"))
       {
          log_msg(LOG_INFO, "terminate request from control port");
-         //FIXME: fds should be closed properly
-         exit(0);
-      }
-      else if (!strcmp(buf, "fds"))
-      {
-         fprintf(fo, "conntroller sockets: %d/%d\n", ctrlfd_[0], ctrlfd_[1]);
+         kill(getpid(), SIGINT);
       }
       else if (!strcmp(buf, "route"))
       {
@@ -271,7 +258,6 @@ void *ctrl_handler(void *p)
                "close <n> ...... close file descriptor <n> of a peer\n"
                "status ......... list peer status\n"
                "threads ........ show active threads\n"
-               "fds ............ show open file descriptors (w/o peers)\n"
                "route .......... show routing table\n"
                "route <dst IP> <netmask> <IPv6 gw>\n"
                "   ............. add route to routing table\n"
@@ -312,7 +298,7 @@ int run_ctrl_handler(int fd)
 
 void *ocat_controller(void *p)
 {
-   run_local_listeners(CNF(ocat_ctrl_port), ctrlfd_, run_ctrl_handler);
+   run_listeners(CNF(ctrl_listen), CNF(ctrl_listen_fd), CNF(ctrl_listen_cnt), run_ctrl_handler);
    return NULL;
 }
 

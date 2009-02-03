@@ -30,6 +30,7 @@
 
 char *tun_dev_ = TUN_DEV;
 
+#define IFCBUF 1024
 
 int tun_alloc(char *dev, struct in6_addr addr)
 {
@@ -37,7 +38,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
    int fd;
    char astr[INET6_ADDRSTRLEN];
    char astr4[INET_ADDRSTRLEN];
-   char buf[FRAME_SIZE];
+   char buf[IFCBUF];
    struct in_addr netmask = {CNF(ocat_addr4_mask)};
 
 	log_debug("opening tun \"%s\"", tun_dev_);
@@ -84,6 +85,33 @@ int tun_alloc(char *dev, struct in6_addr addr)
    CNF(fhd_key[IPV6_KEY]) = htonl(AF_INET6);
    CNF(fhd_key[IPV4_KEY]) = htonl(AF_INET);
 
+   // get interface name
+   if (!CNF(use_tap))
+   {
+      if (strstr(tun_dev_, "tun"))
+         strlcpy(dev, strstr(tun_dev_, "tun"), IFNAMSIZ);
+      else
+         strlcpy(dev, "tun0", IFNAMSIZ);
+   }
+   else
+   {
+       if (strstr(tun_dev_, "tap"))
+         strlcpy(dev, strstr(tun_dev_, "tap"), IFNAMSIZ);
+      else
+         strlcpy(dev, "tap0", IFNAMSIZ);
+   }
+   /*
+   if (ioctl(fd, SIOCGIFADDR, &ifr) == -1)
+   {
+      log_msg(LOG_ERR, "could not SIOCGIFADDR to get interface name: \"%s\"", strerror(errno));
+      strlcpy(dev, "tun0", IFNAMSIZ);
+   }
+   else
+   {
+      strlcpy(dev, ifr.ifr_name, IFNAMSIZ);
+   }
+   */
+
 #ifdef __FreeBSD__
 
    int prm = 1;
@@ -108,9 +136,14 @@ int tun_alloc(char *dev, struct in6_addr addr)
 
 #endif
 
+
    if (!CNF(use_tap))
    {
-      snprintf(buf, sizeof(buf), "ifconfig tun0 inet6 %s/%d up", astr, TOR_PREFIX_LEN);
+#ifdef __OpenBSD__
+      snprintf(buf, sizeof(buf), "ifconfig %s inet6 %s prefixlen %d up", dev, astr, TOR_PREFIX_LEN);
+#else
+      snprintf(buf, sizeof(buf), "ifconfig %s inet6 %s/%d up", dev, astr, TOR_PREFIX_LEN);
+#endif
       log_debug("setting IP on tun: \"%s\"", buf);
       if (system(buf) == -1)
          log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));

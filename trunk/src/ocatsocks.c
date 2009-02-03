@@ -44,7 +44,7 @@ int socks_srv_con(void)
       return E_SOCKS_SOCK;
 
    t = time(NULL);
-   if (connect(fd, (struct sockaddr*) CNF(socks_dst), sizeof(struct sockaddr_in6)) == -1)
+   if (connect(fd, (struct sockaddr*) CNF(socks_dst), SOCKADDR_SIZE(CNF(socks_dst))) == -1)
    {
       log_msg(LOG_ERR, "connect() to SOCKS port %s:%d failed: \"%s\". Sleeping for %d seconds.", inet_ntop(CNF(socks_dst)->sin_family, CNF(socks_dst)->sin_family == AF_INET ? (char*) &CNF(socks_dst)->sin_addr : (char*) &CNF(socks_dst6)->sin6_addr, addr, sizeof(addr)), ntohs(CNF(socks_dst)->sin_port), strerror(errno), TOR_SOCKS_CONN_TIMEOUT);
       oe_close(fd);
@@ -60,7 +60,8 @@ int socks_connect(const SocksQueue_t *sq)
 {
 //   struct sockaddr_in in;
    int fd, t, len;
-   char buf[FRAME_SIZE], onion[ONION_NAME_SIZE], addr[INET6_ADDRSTRLEN];
+   char buf[FRAME_SIZE], onion[ONION_NAME_SIZE];
+   //char addr[INET6_ADDRSTRLEN];
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
    OcatPeer_t *peer;
 
@@ -197,11 +198,10 @@ void *socks_connector(void *p)
 {
    OcatPeer_t *peer;
    SocksQueue_t *squeue;
-   int i, rc, ps, run = 1, t_abs, t_diff;
+   int i, ps, run = 1, t_abs, t_diff;
    char thn[THREAD_NAME_LEN] = "cn:", on[ONION_NAME_LEN];
 
-   if ((rc = pthread_detach(pthread_self())))
-      log_msg(LOG_ERR, "couldn't detach: \"%s\"", strerror(rc));
+   detach_thread();
 
    pthread_mutex_lock(&socks_queue_mutex_);
    socks_thread_cnt_++;

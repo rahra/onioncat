@@ -1,12 +1,12 @@
+* OpenBSD TAP device might not work (see OpenBSD man page tun(4))
+* add Windows tunnel code
+* finish SOCKS5 code for I2P
 * work on header compression (start at RFC2507 or 3095)
-* disconnected permanent peers are not reconnected sometimes
 * peer reconnections timeout should be implemented (to not reconnect to fast)
 * log connect log to OC console
-* sometimes a peer is connected a second time for an unknown reason
 * forward multicasting packets (ff00::/8)
 * frame checking may be improved
 * generally improve tun opening routine
-* header compression
 * log levels and log output are currently somehow random
 * interaction with OS routing table to be able to forward packets to "foreign" networks beside the TOR prefix
 * peer list should be improved
@@ -27,3 +27,5 @@
 //* IPv4 forwarding + routing
 //* fragment handler
 //* improve getopt() -- currently many things are hardcoded
+//* disconnected permanent peers are not reconnected sometimes
+//* sometimes a peer is connected a second time for an unknown reason

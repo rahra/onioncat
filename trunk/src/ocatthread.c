@@ -33,23 +33,31 @@ pthread_mutex_t thread_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 OcatThread_t *octh_ = NULL;
 
 
+void init_ocat_thread_struct(OcatThread_t *th)
+{
+   // init ocat thread structure
+   th->handle = pthread_self();
+   pthread_mutex_lock(&thread_mutex_);
+   th->id = thread_id_++;
+   th->next = octh_;
+   octh_ = th;
+   pthread_mutex_unlock(&thread_mutex_);
+}
+
+
 const OcatThread_t *init_ocat_thread(const char *name)
 {
    OcatThread_t *th;
 
    // get memory for the ocat internal thread structure
-   if (!(th = malloc(sizeof(OcatThread_t))))
+   if (!(th = calloc(1, sizeof(OcatThread_t))))
+   {
+      log_msg(LOG_ERR, "could not get memory for thread struct: \"%s\"", strerror(errno));
       return NULL;
+   }
 
-   // init ocat thread structure
-   pthread_mutex_lock(&thread_mutex_);
-   th->id = thread_id_++;
-   strncpy(th->name, name, THREAD_NAME_LEN);
-   th->name[THREAD_NAME_LEN - 1] = '\0';
-   th->handle = pthread_self();
-   th->next = octh_;
-   octh_ = th;
-   pthread_mutex_unlock(&thread_mutex_);
+   strlcpy(th->name, name, THREAD_NAME_LEN);
+   init_ocat_thread_struct(th);
 
    return th;
 }
@@ -66,18 +74,19 @@ void *thread_run(void *p)
    pthread_sigmask(SIG_BLOCK, &ss, NULL);
 
    // init internal ocat thread structure
-   (void) init_ocat_thread(((OcatThread_t *)p)->name);
+   init_ocat_thread_struct((OcatThread_t *) p);
 
    // call thread entry function
    log_debug("starting thread");
    r = ((OcatThread_t*)p)->entry(((OcatThread_t*)p)->parm);
    log_debug("terminating thread");
 
+   // delete thread struct from list and free memory
    pthread_mutex_lock(&thread_mutex_);
    for (tl = &octh_; *tl; tl = &(*tl)->next)
       if ((*tl)->handle == ((OcatThread_t*)p)->handle)
          break;
-   free(p);
+   //free(p);
    if ((p = *tl))
    {
       *tl = (*tl)->next;
@@ -98,15 +107,14 @@ int run_ocat_thread(const char *name, void *(*thfunc)(void*), void *parm)
    // this is because pthread_create pushes only one arg.
    // the helper struct is freed again from the thread
    // (within thread_run()).
-   if (!(th = malloc(sizeof(OcatThread_t))))
+   if (!(th = calloc(1, sizeof(OcatThread_t))))
    {
       rc = errno;
       log_msg(LOG_EMERG, "could not create thread %s: \"%s\"", name, strerror(errno));
       return rc;
    }
 
-   strncpy(th->name, name, THREAD_NAME_LEN);
-   th->name[THREAD_NAME_LEN - 1] = '\0';
+   strlcpy(th->name, name, THREAD_NAME_LEN);
    th->entry = thfunc;
    th->parm = parm;
 
@@ -115,6 +123,15 @@ int run_ocat_thread(const char *name, void *(*thfunc)(void*), void *parm)
       log_msg(LOG_ERR, "could not init pthread attr: \"%s\"", strerror(rc));
       return rc;
    }
+
+#ifdef DEBUG
+   size_t ss;
+   if ((rc - pthread_attr_getstacksize(&th->attr, &ss)))
+      log_debug("could not get thread stack size attr: \"%s\"", strerror(rc));
+   else
+      log_debug("default thread stack size %dk, setting to %dk", ss / 1024, THREAD_STACK_SIZE / 1024);
+#endif
+
    if ((rc - pthread_attr_setstacksize(&th->attr, THREAD_STACK_SIZE)))
    {
       log_msg(LOG_EMERG, "could not init thread stack size attr - system may be unstable: \"%s\"", strerror(rc));
@@ -164,5 +181,99 @@ int set_thread_name(const char *n)
    pthread_mutex_unlock(&thread_mutex_);
 
    return e;
+}
+
+
+void print_threads(FILE *f)
+{
+   OcatThread_t *th;
+
+   pthread_mutex_lock(&thread_mutex_);
+   for (th = octh_; th; th = th->next)
+   {
+      fprintf(f, "[%s] "
+            "handle = 0x%08lx, "
+            "id = %d, "
+            "entry = %p, "
+            "parm = %p, "
+            "detached = %d\n",
+            th->name, (long) th->handle, th->id, th->entry, th->parm, th->detached);
+   }
+   pthread_mutex_unlock(&thread_mutex_);
+}
+
+
+void join_threads(void)
+{
+   OcatThread_t *th, thb;
+   void *ret;
+   int rc;
+
+   for (;;)
+   {
+      pthread_mutex_lock(&thread_mutex_);
+      for (th = octh_; th && th->detached; th = th->next);
+      if (!th)
+      {
+         pthread_mutex_unlock(&thread_mutex_);
+         break;
+      }
+      memcpy(&thb, th, sizeof(OcatThread_t));
+      pthread_mutex_unlock(&thread_mutex_);
+
+      log_debug("joing thread \"%s\" (%d)", thb.name, thb.id);
+      if ((rc = pthread_join(thb.handle, &ret)))
+         log_msg(LOG_ERR, "error joining thread: \"%s\"", strerror(rc));
+      log_debug("thread successful joined and return %p", ret);
+      sleep(10);
+   }
+   log_debug("no more joinable threads available");
+}
+
+
+void detach_thread(void)
+{
+   OcatThread_t *th;
+   pthread_t thread = pthread_self();
+   int rc;
+
+   pthread_mutex_lock(&thread_mutex_);
+   for (th = octh_; th; th = th->next)
+      if (th->handle == thread)
+         break;
+   if (th && !(rc = pthread_detach(thread)))
+      th->detached = 1;
+   pthread_mutex_unlock(&thread_mutex_);
+
+   if (!th)
+      log_msg(LOG_EMERG, "thread tries to detach but is not in list");
+   else if (rc)
+      log_msg(LOG_ERR, "could not detach thread: \"%s\"", strerror(rc));
+   else
+      log_debug("thread detached");
+}
+
+
+/*! Check for termination request.
+ *  @return 1 if termination requested, otherwise 0.
+ */
+int term_req(void)
+{
+   int trq;
+
+   lock_setup();
+   trq = CNF(term_req);
+   unlock_setup();
+
+   return trq;
+}
+
+
+/*! Set termination request. */
+void set_term_req(void)
+{
+   lock_setup();
+   CNF(term_req) = 1;
+   unlock_setup();
 }
 

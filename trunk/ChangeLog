@@ -1,4 +1,12 @@
 * version 0.1.10
+ - fixed erroneous sockaddr size in socks connect (leaded to failure on
+ OpenBSD)
+ - improved tunnel name determination
+ - fixed ifconfig for OpenBSD
+ - fixed mem leak in thread creation process
+ - replaced static local_listeners by configurable ones (for OC listen and
+ controller listen)
+ - graceful shutdown (CTRL-C or SIGINT)
  - thread stack size configurable (necessary because OpenBSD stacksize seems
  to be to small)
 
