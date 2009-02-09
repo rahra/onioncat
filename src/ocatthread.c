@@ -29,6 +29,7 @@
 
 // global thread id var and mutex for thread initializiation
 static int thread_id_ = 0;
+static int exit_cnt_ = 0;
 pthread_mutex_t thread_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 OcatThread_t *octh_ = NULL;
 
@@ -42,6 +43,7 @@ void init_ocat_thread_struct(OcatThread_t *th)
    th->next = octh_;
    octh_ = th;
    pthread_mutex_unlock(&thread_mutex_);
+   log_debug("_init_ thread %d", th->id);
 }
 
 
@@ -68,6 +70,7 @@ void *thread_run(void *p)
    OcatThread_t **tl;
    void *r;
    sigset_t ss;
+   int ecnt, icnt;
 
    // block all signals for the thread
    sigfillset(&ss);
@@ -77,9 +80,9 @@ void *thread_run(void *p)
    init_ocat_thread_struct((OcatThread_t *) p);
 
    // call thread entry function
-   log_debug("starting thread");
+   log_debug("calling thread entry");
    r = ((OcatThread_t*)p)->entry(((OcatThread_t*)p)->parm);
-   log_debug("terminating thread");
+   log_debug("thread function returned");
 
    // delete thread struct from list and free memory
    pthread_mutex_lock(&thread_mutex_);
@@ -92,9 +95,12 @@ void *thread_run(void *p)
       *tl = (*tl)->next;
       free(p);
    }
+   ecnt = ++exit_cnt_;
+   icnt = thread_id_;
    pthread_mutex_unlock(&thread_mutex_);
 
-   return NULL;
+   log_debug("_exit_ thread, %d inits, %d exits", icnt, ecnt);
+   return r;
 }
 
 
@@ -203,7 +209,7 @@ void print_threads(FILE *f)
 }
 
 
-void join_threads(void)
+int join_threads(void)
 {
    OcatThread_t *th, thb;
    void *ret;
@@ -212,7 +218,7 @@ void join_threads(void)
    for (;;)
    {
       pthread_mutex_lock(&thread_mutex_);
-      for (th = octh_; th && th->detached; th = th->next);
+      for (th = octh_, rc = 0; th && th->detached; th = th->next, rc++);
       if (!th)
       {
          pthread_mutex_unlock(&thread_mutex_);
@@ -225,9 +231,9 @@ void join_threads(void)
       if ((rc = pthread_join(thb.handle, &ret)))
          log_msg(LOG_ERR, "error joining thread: \"%s\"", strerror(rc));
       log_debug("thread successful joined and return %p", ret);
-      sleep(10);
    }
-   log_debug("no more joinable threads available");
+   log_debug("no more joinable threads available, %d detached", rc);
+   return rc;
 }
 
 

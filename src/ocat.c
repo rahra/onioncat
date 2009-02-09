@@ -19,10 +19,6 @@
 #include "ocat.h"
 
 
-//! set to one if SIGINT is catched
-static int sig_term_ = 0;
-
-
 void usage(const char *s)
 {
    fprintf(stderr, 
@@ -126,7 +122,13 @@ void background(void)
 /*! Signal handler for SIGINT. */
 void sig_handler(int sig)
 {
-   sig_term_ = 1;
+   switch (sig)
+   {
+      case SIGTERM:
+      case SIGINT:
+         CNF(sig_term) = 1;
+         break;
+   }
 }
 
 
@@ -137,14 +139,18 @@ void install_sig(void)
    memset(&sa, 0, sizeof(sa));
    sa.sa_handler = sig_handler;
    log_debug("installing signal handler");
+   if (sigaction(SIGTERM, &sa, NULL) == -1)
+      log_msg(LOG_ERR, "could not install SIGINT handler: \"%s\"", strerror(errno)), exit(1);
    if (sigaction(SIGINT, &sa, NULL) == -1)
-      log_msg(LOG_ERR, "could not install signal handler: \"%s\"", strerror(errno)), exit(1);
+      log_msg(LOG_ERR, "could not install SIGINT handler: \"%s\"", strerror(errno)), exit(1);
+   if (sigaction(SIGHUP, &sa, NULL) == -1)
+      log_msg(LOG_ERR, "could not install SIGHUP handler: \"%s\"", strerror(errno)), exit(1);
 }
 
 
 void cleanup_system(void)
 {
-   OcatPeer_t *peer;
+   OcatPeer_t *peer, *next;
 
    log_msg(LOG_NOTICE, "waiting for system cleanup...");
    // close tunnel interface
@@ -156,27 +162,38 @@ void cleanup_system(void)
    // close and delete all peers
    log_debug("deleting peers");
    lock_peers();
-   for (peer = get_first_peer(); peer; peer = peer->next)
+   for (peer = get_first_peer(); peer; peer = next)
    {
       lock_peer(peer);
       log_debug("closing tcpfd %d", peer->tcpfd);
       oe_close(peer->tcpfd);
       unlock_peer(peer);
+      // get pointer to next before freeing struct
+      next = peer->next;
       log_debug("deleting peer at %p", peer);
       delete_peer(peer);
    }
    unlock_peers();
 
+   sig_socks_connector();
+
    // join threads
-   join_threads();
+   if (join_threads() > 1)
+   {
+      // waiting for detached threads
+      log_debug("waiting %ds for detached threads", SELECT_TIMEOUT);
+      sleep(SELECT_TIMEOUT);
+   }
+
+   delete_listeners(CNF(oc_listen), CNF(oc_listen_fd), CNF(oc_listen_cnt));
 }
 
 
 int main(int argc, char *argv[])
 {
-   char *s, ip6addr[INET6_ADDRSTRLEN], hw[20], def[100];
+   char *s, ip6addr[INET6_ADDRSTRLEN], hw[20], def[100], pwdbuf[SIZE_1K];
    int c, runasroot = 0;
-   struct passwd *pwd;
+   struct passwd *pwd, pwdm;
    int urlconv = 0;
 
    snprintf(def, 100, "127.0.0.1:%d", OCAT_LISTEN_PORT);
@@ -362,9 +379,22 @@ int main(int argc, char *argv[])
    run_ocat_thread("cleaner", socket_cleaner, NULL);
 
    // getting passwd info for user
-   errno = 0;
-   if (!(pwd = getpwnam(CNF(usrname))))
-      log_msg(LOG_EMERG, "can't get information for user \"%s\": \"%s\"", CNF(usrname), errno ? strerror(errno) : "user not found"), exit(1);
+   log_debug("getting user info for \"%s\"", CNF(usrname));
+   c = getpwnam_r(CNF(usrname), &pwdm, pwdbuf, SIZE_1K, &pwd);
+   if (!pwd)
+   {
+      log_msg(LOG_WARNING, "can't get information for user \"%s\": \"%s\", defaulting to uid %d",
+            CNF(usrname), c ? strerror(c) : "user not found", OCAT_UNPRIV_UID);
+      // if no passwd entry exists then default to some unprivileged user
+      memset(&pwdm, 0, sizeof(pwdm));
+      pwd = &pwdm;
+      pwd->pw_name = OCAT_UNPRIV_UNAME;
+      pwd->pw_uid = OCAT_UNPRIV_UID;
+      pwd->pw_gid = OCAT_UNPRIV_UID;
+      CNF(usrname) = pwd->pw_name;
+      log_msg(LOG_NOTICE, "disabling connect log");
+      CNF(create_clog) = 0;
+   }
 
    // create pid_file
    mk_pid_file();
@@ -424,16 +454,15 @@ int main(int argc, char *argv[])
 
    // start forwarding packets from tunnel
    log_msg(LOG_INFO, "starting packet forwarder");
-   while (!sig_term_)
-      packet_forwarder();
+   packet_forwarder();
 
-   log_msg(LOG_NOTICE, "caught termination request");
-   // set global termination flag
-   set_term_req();
    // initiate termination
    cleanup_system();
 
    log_msg(LOG_INFO, "Thanks for using OnionCat. Good Bye!");
+
+   // delete main thread's struct
+   free((OcatThread_t*) get_thread());
    return 0;
 }
 
