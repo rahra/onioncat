@@ -255,6 +255,15 @@ int set_peer_dest(struct in6_addr *dest, const struct in6_addr *addr)
 }
 
 
+/*! Set select timeout a little bit "random" to diverse wakeup periods. */
+void set_select_timeout(struct timeval *tv)
+{
+   tv->tv_usec = rand() % 1000000;
+   tv->tv_sec = SELECT_TIMEOUT + (tv->tv_usec & 1);
+   log_debug("timeout %d.%06d", tv->tv_sec, tv->tv_usec);
+}
+
+
 void *socket_receiver(void *p)
 {
    int maxfd, len;
@@ -302,9 +311,8 @@ void *socket_receiver(void *p)
       }
       unlock_peers();
 
-      tv.tv_sec = SELECT_TIMEOUT;
-      tv.tv_usec = 0;
-      log_debug("selecting...");
+      set_select_timeout(&tv);
+      log_debug("selecting (maxfd = %d)", maxfd);
       if ((maxfd = select(maxfd + 1, &rset, NULL, NULL, &tv)) == -1)
       {
          log_msg(LOG_EMERG, "select encountered error: \"%s\", restarting", strerror(errno));
@@ -706,9 +714,8 @@ int run_listeners(struct sockaddr **addr, int *sockfd, int cnt, int (action_acce
          break;
       }
 
-      tv.tv_sec = SELECT_TIMEOUT;
-      tv.tv_usec = 0;
-      log_debug("selecting locally (maxfd = %d)", maxfd);
+      set_select_timeout(&tv);
+      log_debug("selecting (maxfd = %d)", maxfd);
       if ((maxfd = select(maxfd + 1, &rset, NULL, NULL, &tv)) == -1)
       {
          log_debug("select returned: \"%s\"", strerror(errno));
@@ -773,16 +780,25 @@ void packet_forwarder(void)
 
    for (;;)
    {
-      if ((rlen = read(CNF(tunfd[0]), buf, FRAME_SIZE)) == -1)
+      // check for termination request
+      if (term_req())
+         break;
+
+     if ((rlen = read(CNF(tunfd[0]), buf, FRAME_SIZE)) == -1)
       {
          rlen = errno;
          log_debug("read from tun %d returned on error: \"%s\"", CNF(tunfd[0]), strerror(rlen));
          if (rlen == EINTR)
          {
-            log_debug("signal caught, exiting from packet_forwarder");
-            return;
+            log_debug("signal caught");
+            if (CNF(sig_term))
+            {
+               log_msg(LOG_NOTICE, "caught termination request");
+               // set global termination flag
+               set_term_req();
+            }
          }
-         log_debug("restart reading");
+         log_debug("restarting");
          continue;
       }
 

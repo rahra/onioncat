@@ -76,7 +76,8 @@ struct OcatSetup setup_ =
    0,
    {0},
    sizeof(struct OcatSetup),
-   0,
+   //! sig_term, term_req
+   0, 0,
    PTHREAD_MUTEX_INITIALIZER,
    // ctrl_listen
    ctrl_listen_ptr_,

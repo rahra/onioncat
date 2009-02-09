@@ -128,8 +128,15 @@
 #define OCAT_DEST_PORT 8060
 //! SOCKS port of TOR proxy
 #define TOR_SOCKS_PORT 9050
+#ifdef __OpenBSD__
+#define OCAT_UNAME "_tor"
+#elif __FreeBSD
+#define OCAT_UNAME "_tor"
+#else
 #define OCAT_UNAME "tor"
-#define OCAT_UID 112
+#endif
+#define OCAT_UNPRIV_UID 65534
+#define OCAT_UNPRIV_UNAME "(unknown)"
 #define OCAT_URL "http://www.abenteuerland.at/onioncat/"
 #define OCAT_DIR ".ocat"
 #define OCAT_CONNECT_LOG "connect_log"
@@ -138,6 +145,9 @@
 
 //! Maximum frame (packet) size, should be able to keep one maximum size ipv6-packet: 2^16 + 40 + 4
 #define FRAME_SIZE 65580
+
+//! Standard buffer size 1024 bytes
+#define SIZE_1K 1024
 
 #define DEQUEUER_WAKEUP 3
 //! maximum number a packet stays in queue
@@ -160,6 +170,7 @@
 #define E_SOCKS_CONN -2
 #define E_SOCKS_REQ -3
 #define E_SOCKS_RQFAIL -4
+#define E_SOCKS_TERMREQ -5
 
 #define E_FWD_NOPEER -1
 #define E_FWD_NOBUF -2
@@ -278,7 +289,7 @@ struct OcatSetup
    int rand_addr;
    char version[VERSION_STRING_LEN];
    int sizeof_setup;
-   int term_req;
+   int sig_term, term_req;
    pthread_mutex_t mutex;
    //! listening sockets for controller interface
    struct sockaddr **ctrl_listen;
@@ -470,7 +481,13 @@ struct ip6_hdr
 #endif
 
 #ifndef WITHOUT_TUN
+#ifdef __FreeBSD__
+#define TUN_DEV "/dev/tun0"
+#elif __OpenBSD__
+#define TUN_DEV "/dev/tun0"
+#else
 #define TUN_DEV "/dev/net/tun"
+#endif
 extern char *tun_dev_;
 #endif
 
@@ -522,13 +539,15 @@ void *ctrl_handler(void *);
 int insert_peer(int, const SocksQueue_t *, time_t);
 int run_listeners(struct sockaddr **, int *, int, int (*)(int));
 int send_keepalive(OcatPeer_t *);
+void set_select_timeout(struct timeval *);
+void set_nonblock(int);
 
 /* ocatthread.c */
 const OcatThread_t *init_ocat_thread(const char *);
 int run_ocat_thread(const char *, void *(*)(void*), void*);
 const OcatThread_t *get_thread(void);
 int set_thread_name(const char *);
-void join_threads(void);
+int join_threads(void);
 void detach_thread(void);
 void print_threads(FILE *);
 int term_req(void);
@@ -590,6 +609,7 @@ int oe_remtr(char *);
 int strsockaddr(const char *, struct sockaddr *);
 void add_local_listeners(void);
 void add_listener(const char *, const char *);
+void delete_listeners(struct sockaddr **, int *, int);
 
 /* ocatipv6route.c */
 struct in6_addr *ipv6_lookup_route(const struct in6_addr *);

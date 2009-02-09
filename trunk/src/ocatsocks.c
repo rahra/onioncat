@@ -34,7 +34,7 @@ static int socks_thread_cnt_ = 0;
 static pthread_mutex_t socks_queue_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t socks_queue_cond_ = PTHREAD_COND_INITIALIZER;
 
-
+#if 0
 int socks_srv_con(void)
 {
    int fd, t;
@@ -54,6 +54,109 @@ int socks_srv_con(void)
    log_debug("connected");
    return fd;
 }
+#else
+int socks_srv_con(void)
+{
+   int fd, t, maxfd, so_err;
+   socklen_t err_len;
+   char addr[INET6_ADDRSTRLEN];
+   fd_set cset;
+   struct timeval tv;
+
+   if ((fd = socket(CNF(socks_dst)->sin_family == AF_INET ? PF_INET : PF_INET6, SOCK_STREAM, 0)) < 0)
+      return E_SOCKS_SOCK;
+   set_nonblock(fd);
+
+   t = time(NULL);
+   if (connect(fd, (struct sockaddr*) CNF(socks_dst), SOCKADDR_SIZE(CNF(socks_dst))) == -1)
+   {
+      if (errno != EINPROGRESS)
+      {
+         log_msg(LOG_ERR, "connect() to SOCKS port %s:%d failed: \"%s\". Sleeping for %d seconds.", 
+            inet_ntop(CNF(socks_dst)->sin_family, 
+               CNF(socks_dst)->sin_family == AF_INET ? (char*) &CNF(socks_dst)->sin_addr : (char*) &CNF(socks_dst6)->sin6_addr, addr, sizeof(addr)), 
+            ntohs(CNF(socks_dst)->sin_port), strerror(errno), TOR_SOCKS_CONN_TIMEOUT);
+         oe_close(fd);
+         sleep(TOR_SOCKS_CONN_TIMEOUT);
+         return E_SOCKS_CONN;
+      }
+      log_debug("connection in progress");
+   }
+   else
+   {
+      log_debug("connected");
+      return fd;
+   }
+
+   for (;;)
+   {
+      if (term_req())
+      {
+         oe_close(fd);
+         return -1;
+      }
+
+      FD_ZERO(&cset);
+      FD_SET(fd, &cset);
+      maxfd = fd;
+
+      set_select_timeout(&tv);
+      log_debug("selecting (maxfd = %d)", maxfd);
+      if ((maxfd = select(maxfd + 1, NULL, &cset, NULL, &tv)) == -1)
+      {
+         log_msg(LOG_EMERG, "select encountered error: \"%s\", restarting", strerror(errno));
+         continue;
+      }
+      log_debug("select returned %d", maxfd);
+
+      if (!maxfd)
+      {
+         log_debug("select timed out, restarting");
+         continue;
+      }
+
+      if (!FD_ISSET(fd, &cset))
+      {
+         log_msg(LOG_ERR, "fd %d not in fd_set! Restarting.", fd);
+         continue;
+      }
+
+      /*
+      if (connect(fd, (struct sockaddr*) CNF(socks_dst), SOCKADDR_SIZE(CNF(socks_dst))) == -1)
+      {
+         log_msg(LOG_ERR, "connect() to SOCKS port %s:%d failed: \"%s\". Sleeping for %d seconds.", 
+               inet_ntop(CNF(socks_dst)->sin_family, 
+                  CNF(socks_dst)->sin_family == AF_INET ? (char*) &CNF(socks_dst)->sin_addr : (char*) &CNF(socks_dst6)->sin6_addr, addr, sizeof(addr)), 
+               ntohs(CNF(socks_dst)->sin_port), strerror(errno), TOR_SOCKS_CONN_TIMEOUT);
+         oe_close(fd);
+         sleep(TOR_SOCKS_CONN_TIMEOUT);
+         return E_SOCKS_CONN;
+      }
+      */
+
+      // test if connect() worked
+      log_debug("check socket error");
+      err_len = sizeof(so_err);
+      if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &so_err, &err_len) == -1)
+      {
+         log_msg(LOG_ERR, "getsockopt failed: \"%s\"", strerror(errno));
+         oe_close(fd);
+         return -1;
+      }
+      if (so_err)
+      {
+         log_msg(LOG_ERR, "getsockopt returned %d (\"%s\")", so_err, strerror(so_err));
+         oe_close(fd);
+         return -1;
+      }
+      // everything seems to be ok, break loop
+      break;
+   } // for (;;)
+
+   log_debug("connected");
+   return fd;
+}
+#endif
 
 
 int socks_connect(const SocksQueue_t *sq)
@@ -64,6 +167,9 @@ int socks_connect(const SocksQueue_t *sq)
    //char addr[INET6_ADDRSTRLEN];
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
    OcatPeer_t *peer;
+   int maxfd;
+   fd_set rset;
+   struct timeval tv;
 
    /*
    memset(&in, 0, sizeof(in));
@@ -114,6 +220,40 @@ int socks_connect(const SocksQueue_t *sq)
       log_msg(LOG_ERR, "couldn't write %d bytes to SOCKS connection %d", len, fd);
    log_debug("connect request sent");
 
+   for (;;)
+   {
+      if (term_req())
+      {
+         oe_close(fd);
+         return E_SOCKS_TERMREQ;
+      }
+
+      FD_ZERO(&rset);
+      FD_SET(fd, &rset);
+      maxfd = fd;
+
+      set_select_timeout(&tv);
+      log_debug("selecting (maxfd = %d)", maxfd);
+      if ((maxfd = select(maxfd + 1, &rset, NULL, NULL, &tv)) == -1)
+      {
+         log_msg(LOG_EMERG, "select encountered error: \"%s\", restarting", strerror(errno));
+         continue;
+      }
+
+      log_debug("select returned %d", maxfd);
+      if (!maxfd)
+      {
+         log_debug("select timed out, restarting");
+         continue;
+      }
+
+      if (FD_ISSET(fd, &rset))
+         break;
+
+      log_msg(LOG_ERR, "fd %d not in fd_set! Restarting.", fd);
+      continue;
+   } // for (;;)
+
    if (read(fd, shdr, sizeof(SocksHdr_t)) < sizeof(SocksHdr_t))
    {
       log_msg(LOG_ERR | LOG_FCONN, "short read, closing.");
@@ -150,6 +290,12 @@ int socks_connect(const SocksQueue_t *sq)
 }
 
 
+void sig_socks_connector(void)
+{
+   pthread_cond_signal(&socks_queue_cond_);
+}
+
+
 void socks_queue(struct in6_addr addr, int perm)
 {
    SocksQueue_t *squeue;
@@ -168,7 +314,7 @@ void socks_queue(struct in6_addr addr, int perm)
       squeue->next = socks_queue_;
       socks_queue_ = squeue;
       log_debug("signalling connector");
-      pthread_cond_signal(&socks_queue_cond_);
+      sig_socks_connector();
    }
    else
       log_debug("connection already exists, not queueing SOCKS connection");
@@ -225,6 +371,12 @@ void *socks_connector(void *p)
 
          log_debug("waiting for new queue entry");
          pthread_cond_wait(&socks_queue_cond_, &socks_queue_mutex_);
+         // check termination request
+         if (term_req())
+         {
+            pthread_mutex_unlock(&socks_queue_mutex_);
+            return NULL;
+         }
       }
 
       // spawn spare thread if there is no one left
@@ -253,6 +405,8 @@ void *socks_connector(void *p)
       if (!peer)
          for (i = 0, ps = -1, t_abs = 0; ((i < SOCKS_MAX_RETRY) || squeue->perm) && ps < 0; i++)
          {
+            // FIXME: term_req should be checked here
+
             // every third connection attempt
             if (!(i % RECONN_ATTEMPTS))
             {

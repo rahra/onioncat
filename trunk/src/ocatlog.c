@@ -26,6 +26,10 @@
 #define TIMESTRLEN 64
 #define CBUFLEN 1024
 
+#ifndef LOG_PRI
+#define LOG_PRI(p) ((p) & LOG_PRIMASK)
+#endif
+
 static pthread_mutex_t log_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static const char *flty_[8] = {"emerg", "alert", "crit", "err", "warning", "notice", "info", "debug"};
 //! FILE pointer to connect log
@@ -44,6 +48,12 @@ int open_connect_log(const char *dir)
 
    if (clog_)
       return 0;
+
+   if (!dir)
+   {
+      log_debug("dir has NULL pointer");
+      return -1;
+   }
 
    strlcpy(buf, dir, CBUFLEN);
    strlcat(buf, "/", CBUFLEN);
@@ -102,7 +112,7 @@ void vlog_msgf(FILE *out, int lf, const char *fmt, va_list ap)
    // if thread struct not in list
    if (!th)
    {
-      strlcpy(ths.name, "<NEW>", THREAD_NAME_LEN);
+      strlcpy(ths.name, "<NEW/DIE>", THREAD_NAME_LEN);
       ths.id = -1;
       th = &ths;
    }

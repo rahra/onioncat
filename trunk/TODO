@@ -12,6 +12,7 @@
 * peer list should be improved
 * IPv6 routing table should be improved (is just a flat list yet)
 * controller interface should be improved (is not thread-safe)
+* controller interface should use basic IO and timed selects
 //* IPv6 adresses are not checked for their validity
 //* garbage collector for packet queue missing
 //* garbage collector for session cleanup

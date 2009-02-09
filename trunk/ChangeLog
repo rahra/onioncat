@@ -1,4 +1,12 @@
 * version 0.1.10
+ - disabled connect log if unprivileged user -2 is used
+ - getpwnam() replaced by getpwnam_r() because valgrind reported an error
+   ...but unfortunatelly it still does
+ - improved process termination handling
+ - illegal mem access fixed in termination process
+ - Socks connect exchanged by timed select
+ - added signal handler for SIGTERM (and SIGHUP without implementation)
+ - uid is changed to -2 if default user does not exist
  - fixed erroneous sockaddr size in socks connect (leaded to failure on
  OpenBSD)
  - improved tunnel name determination
