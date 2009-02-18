@@ -7,7 +7,7 @@ AC_CONFIG_HEADERS([config.h])
 
 AC_DEFINE(SVN_REVISION, "svnversion", [SVN Revision])
 
-AC_SUBST([CFLAGS], [-Wall])
+AC_SUBST([CFLAGS], [["-Wall -pthread -O2"]])
 
 AC_ARG_ENABLE([debug], AC_HELP_STRING([--enable-debug], [enable debugging]), AC_DEFINE([DEBUG], [], [enable debugging]))
 AC_ARG_ENABLE([packet-log], AC_HELP_STRING([--enable-packet-log], [enable packet logging]), AC_DEFINE([PACKET_LOG], [], [enable packet logging]))

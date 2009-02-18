@@ -444,13 +444,18 @@ void *socket_receiver(void *p)
             }
             else
             {
+               /*
                log_debug("fragment buffer reset");
                peer->fraglen = 0;
+               */
+               log_debug("fragment buffer resynchronization");
+               len = 1;
+               drop = 1;
                break;
             }
 
             // set IP address if it is not set yet and frame is valid
-            if (IN6_IS_ADDR_UNSPECIFIED(&peer->addr))
+            if (!drop && IN6_IS_ADDR_UNSPECIFIED(&peer->addr))
             {
                if (*peer->tunhdr == CNF(fhd_key[IPV6_KEY]))
                {
@@ -641,7 +646,7 @@ int create_listener(struct sockaddr *addr, int sock_len)
       return -1;
    }
 
-   if (bind(fd, addr, sock_len) < 0)
+   if (bind(fd, addr, sock_len) == -1)
    {
       log_msg(LOG_EMERG, "could not bind listener %d: \"%s\"", fd, strerror(errno));
       oe_close(fd);

@@ -66,6 +66,7 @@ int open_logfile(void)
 {
    if (CNF(logfn))
    {
+      log_debug("opening log file \"%s\"", CNF(logfn));
       if ((CNF(logf) = fopen(CNF(logfn), "a")))
       {
          log_debug("logfile %s opened", CNF(logfn));
