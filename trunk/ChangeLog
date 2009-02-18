@@ -1,4 +1,5 @@
 * version 0.1.10
+ - fragment buffer resynchronization enhanced
  - disabled connect log if unprivileged user -2 is used
  - getpwnam() replaced by getpwnam_r() because valgrind reported an error
    ...but unfortunatelly it still does

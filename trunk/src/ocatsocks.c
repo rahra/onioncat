@@ -34,27 +34,7 @@ static int socks_thread_cnt_ = 0;
 static pthread_mutex_t socks_queue_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t socks_queue_cond_ = PTHREAD_COND_INITIALIZER;
 
-#if 0
-int socks_srv_con(void)
-{
-   int fd, t;
-   char addr[INET6_ADDRSTRLEN];
 
-   if ((fd = socket(CNF(socks_dst)->sin_family == AF_INET ? PF_INET : PF_INET6, SOCK_STREAM, 0)) < 0)
-      return E_SOCKS_SOCK;
-
-   t = time(NULL);
-   if (connect(fd, (struct sockaddr*) CNF(socks_dst), SOCKADDR_SIZE(CNF(socks_dst))) == -1)
-   {
-      log_msg(LOG_ERR, "connect() to SOCKS port %s:%d failed: \"%s\". Sleeping for %d seconds.", inet_ntop(CNF(socks_dst)->sin_family, CNF(socks_dst)->sin_family == AF_INET ? (char*) &CNF(socks_dst)->sin_addr : (char*) &CNF(socks_dst6)->sin6_addr, addr, sizeof(addr)), ntohs(CNF(socks_dst)->sin_port), strerror(errno), TOR_SOCKS_CONN_TIMEOUT);
-      oe_close(fd);
-      sleep(TOR_SOCKS_CONN_TIMEOUT);
-      return E_SOCKS_CONN;
-   }
-   log_debug("connected");
-   return fd;
-}
-#else
 int socks_srv_con(void)
 {
    int fd, t, maxfd, so_err;
@@ -121,19 +101,6 @@ int socks_srv_con(void)
          continue;
       }
 
-      /*
-      if (connect(fd, (struct sockaddr*) CNF(socks_dst), SOCKADDR_SIZE(CNF(socks_dst))) == -1)
-      {
-         log_msg(LOG_ERR, "connect() to SOCKS port %s:%d failed: \"%s\". Sleeping for %d seconds.", 
-               inet_ntop(CNF(socks_dst)->sin_family, 
-                  CNF(socks_dst)->sin_family == AF_INET ? (char*) &CNF(socks_dst)->sin_addr : (char*) &CNF(socks_dst6)->sin6_addr, addr, sizeof(addr)), 
-               ntohs(CNF(socks_dst)->sin_port), strerror(errno), TOR_SOCKS_CONN_TIMEOUT);
-         oe_close(fd);
-         sleep(TOR_SOCKS_CONN_TIMEOUT);
-         return E_SOCKS_CONN;
-      }
-      */
-
       // test if connect() worked
       log_debug("check socket error");
       err_len = sizeof(so_err);
@@ -156,51 +123,25 @@ int socks_srv_con(void)
    log_debug("connected");
    return fd;
 }
-#endif
 
 
 int socks_connect(const SocksQueue_t *sq)
 {
-//   struct sockaddr_in in;
    int fd, t, len;
    char buf[FRAME_SIZE], onion[ONION_NAME_SIZE];
-   //char addr[INET6_ADDRSTRLEN];
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
    OcatPeer_t *peer;
    int maxfd;
    fd_set rset;
    struct timeval tv;
 
-   /*
-   memset(&in, 0, sizeof(in));
-   in.sin_family = AF_INET;
-   in.sin_port = htons(CNF(tor_socks_port));
-   in.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-#ifdef HAVE_SIN_LEN
-   in.sin_len = sizeof(in);
-#endif
-*/
-
    ipv6tonion(&sq->addr, onion);
    strlcat(onion, ".onion", sizeof(onion));
 
    log_msg(LOG_INFO, "trying to connect to \"%s\" [%s]", onion, inet_ntop(AF_INET6, &sq->addr, buf, FRAME_SIZE));
+   t = time(NULL);
    if ((fd = socks_srv_con()) < 0)
       return fd;
-
-   /*
-   if ((fd = socket(CNF(socks_dst)->sin_family == AF_INET ? PF_INET : PF_INET6, SOCK_STREAM, 0)) < 0)
-      return E_SOCKS_SOCK;
-
-   t = time(NULL);
-   if (connect(fd, (struct sockaddr*) CNF(socks_dst), sizeof(struct sockaddr_in6)) == -1)
-   {
-      log_msg(LOG_ERR, "connect() to TOR's SOCKS port %s:%d failed: \"%s\". Sleeping for %d seconds.", inet_ntop(CNF(socks_dst)->sin_family, CNF(socks_dst)->sin_family == AF_INET ? (char*) &CNF(socks_dst)->sin_addr : (char*) &CNF(socks_dst6)->sin6_addr, addr, sizeof(addr)), ntohs(CNF(socks_dst)->sin_port), strerror(errno), TOR_SOCKS_CONN_TIMEOUT);
-      oe_close(fd);
-      sleep(TOR_SOCKS_CONN_TIMEOUT);
-      return E_SOCKS_CONN;
-   }
-   */
 
    log_debug("doing SOCKS4a handshake");
 
