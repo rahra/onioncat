@@ -1,0 +1,13 @@
+Source: onioncat
+Section: unknown
+Priority: extra
+Maintainer: Haselbacher Ferdinand <fhasex20@cypherpunk.at>
+Build-Depends: debhelper (>= 7), autotools-dev
+Standards-Version: 3.8.0
+Homepage: <insert the upstream URL, if relevant>
+
+Package: onioncat
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: <insert up to 60 chars description>
+ <insert long description, indented with spaces>
