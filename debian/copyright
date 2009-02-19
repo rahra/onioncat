@@ -4,30 +4,23 @@ This package was debianized by:
 
 It was downloaded from:
 
-    <url://example.com>
+    <http://www.cypherpunk.at/onioncat>
 
 Upstream Author(s):
 
-    <put author's name and email here>
+    <>
     <likewise for another author>
 
 Copyright:
 
-    <Copyright (C) YYYY Firtname Lastname>
+    <Copyright (C) 2008 Bernhard R. Fischer>
     <likewise for another author>
 
 License:
 
-### SELECT: ###
-    This package is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-### OR ###
    This package is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License version 2 as
+   it under the terms of the GNU General Public License version 3 as
    published by the Free Software Foundation.
-##########
 
     This package is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -48,5 +41,3 @@ The Debian packaging is:
 and is licensed under the GPL, see above.
 
 
-# Please also look if there are files or directories which have a
-# different copyright/license attached and list them here.
