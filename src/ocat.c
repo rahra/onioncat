@@ -25,7 +25,8 @@ void usage(const char *s)
          "%s\n"
          "usage: %s [OPTIONS] <onion_hostname>\n"
          "   -a                    create connect log at \"$HOME/%s/%s\" (default = %d)\n"
-         "   -b                    daemonize\n"
+         "   -b                    daemonize (default = %d)\n"
+         "   -B                    do not daemonize (default = %d)\n"
          "   -h                    display usage message\n"
          "   -C                    disable local controller interface\n"
          "   -d <n>                set debug level to n, default = %d\n"
@@ -47,7 +48,9 @@ void usage(const char *s)
          "   -4                    enable IPv4 support (default = %d)\n"
          , CNF(version), s,
          // option defaults start here
-         OCAT_DIR, OCAT_CONNECT_LOG, CNF(create_clog), CNF(debug_level), OCAT_LISTEN_PORT,
+         OCAT_DIR, OCAT_CONNECT_LOG, CNF(create_clog), 
+         CNF(daemon), CNF(daemon) ^ 1,
+         CNF(debug_level), OCAT_LISTEN_PORT,
          CNF(pid_file),
          CNF(ocat_dest_port), ntohs(CNF(socks_dst)->sin_port), 
 #ifndef WITHOUT_TUN
@@ -204,7 +207,7 @@ int main(int argc, char *argv[])
    if (argc < 2)
       usage(argv[0]), exit(1);
 
-   while ((c = getopt(argc, argv, "abCd:f:hrRiopl:t:T:s:u:4L:P:")) != -1)
+   while ((c = getopt(argc, argv, "abBCd:f:hrRiopl:t:T:s:u:4L:P:")) != -1)
       switch (c)
       {
          case 'a':
@@ -213,6 +216,10 @@ int main(int argc, char *argv[])
 
          case 'b':
             CNF(daemon) = 1;
+            break;
+
+         case 'B':
+            CNF(daemon) = 0;
             break;
 
          case 'C':
