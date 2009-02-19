@@ -54,7 +54,7 @@ struct OcatSetup setup_ =
    {0x00, 0x00, 0x6c, 0x00, 0x00, 0x00},   // ocat_hwaddr (OnionCat MAC address)
    PID_FILE,
    NULL, NULL,                             // logfile
-   0,                                      // daemon
+   1,                                      // daemon
    {
       /*
       {{{0xfd, 0x87, 0xd8, 0x7e, 0xeb, 0x43,
