@@ -30,7 +30,7 @@
 # Should-Stop:
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: <Enter a short description of the sortware>
+# Short-Description: <OnionCat An IP-Transparent Tor Hidden Service Connector>
 # Description:       <Enter a long description of the software>
 #                    <...>
 #                    <...>
@@ -38,9 +38,9 @@
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
-DAEMON=/usr/sbin/onioncat # Introduce the server's location here
-NAME=#PACKAGE              # Introduce the short server's name here
-DESC=#PACKAGE              # Introduce a short description here
+DAEMON=/usr/bin/ocat # Introduce the server's location here
+NAME=ocat # Introduce the short server's name here
+DESC="OnionCat Hidden Service Connector"# Introduce a short description here
 LOGDIR=/var/log/onioncat  # Log directory to use
 
 PIDFILE=/var/run/$NAME.pid
@@ -51,7 +51,7 @@ test -x $DAEMON || exit 0
 
 # Default options, these can be overriden by the information
 # at /etc/default/$NAME
-DAEMON_OPTS=""          # Additional options given to the server
+DAEMON_OPTS="-u debian-tor"          # Additional options given to the server
 
 DIETIME=10              # Time to wait for the server to die, in seconds
                         # If this value is set too low you might not
@@ -68,7 +68,7 @@ DIETIME=10              # Time to wait for the server to die, in seconds
                         # when it actually did)
 
 LOGFILE=$LOGDIR/$NAME.log  # Server logfile
-#DAEMONUSER=onioncat   # Users to run the daemons as. If this value
+DAEMONUSER=debian-tor # Users to run the daemons as. If this value
                         # is set start-stop-daemon will chuid the server
 
 # Include defaults if available
