@@ -1,7 +1,7 @@
 Source: onioncat
 Section: comm
 Priority: optional
-Maintainer: Haselbacher Ferdinand <fhasex20@cypherpunk.at>
+Maintainer: Ferdinand Haselbacher <fhasex20@cypherpunk.at>
 Build-Depends: debhelper (>= 7), autotools-dev
 Standards-Version: 3.8.0
 Homepage: http://www.cypherpunk.at/onioncat
