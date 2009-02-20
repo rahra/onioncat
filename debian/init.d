@@ -15,11 +15,11 @@
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
-DAEMON=/usr/bin/ocat # Introduce the server's location here
-NAME=ocat # Introduce the short server's name here
+DAEMON=/usr/bin/ocat
+NAME=ocat
 NAMEL=onioncat
-DESC="OnionCat Hidden Service Connector"# Introduce a short description here
-LOGDIR=/tmp  # Log directory to use
+DESC="OnionCat Hidden Service Connector"
+LOGDIR=/tmp 
 
 PIDFILE=/var/run/$NAME.pid
 
@@ -45,9 +45,14 @@ DIETIME=10              # Time to wait for the server to die, in seconds
                         # be a false positive (says it did not start
                         # when it actually did)
 
-LOGFILE=$LOGDIR/$NAMEL.log  # Server logfile
+LOGFILE=$LOGDIR/$NAMEL.log
 #DAEMONUSER=debian-tor # Users to run the daemons as. If this value
                         # is set start-stop-daemon will chuid the server
+
+# Defaults - don't touch, edit /etc/default/onioncat
+ENABLED=0
+
+
 
 # Include defaults if available
 if [ -f /etc/default/$NAMEL ] ; then
@@ -55,8 +60,6 @@ if [ -f /etc/default/$NAMEL ] ; then
 fi
 
 
-# Defaults - don't touch, edit /etc/default/onioncat
-ENABLED=0
 
 
 if [ "$ENABLED" = "0" ]; then
