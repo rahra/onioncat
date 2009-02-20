@@ -17,6 +17,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 DAEMON=/usr/bin/ocat # Introduce the server's location here
 NAME=ocat # Introduce the short server's name here
+NAMEL=onioncat
 DESC="OnionCat Hidden Service Connector"# Introduce a short description here
 LOGDIR=/var/log/onioncat  # Log directory to use
 
@@ -49,9 +50,21 @@ DAEMONUSER=debian-tor # Users to run the daemons as. If this value
                         # is set start-stop-daemon will chuid the server
 
 # Include defaults if available
-if [ -f /etc/default/$NAME ] ; then
-    . /etc/default/$NAME
+if [ -f /etc/default/$NAMEL ] ; then
+    . /etc/default/$NAMEL
 fi
+
+
+# Defaults - don't touch, edit /etc/default/onioncat
+ENABLED=0
+
+
+if [ "$ENABLED" = "0" ]; then
+    echo "$DESC: disabled, see /etc/default/onioncat"
+    exit 0
+fi
+
+
 
 # Use this if you want the user to explicitly set 'RUN' in
 # /etc/default/
