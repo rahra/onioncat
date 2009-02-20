@@ -1,3 +1,4 @@
+#!/bin/bash
 ### BEGIN INIT INFO
 # Provides:          onioncat
 # Required-Start:    $network $local_fs
@@ -7,9 +8,12 @@
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: <OnionCat An IP-Transparent Tor Hidden Service Connector>
-# Description:       <Enter a long description of the software>
-#                    <...>
-#                    <...>
+# Description:  OnionCat creates a transparent IP layer on top of Tor's
+# 		hidden services. It transmits any kind of IP-based data transparently through
+# 		the Tor network on a location hidden basis. You can think of it as a
+# 		point-to-multipoint VPN between hidden services.
+#                    
+#                   
 ### END INIT INFO
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
