@@ -105,19 +105,24 @@ int mk_pid_file(void)
 
 void background(void)
 {
-   log_msg(LOG_INFO, "backgrounding");
+   pid_t pid;
+   log_debug("backgrounding");
 
-   switch(fork())
+   pid = fork();
+   switch(pid)
    {
       case -1:
          log_msg(LOG_ERR, "fork failed: %s. Staying in foreground", strerror(errno));
          return;
 
       case 0:
-         log_debug("child successfully forked");
+         log_msg(LOG_INFO, "process backgrounded, pid = %d", getpid());
          return;
 
       default:
+         log_debug("parent [%d] exits, background pid = %d", getpid(), pid);
+         if (CNF(logf))
+            fclose(CNF(logf));
          exit(0);
    }
 }
