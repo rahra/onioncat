@@ -8,10 +8,7 @@
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: <OnionCat An IP-Transparent Tor Hidden Service Connector>
-# Description:  OnionCat creates a transparent IP layer on top of Tor's
-# 		hidden services. It transmits any kind of IP-based data transparently through
-# 		the Tor network on a location hidden basis. You can think of it as a
-# 		point-to-multipoint VPN between hidden services.
+# Description:  OnionCat creates a transparent IP layer on top of Tor's Hidden Service
 #                    
 #                   
 ### END INIT INFO
