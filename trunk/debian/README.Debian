@@ -3,4 +3,4 @@ onioncat for Debian
 
  There are some issues with tun/tap inside a XEN User Domain (possibly libc6-xen related).
 
- -- Haselbacher Ferdinand <fhasex20@cypherpunk.at>  Thu, 19 Feb 2009 13:27:29 +0100
+ -- Ferdinand Haselbacher <fhasex20@cypherpunk.at>  Thu, 19 Feb 2009 13:27:29 +0100
