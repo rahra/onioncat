@@ -1,27 +1,3 @@
-#!/bin/sh
-#
-# Example init.d script with LSB support.
-#
-# Please read this init.d carefully and modify the sections to
-# adjust it to the program you want to run.
-#
-# Copyright (c) 2007 Javier Fernandez-Sanguino <jfs@debian.org>
-#
-# This is free software; you may redistribute it and/or modify
-# it under the terms of the GNU General Public License as
-# published by the Free Software Foundation; either version 2,
-# or (at your option) any later version.
-#
-# This is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License with
-# the Debian operating system, in /usr/share/common-licenses/GPL;  if
-# not, write to the Free Software Foundation, Inc., 59 Temple Place,
-# Suite 330, Boston, MA 02111-1307 USA
-#
 ### BEGIN INIT INFO
 # Provides:          onioncat
 # Required-Start:    $network $local_fs
