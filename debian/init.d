@@ -103,7 +103,7 @@ running() {
 start_server() {
 # Start the process using the wrapper
         if [ -z "$DAEMONUSER" ] ; then
-            start_daemon -p $PIDFILE $DAEMON $DAEMON_OPTS
+            start_daemon $DAEMON $DAEMON_OPTS
             errcode=$?
         else
 # if we are using a daemonuser then change the user id
