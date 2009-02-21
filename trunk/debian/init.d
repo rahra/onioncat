@@ -29,14 +29,14 @@ test -x $DAEMON || exit 0
 
 # Default options, these can be overriden by the information
 # at /etc/default/$NAME
-DAEMON_OPTS="-u debian-tor"          # Additional options given to the server
+DAEMON_OPTS=""          # Additional options given to the server
 
 DIETIME=10              # Time to wait for the server to die, in seconds
                         # If this value is set too low you might not
                         # let some servers to die gracefully and
                         # 'restart' will not work
 
-#STARTTIME=2             # Time to wait for the server to start, in seconds
+STARTTIME=1             # Time to wait for the server to start, in seconds
                         # If this value is set each time the server is
                         # started (on start or restart) the script will
                         # stall to try to determine if it is running
@@ -46,7 +46,7 @@ DIETIME=10              # Time to wait for the server to die, in seconds
                         # when it actually did)
 
 LOGFILE=$LOGDIR/$NAMEL.log
-#DAEMONUSER=debian-tor # Users to run the daemons as. If this value
+DAEMONUSER="debian-tor" # Users to run the daemons as. If this value
                         # is set start-stop-daemon will chuid the server
 
 # Defaults - don't touch, edit /etc/default/onioncat
@@ -124,8 +124,7 @@ start_server() {
         else
 # if we are using a daemonuser then change the user id
             start-stop-daemon --start --quiet --pidfile $PIDFILE \
-                        --chuid $DAEMONUSER \
-                        --exec $DAEMON -- $DAEMON_OPTS
+                        --exec $DAEMON -- -u $DAEMONUSER $DAEMON_OPTS
             errcode=$?
         fi
         return $errcode
@@ -139,7 +138,6 @@ stop_server() {
         else
 # if we are using a daemonuser then look for process that match
             start-stop-daemon --stop --quiet --pidfile $PIDFILE \
-                        --user $DAEMONUSER \
                         --exec $DAEMON
             errcode=$?
         fi
