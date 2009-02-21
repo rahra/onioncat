@@ -13,4 +13,4 @@
 # DAEMON="-u debian-tor gfwljfhnapq91sz4.onion"
 # and !!!! SET ENABLED=1 !!!!
 ENABLED=0
-DAEMON="-u debian-tor <HiddenService url>"
+DAEMON_OPTS="-u debian-tor <HiddenService url>"
