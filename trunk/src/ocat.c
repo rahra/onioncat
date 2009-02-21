@@ -124,7 +124,7 @@ void background(void)
          log_debug("parent [%d] exits, background pid = %d", getpid(), pid);
          if (CNF(logf))
             fclose(CNF(logf));
-         exit(0);
+         _exit(0);
    }
 }
 
