@@ -19,7 +19,7 @@ DAEMON=/usr/bin/ocat
 NAME=ocat
 NAMEL=onioncat
 DESC="OnionCat Hidden Service Connector"
-LOGDIR=/tmp 
+LOGDIR=/var/log/tor
 
 PIDFILE=/var/run/$NAME.pid
 
