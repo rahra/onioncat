@@ -60,7 +60,11 @@ logged to that file. $HOME is determined from the user under which OnionCat runs
 (see option -u).
 .TP
 \fB\-b\fP
-Run OnionCat in background.
+Run OnionCat in background. This is default. OnionCat will detach from a running
+shell and close standard IO if no log file is given with option -L.
+.TP
+\fB\-B\fP
+Run OnionCat in foreground.
 .TP
 \fB\-C\fP
 Disable the local controller interface. The controller interfaces listens on
@@ -83,8 +87,10 @@ Display short usage message and shows options.
 \fB\-i\fP
 Convert \fIonion_id\fP to IPv6 address and exit.
 .TP
-\fB\-l\fP \fIport\fP
-Local \fIport\fP number OnionCat listens for incoming connections.
+\fB\-l\fP \fI[ip:]port\fP
+Bind Onioncat to specific \fIip \fP and/or \fIport\fP number for incoming
+connections.  This defaults to 127.0.0.1:8060. This option could be set
+multiple times. IPv6 addresses must be given in square brackets.
 .TP
 \fB\-L\fP \fIlog_file\fP
 Log output to \fIlog_file\fP instead of stderr.
@@ -103,14 +109,14 @@ Create \fIpid file\fP instead of \fB/var/run/ocat.pid\fP.
 Run OnionCat as root and don't change user id (see option \fB\-u\fP).
 .TP
 \fB\-R\fP
-Use this option only if you really know what you do!
-Generate a random local onion_id. With this option it is not necessary to add a
-hidden service to the Tor configuration file \fBtorrc\fP.
-One might use OnionCat services within Tor as usualy but it is NOT possible to
-receive incoming connections. If you plan to also receive connections (e.g.
-because you provide a service or you use software which opens sockets for
-incomming connections like Bitorrent) you MUST configure a hidden service and
-supply its hostname to OnionCat on the command line.
+Use this option only if you really know what you do!  OnionCat generates a
+random local onion_id. With this option it is not necessary to add a hidden
+service to the Tor configuration file \fBtorrc\fP.  One might use OnionCat
+services within Tor as usualy but it is NOT possible to receive incoming
+connections. If you plan to also receive connections (e.g.  because you provide
+a service or you use software which opens sockets for incomming connections
+like Bitorrent) you MUST configure a hidden service and supply its hostname to
+OnionCat on the command line.
 .TP
 \fB\-s\fP \fIport\fP
 Set OnionCat's virtual hidden service port to \fIport\fP.
@@ -127,7 +133,7 @@ changes userid after the TUN device is set up correctly.
 .TP
 \fB\-u\fP \fIusername\fP
 \fIusername\fP under which ocat should run. The uid is changed as soon as possible
-after tun device setup.
+after tun device setup. 
 
 .SS TAP DEVICE
 Usually OnionCat opens a TUN device which is a layer 3 interface. With option
@@ -141,8 +147,9 @@ This man page is still not finished...
 $HOME/.ocat/connect_log
 
 .SH AUTHOR
-Software and man page written by Bernhard R. Fischer.
-Concept by Bernhard R. Fischer and Daniel Haslinger.
+Concepts, software, and man page written by Bernhard R. Fischer.
+Package maintenance by Ferdinand Haselbacher.
+Additional support by Daniel Haslinger.
 
 .SH "SEE ALSO"
 OnionCat project page http://www.cypherpunk.at/onioncat/
@@ -150,7 +157,7 @@ OnionCat project page http://www.cypherpunk.at/onioncat/
 Tor project homepage http://www.torproject.org/
 
 .SH COPYRIGHT
-Copyright 2008 Bernhard R. Fischer, Daniel Haslinger.
+Copyright 2008-2009 Bernhard R. Fischer.
 
 This file is part of OnionCat.
 
