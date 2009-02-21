@@ -1,4 +1,6 @@
 * version 0.1.10
+ - stdio is closed if process is backgrounded
+ - If signalled twice (TERM, INT) it immediately exits
  - OnionCat daemonizes by default now
  - fragment buffer resynchronization enhanced
  - disabled connect log if unprivileged user -2 is used

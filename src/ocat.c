@@ -112,6 +112,7 @@ void background(void)
    switch(pid)
    {
       case -1:
+         CNF(daemon) = 0;
          log_msg(LOG_ERR, "fork failed: %s. Staying in foreground", strerror(errno));
          return;
 
@@ -135,6 +136,10 @@ void sig_handler(int sig)
    {
       case SIGTERM:
       case SIGINT:
+         // emergency shutdown if signalled twice
+         if (CNF(sig_term))
+            exit(0);
+
          CNF(sig_term) = 1;
          break;
    }
@@ -204,6 +209,7 @@ int main(int argc, char *argv[])
    int c, runasroot = 0;
    struct passwd *pwd, pwdm;
    int urlconv = 0;
+   int nullfd;
 
    snprintf(def, 100, "127.0.0.1:%d", OCAT_LISTEN_PORT);
 
@@ -436,6 +442,22 @@ int main(int argc, char *argv[])
 
    if (CNF(create_clog))
       open_connect_log(pwd->pw_dir);
+
+   // reconnect stdio if logfile ok and daemonized
+   if (CNF(logf) && CNF(daemon))
+   {
+      if ((nullfd = open("/dev/null", O_RDWR)) != -1)
+      {
+         oe_close(0);
+         dup(nullfd);
+         oe_close(1);
+         dup(nullfd);
+         oe_close(2);
+         dup(nullfd);
+      }
+      else
+         log_msg(LOG_ERR, "could not reconnect stdio to /dev/null: \"%s\"", strerror(errno));
+   }
 
    // create socks connector thread
    run_ocat_thread("connector", socks_connector, NULL);
