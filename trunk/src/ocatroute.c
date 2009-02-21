@@ -315,7 +315,7 @@ void *socket_receiver(void *p)
       log_debug("selecting (maxfd = %d)", maxfd);
       if ((maxfd = select(maxfd + 1, &rset, NULL, NULL, &tv)) == -1)
       {
-         log_msg(LOG_EMERG, "select encountered error: \"%s\", restarting", strerror(errno));
+         log_msg(LOG_ERR, "select encountered error: \"%s\", restarting", strerror(errno));
          continue;
       }
 
