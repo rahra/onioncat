@@ -1,3 +1,10 @@
+* version 0.1.12
+
+
+* version 0.1.11
+ - version tagged (this actually is 0.1.10-r472)
+ - version cleanup -- new devel is now 0.1.12
+
 * version 0.1.10
  - stdio is closed if process is backgrounded
  - If signalled twice (TERM, INT) it immediately exits
