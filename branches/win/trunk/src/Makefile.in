@@ -155,10 +155,11 @@ sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
+top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 ocat_SOURCES = ocat.c ocatlog.c ocatroute.c ocatthread.c ocattun.c ocatv6conv.c ocatcompat.c ocatpeer.c ocatsetup.c ocatipv4route.c ocateth.c ocatsocks.c ocatlibe.c ocatctrl.c ocatipv6route.c ocaticmp.c
-include_HEADERS = ocat.h strlcpy.c strlcat.c
+include_HEADERS = ocat.h ocat_cygwin.h strlcpy.c strlcat.c
 all: all-am
 
 .SUFFIXES:

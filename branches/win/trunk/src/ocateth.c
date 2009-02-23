@@ -462,6 +462,22 @@ int eth_check(char *buf, int len)
 }
 
 
+#ifndef HAVE_ETHER_NTOA
+
+#define ETHER_ADDR_BUF_SIZE 18
+static char ether_addr_buf_[ETHER_ADDR_BUF_SIZE];
+
+char *ether_ntoa(const struct ether_addr *addr)
+{
+   snprintf(ether_addr_buf_, ETHER_ADDR_BUF_SIZE, "%02x:%02x:%02x:%02x:%02x:%02x",
+         addr->ether_addr_octet[0], addr->ether_addr_octet[1], addr->ether_addr_octet[2],
+         addr->ether_addr_octet[3], addr->ether_addr_octet[4], addr->ether_addr_octet[5]);
+   return ether_addr_buf_;
+}
+
+#endif
+
+
 #ifndef HAVE_ETHER_NTOA_R
 
 static pthread_mutex_t ether_ntoa_mutex_ = PTHREAD_MUTEX_INITIALIZER;
