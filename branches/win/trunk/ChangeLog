@@ -1,0 +1,89 @@
+* version 0.1.12
+
+
+* version 0.1.11
+ - version tagged (this actually is 0.1.10-r472)
+ - version cleanup -- new devel is now 0.1.12
+
+* version 0.1.10
+ - stdio is closed if process is backgrounded
+ - If signalled twice (TERM, INT) it immediately exits
+ - OnionCat daemonizes by default now
+ - fragment buffer resynchronization enhanced
+ - disabled connect log if unprivileged user -2 is used
+ - getpwnam() replaced by getpwnam_r() because valgrind reported an error
+   ...but unfortunatelly it still does
+ - improved process termination handling
+ - illegal mem access fixed in termination process
+ - Socks connect exchanged by timed select
+ - added signal handler for SIGTERM (and SIGHUP without implementation)
+ - uid is changed to -2 if default user does not exist
+ - fixed erroneous sockaddr size in socks connect (leaded to failure on
+ OpenBSD)
+ - improved tunnel name determination
+ - fixed ifconfig for OpenBSD
+ - fixed mem leak in thread creation process
+ - replaced static local_listeners by configurable ones (for OC listen and
+ controller listen)
+ - graceful shutdown (CTRL-C or SIGINT)
+ - thread stack size configurable (necessary because OpenBSD stacksize seems
+ to be to small)
+
+* version 0.1.9
+ - man page updated
+ - Local onion-URL may be generated randomly (option -R)
+ - SOCKS destination IP configurable (v4 only)
+ - disabled self connections to root nodes
+ - fatal memory error in SOCKS queue fixed
+ - bugfix in ether_ntoa_r()
+ - variable for uptime implemented
+ - routing is setup correctly on MACOSX with TUN dev
+ - serious framesize bug with TAP device fixed
+ - seems to run on Darwin yet ;)
+ - consolidated header files
+ - compiles on FreeBSD and OpenBSD
+ - connecting logfile to /dev/null if background option given
+ - staying in foreground if failed to open message logfile
+ - bugfixes
+ - IPv6 routes are aware of prefix lengths
+ - IPv6 routing table can be manipulated through controller or config file
+ - limited IPv6 routing capability
+ - keepalive sent after connection setup (eases identification for remote
+ ocat)
+ - automatic initialization of default connections at startup
+ - implemented TAP device and NDP protocol
+
+* version 0.1.9
+ - connect log => $HOME/.ocat/connect_log
+ - IPv4 awareness
+
+* version 0.1.8
+ - port numbers changed to 8060 for local and virtual hidden service port
+ - port number of controller interface changed to 8066
+ - wrapped thread locking to internal functions
+ - added HTTP check code if some one accidently connects using HTTP
+ - replace clock_gettime() by gettimeofday() for portability reasons
+ - compiles on FreeBSD again
+ - replaced write() by send(). data should always be sent in total
+   and never partially. tcp sendbuffer read-out code thereby removed.
+ - added command fds to controller interface
+
+* version 0.1.5 - 0.1.7
+ - development versions only
+
+* version 0.1.4 
+ - acceptor and controller now use generic acceptor function
+   which accepts locally on IPv4 and IPv6 localhost.  
+ - socket connecter now multi-threaded (connect() blocks until connect) 
+ - local controller socket available: commands: status, close, exit,
+   quit - thread start routine modularized - logging improved
+
+* verion 0.1.1 
+ - improved interoperability 
+ - compiles also under FreeBSD 6.1
+ - TUN code slightly changed and more generic 
+ - TUN header rewriting (BSD has different header from linux)
+
+* version 0.1 
+ - works good under linux, gcc-4.2, linux-2.6.22
+
