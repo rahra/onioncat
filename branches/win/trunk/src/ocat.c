@@ -372,8 +372,16 @@ int main(int argc, char *argv[])
       log_msg(LOG_INFO, "MAC address %s", ether_ntoa_r((struct ether_addr*) CNF(ocat_hwaddr), hw));
 
 #ifndef WITHOUT_TUN
+#ifdef __CYGWIN__
+   if (win_open_tun(CNF(tunname), sizeof(CNF(tunname))) == -1)
+   {
+      log_msg(LOG_ALERT, "opening TAP driver failed. exiting");
+      exit(1);
+   }
+#else
    // create TUN device
    CNF(tunfd[0]) = CNF(tunfd[1]) = tun_alloc(CNF(tunname), CNF(ocat_addr));
+#endif
 #endif
 
    log_msg(LOG_INFO, "IPv6 address %s", ip6addr);

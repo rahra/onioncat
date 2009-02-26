@@ -596,6 +596,12 @@ struct in6_addr *ipv6_lookup_route(const struct in6_addr *);
 void ipv6_print_routes(FILE *);
 int ipv6_parse_route(const char *);
 
+#ifdef __CYGWIN__
+/* ocat_wintuntap.c */
+int win_open_tun(char *, int);
+int win_read_tun(char *, int);
+int win_write_tun(const char *, int);
+#endif
 
 #endif
 
