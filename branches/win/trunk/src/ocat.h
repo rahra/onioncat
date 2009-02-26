@@ -98,9 +98,12 @@
 */
 
 #ifdef __CYGWIN__
-#include "ocat_cygwin.h"
+#include "cygwin/ocat_cygwin.h"
 #endif
 
+#ifndef ETHERTYPE_IP
+#define ETHERTYPE_IP 0x0800
+#endif
 #ifndef ETHERTYPE_IPV6
 #define ETHERTYPE_IPV6 0x86dd
 #endif
