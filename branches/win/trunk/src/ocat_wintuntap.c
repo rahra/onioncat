@@ -177,6 +177,11 @@ int win_open_tun(char *dev, int s)
    tapData->write_overlapped.OffsetHigh = 0;
    tapData->write_overlapped.hEvent = tapData->write_event;
 
+   // set IPv6 address
+   // % netsh interface ipv6 add address "LAN-Verbindung 2" fd87:d87e:eb43:0:84:2100:0:8421 
+   // add route
+   // % netsh interface ipv6 add route  fd87:d87e:eb43::/48 "LAN-Verbindung 2"
+
    strlcpy(dev, deviceId, s);
    return 0;
 }
