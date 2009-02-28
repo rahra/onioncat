@@ -134,7 +134,7 @@ int findTapDevice(char *deviceID, int deviceIDLen, char *deviceName, int deviceN
 /*! Open TAP driver. */
 int win_open_tun(char *dev, int s)
 {
-   char deviceId[256], deviceName[256], tapPath[256];
+   char deviceId[SIZE_256], deviceName[SIZE_256], tapPath[SIZE_256];
    TapData_t *tapData = &tapData_;
    unsigned long len = 0;
    int status;
@@ -182,7 +182,7 @@ int win_open_tun(char *dev, int s)
    // add route
    // % netsh interface ipv6 add route  fd87:d87e:eb43::/48 "LAN-Verbindung 2"
 
-   strlcpy(dev, deviceId, s);
+   strlcpy(dev, deviceName, s);
    return 0;
 }
 
@@ -201,29 +201,36 @@ int win_close_tun(void)
 
 int win_write_tun(const char *jb, int len)
 {
-    TapData_t *tapData = &tapData_;
-    DWORD written, err;
-    BOOL result;
+   TapData_t *tapData = &tapData_;
+   DWORD written, err;
     
-    result = GetOverlappedResult(tapData->fd, &tapData->write_overlapped,
-                                  &written, FALSE);
+   log_debug("WriteFile %d bytes", len);
+   if (!GetOverlappedResult(tapData->fd, &tapData->write_overlapped, &written, FALSE))
+   {
+      err = GetLastError();
+      log_debug("GetOverlappedResult failed. Error = %ld", err);
+      if (err == ERROR_IO_INCOMPLETE)
+      {
+         log_debug("IO_COMPLETE, WaitForSingleObject");
+         if ((err = WaitForSingleObject(tapData->write_event, INFINITE)) == WAIT_FAILED)
+            log_msg(LOG_ERR, "WaitForSingleObject failed. Error = %ld", GetLastError());
+         else
+            log_debug("WaitForSingleObject returen %08lx", err);
+      }
+   }
 
-    if (!result && GetLastError() == ERROR_IO_INCOMPLETE)
-        WaitForSingleObject(tapData->write_event, INFINITE);
-
-    if (!WriteFile(tapData->fd, jb, len, &written, &tapData->write_overlapped))
-    {
+   if (!WriteFile(tapData->fd, jb, len, &written, &tapData->write_overlapped))
+   {
       if ((err = GetLastError()) != ERROR_IO_PENDING)
       {   
-       fprintf(stderr, "error writing %ld \n", err);
-       return -1;
+         log_msg(LOG_ERR, "error writing %ld", err);
+         return -1;
       }
       else
-         fprintf(stderr, "io pending\n");
-    }
+         log_debug("IO_PENDING");
+   }
 
-    return written;
-    
+   return written;
 }
 
 
@@ -233,18 +240,19 @@ int win_read_tun(char *buf, int n)
    TapData_t *tapData = &tapData_;
    DWORD len, err;
     
-   log_debug("ReadFile");
+   log_debug("ReadFile max. %d bytes", n);
    if (!ReadFile(tapData->fd, buf, n, &len, &tapData->read_overlapped))
    {
       // check if I/O is still pending
       if ((err = GetLastError()) == ERROR_IO_PENDING)
       {
-         log_debug("ReadFile pending...");
-
-         if ((err = WaitForSingleObject(tapData->read_event, INFINITE)) == WAIT_FAILED)
-            log_msg(LOG_ERR, "WaitForSingleObject failed. Error = %ld", GetLastError());
-         else
-            log_debug("WaitForSingleObject returen %08lx", err);
+         for (err = WAIT_TIMEOUT; err == WAIT_TIMEOUT;)
+         {
+            log_debug("ReadFile pending...");
+            if ((err = WaitForSingleObject(tapData->read_event, SELECT_TIMEOUT * 1000)) == WAIT_FAILED)
+               log_msg(LOG_ERR, "WaitForSingleObject failed. Error = %ld", GetLastError());
+            log_debug("WaitForSingleObject returned %08lx", err);
+         }
 
          if (!GetOverlappedResult(tapData->fd, &tapData->read_overlapped, &len, FALSE))
          {

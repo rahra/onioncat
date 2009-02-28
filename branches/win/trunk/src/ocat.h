@@ -155,6 +155,7 @@
 
 //! Standard buffer size 1024 bytes
 #define SIZE_1K 1024
+#define SIZE_256 256
 
 #define DEQUEUER_WAKEUP 3
 //! maximum number a packet stays in queue
@@ -265,7 +266,7 @@ struct OcatSetup
    //! name of tunnel charcter device
    char *tun_dev;
    //! tunnel interface name
-   char tunname[IFNAMSIZ];
+   char tunname[SIZE_256];
    int ipv4_enable;
    struct in_addr ocat_addr4;
    int ocat_addr4_mask;
@@ -500,7 +501,7 @@ const char *inet_ntops(const struct sockaddr *, struct sockaddr_str *);
 
 /* ocattun.c */
 #ifndef WITHOUT_TUN
-int tun_alloc(char *, struct in6_addr);
+int tun_alloc(char *, int, struct in6_addr);
 #endif
 
 /* ocatroute.c */
@@ -599,6 +600,7 @@ int ipv6_parse_route(const char *);
 #ifdef __CYGWIN__
 /* ocat_wintuntap.c */
 int win_open_tun(char *, int);
+int win_close_tun(void);
 int win_read_tun(char *, int);
 int win_write_tun(const char *, int);
 #endif

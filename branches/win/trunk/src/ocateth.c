@@ -281,9 +281,15 @@ int ndp_solicit(const struct in6_addr *src, const struct in6_addr *dst)
    ndp6->icmp6.icmp6_cksum = checksum(ckb, ntohs(ndp6->ip6.ip6_plen) + sizeof(struct ip6_psh));
    free_ckbuf(ckb);
 
+#ifdef __CYGWIN__
+   log_debug("writing %d bytes ndp solicitation to TAP driver", sizeof(buf) - 4);
+   // FIXME: there's no error checking
+   win_write_tun(buf + 4, sizeof(buf) - 4);
+#else
    log_debug("writing %d bytes ndp solicitation to tunfd %d", sizeof(buf), CNF(tunfd[1]));
    if (write(CNF(tunfd[1]), buf, sizeof(buf)) < sizeof(buf))
       log_msg(LOG_ERR, "short write to tun fd %d", CNF(tunfd[1]));
+#endif
 
    return 0;
 }
@@ -376,9 +382,15 @@ int ndp_soladv(char *buf, int rlen)
    ndp6->ndp_adv.nd_na_hdr.icmp6_cksum = checksum(ckb, ntohs(ndp6->ip6.ip6_plen) + sizeof(struct ip6_psh));
    free_ckbuf(ckb);
 
+#ifdef __CYGWIN__
+   log_debug("writing %d bytes to TAP driver", rlen);
+   // FIXME: there's no error checking
+   win_write_tun(buf + 4, rlen - 4);
+#else
    log_debug("writing %d bytes to tunfd %d", rlen, CNF(tunfd[1]));
    if (write(CNF(tunfd[1]), buf, rlen) < rlen)
       log_msg(LOG_ERR, "short write");
+#endif
 
    return 0;
 }

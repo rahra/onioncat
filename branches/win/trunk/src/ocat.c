@@ -168,10 +168,14 @@ void cleanup_system(void)
 
    log_msg(LOG_NOTICE, "waiting for system cleanup...");
    // close tunnel interface
+#ifdef __CYGWIN__
+   (void) win_close_tun();
+#else
    log_debug("closing tunfd %d (and %d)", CNF(tunfd[0]), CNF(tunfd[1]));
    oe_close(CNF(tunfd[0]));
    if (CNF(tunfd[0]) != CNF(tunfd[1]))
       oe_close(CNF(tunfd[1]));
+#endif
 
    // close and delete all peers
    log_debug("deleting peers");
@@ -372,16 +376,12 @@ int main(int argc, char *argv[])
       log_msg(LOG_INFO, "MAC address %s", ether_ntoa_r((struct ether_addr*) CNF(ocat_hwaddr), hw));
 
 #ifndef WITHOUT_TUN
-#ifdef __CYGWIN__
-   if (win_open_tun(CNF(tunname), sizeof(CNF(tunname))) == -1)
+   // create TUN device
+   if ((CNF(tunfd[0]) = CNF(tunfd[1]) = tun_alloc(CNF(tunname), sizeof(CNF(tunname)), CNF(ocat_addr))) == -1)
    {
-      log_msg(LOG_ALERT, "opening TAP driver failed. exiting");
+      log_msg(LOG_CRIT, "error opening TUN/TAP device");
       exit(1);
    }
-#else
-   // create TUN device
-   CNF(tunfd[0]) = CNF(tunfd[1]) = tun_alloc(CNF(tunname), CNF(ocat_addr));
-#endif
 #endif
 
    log_msg(LOG_INFO, "IPv6 address %s", ip6addr);
