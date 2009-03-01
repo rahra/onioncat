@@ -1,4 +1,4 @@
-/* Copyright 2008 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2009 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -32,7 +32,7 @@ char *tun_dev_ = TUN_DEV;
 
 #define IFCBUF 1024
 
-int tun_alloc(char *dev, struct in6_addr addr)
+int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 {
    struct ifreq ifr;
    int fd;
@@ -41,11 +41,37 @@ int tun_alloc(char *dev, struct in6_addr addr)
    char buf[IFCBUF];
    struct in_addr netmask = {CNF(ocat_addr4_mask)};
 
-	log_debug("opening tun \"%s\"", tun_dev_);
-   if ((fd = open(tun_dev_, O_RDWR)) < 0)
-      log_msg(LOG_EMERG, "could not open tundev %s: %s", tun_dev_, strerror(errno)), exit(1);
    inet_ntop(AF_INET6, &addr, astr, INET6_ADDRSTRLEN);
    inet_ntop(AF_INET, &CNF(ocat_addr4), astr4, INET_ADDRSTRLEN);
+
+#ifdef __CYGWIN__
+   if ((fd = win_open_tun(dev, dev_s)) == -1)
+      return -1;
+
+      // set IPv6 address
+      // 181    // % netsh interface ipv6 add address "LAN-Verbindung 2" fd87:d87e:eb43:0:84:2100:0:8421
+      // 182    // add route
+      // 183    // % netsh interface ipv6 add route  fd87:d87e:eb43::/48 "LAN-Verbindung 2"
+
+   snprintf(buf, sizeof(buf), "netsh interface ipv6 add address \"%s\" %s", dev, astr);
+   log_debug("setting IP on tun: \"%s\"", buf);
+   if (system(buf) == -1)
+      log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+
+   snprintf(buf, sizeof(buf), "netsh interface ipv6 add route %s/%d \"%s\"", astr, TOR_PREFIX_LEN, dev);
+   log_debug("setting IP routing: \"%s\"", buf);
+   if (system(buf) == -1)
+      log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+
+   return 0;
+#endif
+
+	log_debug("opening tun \"%s\"", tun_dev_);
+   if ((fd = open(tun_dev_, O_RDWR)) < 0)
+   {
+      log_msg(LOG_EMERG, "could not open tundev %s: %s", tun_dev_, strerror(errno));
+      return -1;
+   }
 
 #ifdef __linux__
 
@@ -134,7 +160,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
    if (ioctl(fd, TUNSIFHEAD, &prm) == -1)
       log_msg(LOG_EMERG, "could not ioctl:TUNSIFHEAD: %s", strerror(errno)), exit(1);
 
-#endif
+#endif /* __linux__ */
 
 
    if (!CNF(use_tap))
@@ -175,7 +201,7 @@ int tun_alloc(char *dev, struct in6_addr addr)
    // bring up tap device
    if (CNF(use_tap))
    {
-       snprintf(buf, sizeof(buf), "ifconfig %s up", dev);
+      snprintf(buf, sizeof(buf), "ifconfig %s up", dev);
       log_msg(LOG_INFO, "bringing up TAP device \"%s\"", buf);
       if (system(buf) == -1)
          log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
@@ -184,5 +210,5 @@ int tun_alloc(char *dev, struct in6_addr addr)
    return fd;
 }              
  
-#endif
+#endif /* WITHOUT_TUN */
 

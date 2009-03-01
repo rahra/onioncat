@@ -97,6 +97,13 @@
 #endif
 */
 
+#ifdef __CYGWIN__
+#include "cygwin/ocat_cygwin.h"
+#endif
+
+#ifndef ETHERTYPE_IP
+#define ETHERTYPE_IP 0x0800
+#endif
 #ifndef ETHERTYPE_IPV6
 #define ETHERTYPE_IPV6 0x86dd
 #endif
@@ -148,6 +155,7 @@
 
 //! Standard buffer size 1024 bytes
 #define SIZE_1K 1024
+#define SIZE_256 256
 
 #define DEQUEUER_WAKEUP 3
 //! maximum number a packet stays in queue
@@ -259,7 +267,7 @@ struct OcatSetup
    //! name of tunnel charcter device
    char *tun_dev;
    //! tunnel interface name
-   char tunname[IFNAMSIZ];
+   char tunname[SIZE_256];
    int ipv4_enable;
    struct in_addr ocat_addr4;
    int ocat_addr4_mask;
@@ -454,33 +462,6 @@ typedef struct OcatCtrlHdr
 */
 
 
-#ifndef HAVE_STRUCT_IP6_HDR
-struct ip6_hdr
-  {
-    union
-      {
-   struct ip6_hdrctl
-     {
-       uint32_t ip6_un1_flow;   /* 4 bits version, 8 bits TC,
-                                   20 bits flow-ID */
-       uint16_t ip6_un1_plen;   /* payload length */
-       uint8_t  ip6_un1_nxt;    /* next header */
-       uint8_t  ip6_un1_hlim;   /* hop limit */
-     } ip6_un1;
-   uint8_t ip6_un2_vfc;         /* 4 bits version, top 4 bits tclass */
-      } ip6_ctlun;
-    struct in6_addr ip6_src;    /* source address */
-    struct in6_addr ip6_dst;    /* destination address */
-  };
-
-#define ip6_vfc   ip6_ctlun.ip6_un2_vfc
-#define ip6_flow  ip6_ctlun.ip6_un1.ip6_un1_flow
-#define ip6_plen  ip6_ctlun.ip6_un1.ip6_un1_plen
-#define ip6_nxt   ip6_ctlun.ip6_un1.ip6_un1_nxt
-#define ip6_hlim  ip6_ctlun.ip6_un1.ip6_un1_hlim
-#define ip6_hops  ip6_ctlun.ip6_un1.ip6_un1_hlim
-#endif
-
 #ifndef WITHOUT_TUN
 #ifdef __FreeBSD__
 #define TUN_DEV "/dev/tun0"
@@ -521,7 +502,7 @@ const char *inet_ntops(const struct sockaddr *, struct sockaddr_str *);
 
 /* ocattun.c */
 #ifndef WITHOUT_TUN
-int tun_alloc(char *, struct in6_addr);
+int tun_alloc(char *, int, struct in6_addr);
 #endif
 
 /* ocatroute.c */
@@ -618,6 +599,13 @@ struct in6_addr *ipv6_lookup_route(const struct in6_addr *);
 void ipv6_print_routes(FILE *);
 int ipv6_parse_route(const char *);
 
+#ifdef __CYGWIN__
+/* ocat_wintuntap.c */
+int win_open_tun(char *, int);
+int win_close_tun(void);
+int win_read_tun(char *, int);
+int win_write_tun(const char *, int);
+#endif
 
 #endif
 

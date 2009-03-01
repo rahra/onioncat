@@ -162,8 +162,8 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-SUBDIRS = src man
-DIST_SUBDIRS = src man
+SUBDIRS = src man src/cygwin
+DIST_SUBDIRS = src/cygwin src man
 dist_doc_DATA = README
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive

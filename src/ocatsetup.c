@@ -30,7 +30,11 @@ static struct sockaddr_in6 socks_dst6_;
 static struct sockaddr_in ctrl_listen_;
 static struct sockaddr_in6 ctrl_listen6_;
 static struct sockaddr *ctrl_listen_ptr_[] = 
-   {(struct sockaddr*) &ctrl_listen_, (struct sockaddr*) &ctrl_listen6_, NULL};
+   {(struct sockaddr*) &ctrl_listen_, 
+#ifndef __CYGWIN__
+      (struct sockaddr*) &ctrl_listen6_, 
+#endif
+      NULL};
 static int ctrl_fd_[2] = {-1, -1};
 
 struct OcatSetup setup_ =
@@ -50,7 +54,11 @@ struct OcatSetup setup_ =
    {'\0'},                                // tunname
    0, TOR_PREFIX4, TOR_PREFIX4_MASK,
    NULL, 1,
+#ifdef __CYGWIN__
+   1,
+#else
    0,                                      // use_tap
+#endif
    {0x00, 0x00, 0x6c, 0x00, 0x00, 0x00},   // ocat_hwaddr (OnionCat MAC address)
    PID_FILE,
    NULL, NULL,                             // logfile
@@ -84,7 +92,11 @@ struct OcatSetup setup_ =
    // oc_listen_fd
    ctrl_fd_,
    // oc_listen_cnt
+#ifdef __CYGWIN__
+   1
+#else
    2
+#endif
 };
 
 
