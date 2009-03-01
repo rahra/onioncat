@@ -118,9 +118,17 @@ void vlog_msgf(FILE *out, int lf, const char *fmt, va_list ap)
    }
 
    (void) pthread_mutex_lock(&log_mutex_);
-   fprintf(out, "%s.%03d %s [%d:%-*s:%6s] ", timestr, (int) (tv.tv_usec / 1000), timez, th->id, THREAD_NAME_LEN - 1, th->name, flty_[level]);
-   vfprintf(out, fmt, ap);
-   fprintf(out, "\n");
+   if (out)
+   {
+      fprintf(out, "%s.%03d %s [%d:%-*s:%6s] ", timestr, (int) (tv.tv_usec / 1000), timez, th->id, THREAD_NAME_LEN - 1, th->name, flty_[level]);
+      vfprintf(out, fmt, ap);
+      fprintf(out, "\n");
+   }
+   else
+   {
+      // log to syslog if no output stream is available
+      vsyslog(level | LOG_DAEMON, fmt, ap);
+   }
    (void) pthread_mutex_unlock(&log_mutex_);
 }
 
@@ -144,6 +152,12 @@ void log_msg(int lf, const char *fmt, ...)
       vlog_msgf(clog_, lf, fmt, ap);
       va_end(ap);
       (void) fflush(clog_);
+   }
+   if (lf & LOG_FERR)
+   {
+      va_start(ap, fmt);
+      vfprintf(stderr, fmt, ap);
+      va_end(ap);
    }
 }
 

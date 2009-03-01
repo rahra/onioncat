@@ -67,19 +67,22 @@ void usage(const char *s)
  */
 int open_logfile(void)
 {
+   FILE *f;
+
    if (CNF(logfn))
    {
       log_debug("opening log file \"%s\"", CNF(logfn));
-      if ((CNF(logf) = fopen(CNF(logfn), "a")))
+      if ((f = fopen(CNF(logfn), "a")))
       {
+         CNF(logf) = f;
          log_debug("logfile %s opened", CNF(logfn));
          if (setvbuf(CNF(logf), NULL, _IOLBF, 0))
             log_msg(LOG_ERR, "could not setup line buffering: %s", strerror(errno));
          fflush(CNF(logf));
          return 0;
       }
-      CNF(logf) = stderr;
-      log_msg(LOG_ERR, "could not open logfile %s: %s. Defaulting to stderr", CNF(logfn), strerror(errno));
+      //CNF(logf) = stderr;
+      log_msg(LOG_ERR, "could not open logfile %s: %s.", CNF(logfn), strerror(errno));
    }
    return -1;
 }
@@ -311,6 +314,15 @@ int main(int argc, char *argv[])
    if (!CNF(rand_addr) && !argv[optind])
       usage(argv[0]), exit(1);
 
+   if (urlconv)
+      CNF(daemon) = 0;
+
+   // log to stderr if in foreground
+   if (!CNF(daemon))
+      CNF(logf) = stderr;
+ 
+   (void) open_logfile();
+
    // init main thread
    (void) init_ocat_thread("main");
    detach_thread();
@@ -355,7 +367,7 @@ int main(int argc, char *argv[])
       exit(0);
    }
 
-   log_msg(LOG_INFO, "%s (c) %s -- compiled %s %s", OCAT_AUTHOR, PACKAGE_STRING, __DATE__, __TIME__);
+   log_msg(LOG_INFO | LOG_FERR, "%s (c) %s -- compiled %s %s", OCAT_AUTHOR, PACKAGE_STRING, __DATE__, __TIME__);
 
 #if 0
    if (CNF(config_file))
@@ -427,18 +439,6 @@ int main(int argc, char *argv[])
          log_msg(LOG_ERR, "could not change uid: \"%d\"", strerror(errno)), exit(1);
    }
    log_debug("uid/gid = %d/%d", getuid(), getgid());
-
-   // opening logfile
-   if (CNF(daemon) && !CNF(logfn))
-   {
-      log_debug("connecting logfile to /dev/null because of daemon option");
-      CNF(logfn) = "/dev/null";
-   }
-   if ((open_logfile() == -1) && CNF(daemon))
-   {
-      log_msg(LOG_NOTICE, "staying in foreground");
-      CNF(daemon) = 0;
-   }
 
    if (CNF(create_clog))
       open_connect_log(pwd->pw_dir);
