@@ -100,7 +100,7 @@ void init_setup(void)
       log_msg(LOG_WARNING, "could gettimeofday(): \"%s\"", strerror(errno));
    srand(tv.tv_sec ^ tv.tv_usec);
 
-   setup_.logf = stderr;
+   //setup_.logf = stderr;
    setup_.uptime = time(NULL);
 
    setup_.socks_dst->sin_family = AF_INET;

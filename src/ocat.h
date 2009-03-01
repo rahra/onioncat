@@ -164,7 +164,8 @@
 //! select timeout (to avoid endless blocking)
 #define SELECT_TIMEOUT 10
 
-#define LOG_FCONN 0x80
+#define LOG_FCONN 0x400
+#define LOG_FERR 0x800
 
 #define E_SOCKS_SOCK -1
 #define E_SOCKS_CONN -2
@@ -602,6 +603,7 @@ uint16_t *malloc_ckbuf(const struct in6_addr *, const struct in6_addr *, uint16_
 /* ocatsocks.c */
 void socks_queue(struct in6_addr, int);
 void print_socks_queue(FILE *);
+void sig_socks_connector(void);
 
 /* ocatlibe.c */
 void oe_close(int);
