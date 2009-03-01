@@ -1,4 +1,5 @@
 * version 0.1.12
+ - Windows branch merges into trunk
  - syslogging implemented
 
 * version 0.1.11

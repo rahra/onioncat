@@ -520,8 +520,13 @@ void *socket_receiver(void *p)
                      else if (*peer->tunhdr == CNF(fhd_key[IPV4_KEY]))
                         eh->ether_type = htons(ETHERTYPE_IP);
 
+#ifdef __CYGWIN__
+                     if (win_write_tun(buf + 4, len + sizeof(struct ether_header)) != (len + sizeof(struct ether_header)))
+                        log_msg(LOG_ERR, "could not write %d bytes to WinTAP", len + sizeof(struct ether_header));
+#else
                      if (write(CNF(tunfd[1]), buf, len + 4 + sizeof(struct ether_header)) != (len + 4 + sizeof(struct ether_header)))
                         log_msg(LOG_ERR, "could not write %d bytes to tunnel %d", len + 4 + sizeof(struct ether_header), CNF(tunfd[1]));
+#endif
                   }
                }
                else
@@ -789,6 +794,15 @@ void packet_forwarder(void)
       if (term_req())
          break;
 
+#ifdef __CYGWIN__
+      log_debug("reading from WinTAP");
+      if ((rlen = win_read_tun(buf + 4, FRAME_SIZE - 4)) == -1)
+      {
+         log_debug("win_read_tun failed. restarting");
+         continue;
+      }
+      rlen += 4;
+#else
 #ifdef __OpenBSD__
       // workaround for OpenBSD userland threads
       fcntl(CNF(tunfd[0]), F_SETFL, fcntl(CNF(tunfd[0]), F_GETFL) & ~O_NONBLOCK);
@@ -811,6 +825,7 @@ void packet_forwarder(void)
          log_debug("restarting");
          continue;
       }
+#endif
 
       log_debug("received on tunfd %d, framesize %d + 4", CNF(tunfd[0]), rlen - 4);
 
