@@ -53,6 +53,17 @@ struct {                                                                \
         struct type **le_prev;  /* address of previous next element */  \
 }
 
+//! define OpenBSD-style byteorder macros
+#ifndef _BYTE_ORDER
+#define _BYTE_ORDER BYTE_ORDER
+#endif
+#ifndef _LITTLE_ENDIAN
+#define _LITTLE_ENDIAN LITTLE_ENDIAN
+#endif
+#ifndef _BIG_ENDIAN
+#define _BIG_ENDIAN BIG_ENDIAN
+#endif
+
 #include "openbsd_netinet_ip6.h"
 #include "openbsd_netinet_icmp6.h"
 #include "openbsd_netinet_if_ether.h"
