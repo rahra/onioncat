@@ -18,9 +18,6 @@
 /* Define to 1 if you have the `ether_ntoa_r' function. */
 #undef HAVE_ETHER_NTOA_R
 
-/* Define to 1 if you have the <inttypes.h> header file. */
-#undef HAVE_INTTYPES_H
-
 /* Define to 1 if you have the `pthread' library (-lpthread). */
 #undef HAVE_LIBPTHREAD
 
@@ -29,9 +26,6 @@
 
 /* Define to 1 if you have the <linux/sockios.h> header file. */
 #undef HAVE_LINUX_SOCKIOS_H
-
-/* Define to 1 if you have the <memory.h> header file. */
-#undef HAVE_MEMORY_H
 
 /* Define to 1 if you have the <netinet/ether.h> header file. */
 #undef HAVE_NETINET_ETHER_H
@@ -66,29 +60,8 @@
 /* Define to 1 if you have the <net/if_tun.h> header file. */
 #undef HAVE_NET_IF_TUN_H
 
-/* Define to 1 if you have the `readline' function. */
-#undef HAVE_READLINE
-
-/* Define to 1 if you have the <readline/history.h> header file. */
-#undef HAVE_READLINE_HISTORY_H
-
-/* Define to 1 if you have the <readline/readline.h> header file. */
-#undef HAVE_READLINE_READLINE_H
-
 /* Do we have sockaddr_in.sin_len? */
 #undef HAVE_SIN_LEN
-
-/* Define to 1 if you have the <stdint.h> header file. */
-#undef HAVE_STDINT_H
-
-/* Define to 1 if you have the <stdlib.h> header file. */
-#undef HAVE_STDLIB_H
-
-/* Define to 1 if you have the <strings.h> header file. */
-#undef HAVE_STRINGS_H
-
-/* Define to 1 if you have the <string.h> header file. */
-#undef HAVE_STRING_H
 
 /* Define to 1 if you have the `strlcat' function. */
 #undef HAVE_STRLCAT
@@ -111,14 +84,8 @@
 /* Define to 1 if you have the <sys/socket.h> header file. */
 #undef HAVE_SYS_SOCKET_H
 
-/* Define to 1 if you have the <sys/stat.h> header file. */
-#undef HAVE_SYS_STAT_H
-
 /* Define to 1 if you have the <sys/types.h> header file. */
 #undef HAVE_SYS_TYPES_H
-
-/* Define to 1 if you have the <unistd.h> header file. */
-#undef HAVE_UNISTD_H
 
 /* enable RTT measurement */
 #undef MEASURE_RTT
@@ -146,9 +113,6 @@
 
 /* enable packet queue */
 #undef PACKET_QUEUE
-
-/* Define to 1 if you have the ANSI C header files. */
-#undef STDC_HEADERS
 
 /* SVN Revision */
 #undef SVN_REVISION

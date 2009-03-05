@@ -162,13 +162,13 @@
 #define MAX_QUEUE_DELAY 10
 
 //! Maximum idle time for a peer, after that time the peer is closed.
-#define MAX_IDLE_TIME 120
+#define MAX_IDLE_TIME 180
 //! # of secs after a cleaner wakeup occurs
 #define CLEANER_WAKEUP 10
 //! # of secs after stats output is generated
 #define STAT_WAKEUP 600
 //! keepalive time
-#define KEEPALIVE_TIME (MAX_IDLE_TIME/2)
+#define KEEPALIVE_TIME 60
 //! select timeout (to avoid endless blocking)
 #define SELECT_TIMEOUT 10
 

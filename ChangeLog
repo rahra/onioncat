@@ -1,6 +1,7 @@
 * version 0.1.12
  - Windows branch merges into trunk
  - syslogging implemented
+ - idle timeout increased to 3 mins
 
 * version 0.1.11
  - version tagged (this actually is 0.1.10-r472)
