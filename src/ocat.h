@@ -88,14 +88,6 @@
 #ifdef HAVE_NET_IF_TUN_H
 #include <net/if_tun.h>
 #endif
-/*
-#ifdef HAVE_READLINE_READLINE_H
-#include <readline/readline.h>
-#endif
-#ifdef HAVE_READLINE_HISTORY_H
-#include <readline/history.h>
-#endif
-*/
 
 #ifdef __CYGWIN__
 #include "cygwin/ocat_cygwin.h"
