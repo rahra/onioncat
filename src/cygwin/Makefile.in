@@ -133,6 +133,7 @@ sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
+top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 include_HEADERS = ocat_cygwin.h openbsd_netinet_icmp6.h openbsd_netinet_if_ether.h openbsd_netinet_ip6.h
