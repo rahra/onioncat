@@ -467,8 +467,11 @@ int main(int argc, char *argv[])
          log_msg(LOG_ERR, "could not reconnect stdio to /dev/null: \"%s\"", strerror(errno));
    }
 
-   // create socks connector thread
-   run_ocat_thread("connector", socks_connector, NULL);
+   // create socks connector thread and communication queue
+   if (pipe(CNF(socksfd)) == -1)
+      log_msg(LOG_EMERG, "couldn't create socks connector pipe: \"%s\"", strerror(errno)), exit(1);
+   run_ocat_thread("connector", socks_connector_sel, NULL);
+
 #ifdef PACKET_QUEUE
    // start packet dequeuer
    run_ocat_thread("dequeuer", packet_dequeuer, NULL);

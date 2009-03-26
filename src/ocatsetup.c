@@ -97,6 +97,9 @@ struct OcatSetup setup_ =
 #else
    2
 #endif
+   ,
+   // socksfd
+   {-1, -1}
 };
 
 
