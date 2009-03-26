@@ -34,15 +34,19 @@
  */
 void *ctrl_handler(void *p)
 {
-   int fd, c;
+   int fd, c, i;
    FILE *ff, *fo;
    char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[ONION_NAME_SIZE], timestr[32], *s, *tokbuf;
    int rlen, cfd;
    struct tm *tm;
    OcatPeer_t *peer;
    struct in6_addr in6;
+   int pfd[2];
 
    detach_thread();
+
+   if (pipe(pfd) == -1)
+      log_msg(LOG_EMERG, "couldn't create pipe: \"%s\"", strerror(errno)), exit(1);
 
    fd = (int) p;
    if (CNF(config_read))
@@ -239,7 +243,14 @@ void *ctrl_handler(void *p)
       }
       else if (!strcmp(buf, "queue"))
       {
-         print_socks_queue(ff);
+         print_socks_queue((FILE*) pfd[1]);
+         for (;;)
+         {
+            read(pfd[0], buf, 1);
+            if (!buf[0])
+               break;
+            fprintf(ff, "%c", buf[0]);
+         }
       }
       else if (!strcmp(buf, "setup"))
       {

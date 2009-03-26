@@ -1,4 +1,6 @@
 * version 0.1.12
+ - socks connector completely rewritten. Works now
+   without dynamic thread pool. This is more memory efficient.
  - Windows branch merges into trunk
  - syslogging implemented
  - idle timeout increased to 3 mins

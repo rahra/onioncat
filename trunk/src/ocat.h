@@ -186,7 +186,12 @@
 //! thread stack size (default stack size on OpenBSD is too small)
 #define THREAD_STACK_SIZE 262144
 
+#define SOCKS_NEW 0
 #define SOCKS_CONNECTING 1
+#define SOCKS_4AREQ_SENT 2
+#define SOCKS_4ARESPONSE 3
+#define SOCKS_DELETE 127
+
 #define SOCKS_MAX_RETRY 3
 
 #define E_RT_NOMEM -1
@@ -216,6 +221,8 @@
 #define RECONN_ATTEMPTS 3
 //! RECONN_ATTEMPTS must not be faster than MIN_RECONNECT_TIME
 #define MIN_RECONNECT_TIME 30
+
+#define MFD_SET(f,s,m) {FD_SET(f, s); m = f > m ? f : m;}
 
 //! copy an IPv6 address from b to a
 #define IN6_ADDR_COPY(a,b) *((struct in6_addr*)a)=*(struct in6_addr*)b
@@ -296,6 +303,8 @@ struct OcatSetup
    struct sockaddr **ctrl_listen;
    int *ctrl_listen_fd;
    int ctrl_listen_cnt;
+   //! communication pipe for socks "selected" connector
+   int socksfd[2];
 };
 
 #ifdef PACKET_QUEUE
@@ -368,6 +377,10 @@ typedef struct SocksQueue
    struct in6_addr addr;
    int state;
    int perm;
+   int fd;
+   time_t restart_time;
+   time_t connect_time;
+   int retry;
 } SocksQueue_t;
 
 //! IPv4 routing table entry
@@ -506,7 +519,6 @@ void packet_forwarder(void);
 void *packet_dequeuer(void *);
 #endif
 void *socket_acceptor(void *);
-void *socks_connector(void *);
 void *socket_cleaner(void *);
 void *ocat_controller(void *);
 void *ctrl_handler(void *);
@@ -577,6 +589,7 @@ uint16_t *malloc_ckbuf(const struct in6_addr *, const struct in6_addr *, uint16_
 void socks_queue(struct in6_addr, int);
 void print_socks_queue(FILE *);
 void sig_socks_connector(void);
+void *socks_connector_sel(void *);
 
 /* ocatlibe.c */
 void oe_close(int);
