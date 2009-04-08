@@ -1,4 +1,4 @@
-onioncat (0.12.493) unstable; urgency=low
+onioncat (0.12.493) jaunty; urgency=low
 
   * Upstream svn build debian unstable
 
