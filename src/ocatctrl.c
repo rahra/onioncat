@@ -297,6 +297,10 @@ void *ctrl_handler(void *p)
    if (!CNF(config_read))
       CNF(config_read) = 1;
 
+   // close pipe
+   oe_close(pfd[0]);
+   oe_close(pfd[1]);
+
    return NULL;
 }
 
