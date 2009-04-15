@@ -95,6 +95,7 @@ void vlog_msgf(FILE *out, int lf, const char *fmt, va_list ap)
    const OcatThread_t *th = get_thread();
    OcatThread_t ths;
    int level = LOG_PRI(lf);
+   char buf[SIZE_1K];
 
    if (CNF(debug_level) < level)
       return;
@@ -127,7 +128,10 @@ void vlog_msgf(FILE *out, int lf, const char *fmt, va_list ap)
    else
    {
       // log to syslog if no output stream is available
-      vsyslog(level | LOG_DAEMON, fmt, ap);
+      //vsyslog(level | LOG_DAEMON, fmt, ap);
+      vsnprintf(buf, SIZE_1K, fmt, ap);
+      syslog(level | LOG_DAEMON, "[%s] %s", th->name, buf);
+
    }
    (void) pthread_mutex_unlock(&log_mutex_);
 }

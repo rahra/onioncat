@@ -361,7 +361,9 @@ int main(int argc, char *argv[])
    if (CNF(ipv4_enable))
       oniontipv4(CNF(onion_url), &CNF(ocat_addr4), ntohl(CNF(ocat_addr4_mask)));
 
-   inet_ntop(AF_INET6, &CNF(ocat_addr), ip6addr, INET6_ADDRSTRLEN);
+   if (!inet_ntop(AF_INET6, &CNF(ocat_addr), ip6addr, INET6_ADDRSTRLEN))
+      log_msg(LOG_ERR, "cannot convert IP address with inet_ntop: \"%s\"", strerror(errno)),
+         exit(1);
 
    if (urlconv == 1)
    {
