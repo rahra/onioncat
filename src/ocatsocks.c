@@ -143,7 +143,7 @@ void socks_pipe_request(const SocksQueue_t *sq)
       {
 
    log_debug("writing %d bytes to fd %d", len, CNF(socksfd[1]));
-   if ((ret = write(CNF(socksfd[1]), sq, len) == -1))
+   if ((ret = write(CNF(socksfd[1]), sq, len)) == -1)
    {
       log_msg(LOG_WARNING, "error writing to SOCKS request pipe fd %d: \"%s\"", CNF(socksfd[1]), strerror(errno));
    }
