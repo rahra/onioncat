@@ -598,6 +598,7 @@ int strsockaddr(const char *, struct sockaddr *);
 void add_local_listeners(void);
 void add_listener(const char *, const char *);
 void delete_listeners(struct sockaddr **, int *, int);
+int fdprintf(int, const char *, va_list);
 
 /* ocatipv6route.c */
 struct in6_addr *ipv6_lookup_route(const struct in6_addr *);

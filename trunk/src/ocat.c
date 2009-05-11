@@ -1,4 +1,4 @@
-/* Copyright 2008 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008,2009 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *

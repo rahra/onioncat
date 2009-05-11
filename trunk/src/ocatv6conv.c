@@ -1,4 +1,4 @@
-/* Copyright 2008 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008,2009 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -28,6 +28,17 @@
 #include "ocat.h"
 
 static const char BASE32[] = "abcdefghijklmnopqrstuvwxyz234567";
+//! array contains inverse mapping of base32 starting with '2'.
+static const char deBASE32_[] = {
+   /*          2   3   4   5   6   7   8   9   
+              32  33  34  35  36  37  38  39  3a  3b  3c  3d  3e  3f */
+              26, 27, 28, 29, 30, 31, -1, -1, -1, -1, -1, -1, -1, -1,
+   /*      A   B   C   D   E   F   G   H   I   J   K   L   M   N   O 
+      40  41  42  43  44  45  46  47  48  49  4a  4b  4c  4d  4e  4f */
+      -1,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 
+   /*  P   Q   R   S   T   U   V   W   X   Y   Z
+      50  51  52  53  54  55  56  57  58  59  5a */
+      15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25 };  
 static const struct in6_addr tor_prefix_ = TOR_PREFIX;
 
 
@@ -69,10 +80,10 @@ int oniontipv6(const char *onion, struct in6_addr *ip6)
    for (i = 0; i < 16; i++)
    {
       shl5((char*) ip6);
-      for (j = 0; j < 32; j++)
-         if (tolower(onion[i]) == BASE32[j])
-            break;
-      if (j == 32)
+      j = toupper(onion[i]);
+      if ((j < '2') || (j > 'Z'))
+         return -1;
+      if ((j = deBASE32_[j - '2']) == -1)
          return -1;
       *(((char*) ip6) + 15) |= j;
    }

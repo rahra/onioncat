@@ -837,7 +837,7 @@ void packet_forwarder(void)
       // just to be on the safe side but this should never happen
       if ((!CNF(use_tap) && (rlen < 4)) || (CNF(use_tap) && (rlen < 4 + sizeof(struct ether_header))))
       {
-         log_msg(LOG_ERR, "frame effektively too short (rlen = %d)", rlen);
+         log_msg(LOG_ERR, "frame effectively too short (rlen = %d)", rlen);
          continue;
       }
 
