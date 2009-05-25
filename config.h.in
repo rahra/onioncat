@@ -18,9 +18,6 @@
 /* Define to 1 if you have the `ether_ntoa_r' function. */
 #undef HAVE_ETHER_NTOA_R
 
-/* Define to 1 if you have the `pthread' library (-lpthread). */
-#undef HAVE_LIBPTHREAD
-
 /* Define to 1 if you have the <linux/if_tun.h> header file. */
 #undef HAVE_LINUX_IF_TUN_H
 
@@ -59,6 +56,9 @@
 
 /* Define to 1 if you have the <net/if_tun.h> header file. */
 #undef HAVE_NET_IF_TUN_H
+
+/* Define if you have POSIX threads libraries and header files. */
+#undef HAVE_PTHREAD
 
 /* Do we have sockaddr_in.sin_len? */
 #undef HAVE_SIN_LEN
@@ -113,6 +113,10 @@
 
 /* enable packet queue */
 #undef PACKET_QUEUE
+
+/* Define to necessary symbol if this constant uses a non-standard name on
+   your system. */
+#undef PTHREAD_CREATE_JOINABLE
 
 /* SVN Revision */
 #undef SVN_REVISION

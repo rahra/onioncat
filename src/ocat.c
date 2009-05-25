@@ -386,7 +386,7 @@ int main(int argc, char *argv[])
 #endif
 
    memcpy(&CNF(ocat_hwaddr[3]), &CNF(ocat_addr.s6_addr[13]), 3);
-   if (CNF(use_tap));
+   if (CNF(use_tap))
       log_msg(LOG_INFO, "MAC address %s", ether_ntoa_r((struct ether_addr*) CNF(ocat_hwaddr), hw));
 
 #ifndef WITHOUT_TUN

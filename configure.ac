@@ -7,7 +7,7 @@ AC_CONFIG_HEADERS([config.h])
 
 AC_DEFINE(SVN_REVISION, "svnversion", [SVN Revision])
 
-AC_SUBST([CFLAGS], [["-Wall -pthread -O2"]])
+AC_SUBST([CFLAGS], [["-Wall -O2"]])
 
 AC_ARG_ENABLE([debug], AC_HELP_STRING([--enable-debug], [enable debugging]), AC_DEFINE([DEBUG], [], [enable debugging]))
 AC_ARG_ENABLE([packet-log], AC_HELP_STRING([--enable-packet-log], [enable packet logging]), AC_DEFINE([PACKET_LOG], [], [enable packet logging]))
@@ -19,11 +19,16 @@ AC_ARG_ENABLE([rtt], AC_HELP_STRING([--enable-rtt], [enable inband RTT measureme
 # Checks for programs.
 AC_PROG_CC
 #AC_PROG_INSTALL
+ACX_PTHREAD
 
 # Checks for libraries.
-AC_CHECK_LIB([pthread], [pthread_create])
+#AC_CHECK_LIB([pthread], [pthread_create])
 #AC_CHECK_LIB([rt], [clock_gettime])
 #AC_CHECK_LIB([readline], [main])
+
+LIBS="$PTHREAD_LIBS $LIBS"
+CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+CC="$PTHREAD_CC"
 
 # Checks for header files.
 #AC_HEADER_STDC

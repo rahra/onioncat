@@ -1,4 +1,5 @@
 * version 0.1.12
+ - improved autoconf for better pthread configuration (acx_pthread.m4)
  - socks connector completely rewritten. Works now
    without dynamic thread pool. This is more memory efficient.
  - Windows branch merges into trunk
