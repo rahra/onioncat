@@ -1,3 +1,8 @@
+onioncat (0.1.13) jaunty; urgency=low
+
+  * stable release tagged
+
+ -- Ferdinand Haselbacher <fhasex20@cypherpunk.at>  Tue, 9 Jun 2009 15:47:50 +0100
 onioncat (0.12.493) jaunty; urgency=low
 
   * Upstream svn build debian unstable
