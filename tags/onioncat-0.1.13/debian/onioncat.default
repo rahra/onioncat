@@ -1,0 +1,17 @@
+##
+#This is the default Configuration File for Onioncat.
+# You must at least set the right hostname, but before
+# you can do this TOR needs to be configured for Hidden Services
+# For Example:
+# /etc/tor/torrc
+# HiddenServiceDir /var/lib/tor/hidden_service/
+# HiddenServicePort 8060 127.0.0.1:8060
+#
+# After doing so, get your hostname from: /var/lib/tor/hidden_service/hostname
+# and append it to the DAEMON options.
+# For Example:
+# DAEMON_OPTS="gfwljfhnapq91sz4.onion"
+# and !!!! SET ENABLED=1 !!!!
+ENABLED=0
+DAEMONUSER="debian-tor"
+DAEMON_OPTS=""
