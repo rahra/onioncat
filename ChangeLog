@@ -1,8 +1,15 @@
+* version 0.2.0
+
+* version 0.1.13
+ - released 2009/06/09, Bernhard R. Fischer
+
 * version 0.1.12
+ - compiles and runs successfully on 
+ 		Linux 2.6, MacOS X 10.5 (Intel), FreeBSD 6, OpenBSD 4.4
  - improved autoconf for better pthread configuration (acx_pthread.m4)
  - socks connector completely rewritten. Works now
    without dynamic thread pool. This is more memory efficient.
- - Windows branch merges into trunk
+ - Windows branch merged into trunk
  - syslogging implemented
  - idle timeout increased to 3 mins
  - base32 en/decoding speed improved

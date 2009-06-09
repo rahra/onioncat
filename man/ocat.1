@@ -93,7 +93,8 @@ connections.  This defaults to 127.0.0.1:8060. This option could be set
 multiple times. IPv6 addresses must be given in square brackets.
 .TP
 \fB\-L\fP \fIlog_file\fP
-Log output to \fIlog_file\fP instead of stderr.
+Log output to \fIlog_file\fP. If option is omitted, OnionCat logs to syslog if
+running in background or to stderr if running in foreground.
 .TP
 \fB\-o\fP \fIIPv6 address\fP
 Convert \fIIPv6 address\fP to \fIonion_id\fP and exit program.
@@ -106,7 +107,7 @@ DEVICE\fP later.
 Create \fIpid file\fP instead of \fB/var/run/ocat.pid\fP.
 .TP
 \fB\-r\fP
-Run OnionCat as root and don't change user id (see option \fB\-u\fP).
+Run OnionCat as root and do not change user id (see option \fB\-u\fP).
 .TP
 \fB\-R\fP
 Use this option only if you really know what you do!  OnionCat generates a
@@ -119,7 +120,8 @@ like Bitorrent) you MUST configure a hidden service and supply its hostname to
 OnionCat on the command line.
 .TP
 \fB\-s\fP \fIport\fP
-Set OnionCat's virtual hidden service port to \fIport\fP.
+Set OnionCat's virtual hidden service port to \fIport\fP. This should usually
+not be changed.
 .TP
 \fB\-t\fP \fI(IP|[IP:]port)\fP
 Set Tor SOCKS \fIIP\fP and/or \fIport\fP. If no \fIIP\fP is specified 127.0.0.1
@@ -127,9 +129,10 @@ will be used, if no \fIport\fP is specified 9050 will be used as defaults. IPv6
 addresses must be escaped by square brackets.
 .TP
 \fB\-T\fP \fItun_dev\fP
-TUN device file to open for creation of TUN interface, defaults to
-/dev/net/tun. Setup of a TUN device needs root permissions. OnionCat automatically
-changes userid after the TUN device is set up correctly.
+TUN device file to open for creation of TUN interface. It defaults to
+/dev/net/tun on Linux and /dev/tun0 on most other OSes, or /dev/tap0 if TAP
+mode is in use. Setup of a TUN device needs root permissions. OnionCat
+automatically changes userid after the TUN device is set up correctly.
 .TP
 \fB\-u\fP \fIusername\fP
 \fIusername\fP under which ocat should run. The uid is changed as soon as possible
@@ -148,8 +151,8 @@ $HOME/.ocat/connect_log
 
 .SH AUTHOR
 Concepts, software, and man page written by Bernhard R. Fischer.
-Package maintenance by Ferdinand Haselbacher.
-Additional support by Daniel Haslinger.
+Package maintenance and additional support by Ferdinand Haselbacher,
+Daniel Haslinger, and Wim Gaethofs.
 
 .SH "SEE ALSO"
 OnionCat project page http://www.cypherpunk.at/onioncat/
