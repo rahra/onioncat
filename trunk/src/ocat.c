@@ -88,7 +88,7 @@ int open_logfile(void)
 }
 
 
-int mk_pid_file(void)
+int mk_pid_file(uid_t uid)
 {
    FILE *f;
 
@@ -101,6 +101,9 @@ int mk_pid_file(void)
    fprintf(f, "%d\n", getpid());
    fclose(f);
    log_debug("pid_file %s created, pid = %d", CNF(pid_file), getpid());
+
+   if (chown(CNF(pid_file), uid, 0) == -1)
+      log_msg(LOG_ERR, "could not change owner of pid_file \"%s\" to %d: %s", CNF(pid_file), uid, strerror(errno));
 
    return 0;
 }
@@ -207,6 +210,9 @@ void cleanup_system(void)
    }
 
    delete_listeners(CNF(oc_listen), CNF(oc_listen_fd), CNF(oc_listen_cnt));
+
+   if (CNF(create_pid_file) && (unlink(CNF(pid_file)) == -1))
+      log_msg(LOG_ERR, "could not remove pid file \"%s\": %s", CNF(pid_file), strerror(errno));
 }
 
 
@@ -274,7 +280,11 @@ int main(int argc, char *argv[])
             break;
 
          case 'P':
-            CNF(pid_file) = optarg;
+            CNF(create_pid_file) = 1;
+            if (optarg[0] == '-')
+               optind--;
+            else
+               CNF(pid_file) = optarg;
             break;
 
          case 'r':
@@ -325,7 +335,8 @@ int main(int argc, char *argv[])
    if (!CNF(daemon))
       CNF(logf) = stderr;
  
-   (void) open_logfile();
+   if ((open_logfile() == -1) && !CNF(logf))
+      openlog(PACKAGE_NAME, LOG_NDELAY | LOG_PID, LOG_DAEMON);
 
    // init main thread
    (void) init_ocat_thread("main");
@@ -438,7 +449,8 @@ int main(int argc, char *argv[])
    }
 
    // create pid_file
-   mk_pid_file();
+   if (CNF(create_pid_file))
+      mk_pid_file(pwd->pw_uid);
 
    if (!runasroot && !getuid())
    {

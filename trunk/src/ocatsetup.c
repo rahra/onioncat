@@ -60,9 +60,14 @@ struct OcatSetup setup_ =
    0,                                      // use_tap
 #endif
    {0x00, 0x00, 0x6c, 0x00, 0x00, 0x00},   // ocat_hwaddr (OnionCat MAC address)
-   PID_FILE,
+   PID_FILE,                               // pid_file
+   0,                                      // create_pid_file
    NULL, NULL,                             // logfile
+#ifdef __CYGWIN__
+   0,
+#else
    1,                                      // daemon
+#endif
    {
       /*
       {{{0xfd, 0x87, 0xd8, 0x7e, 0xeb, 0x43,
@@ -231,7 +236,7 @@ void print_setup_struct(FILE *f)
          logf,
          setup_.daemon,
          t / (3600 * 24), t / 3600 % 24, t / 60 % 60,
-         strlen(setup_.version), VERSION_STRING_LEN, setup_.version,
+         (int) strlen(setup_.version), VERSION_STRING_LEN, setup_.version,
          setup_.sizeof_setup,
          setup_.term_req
          );

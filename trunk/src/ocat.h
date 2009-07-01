@@ -276,6 +276,7 @@ struct OcatSetup
    //! local OnionCat MAC address
    uint8_t ocat_hwaddr[ETHER_ADDR_LEN];
    char *pid_file;
+   int create_pid_file;
    char *logfn;
    FILE *logf;
    int daemon;
