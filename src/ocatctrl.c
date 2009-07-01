@@ -160,9 +160,9 @@ void *ctrl_handler(void *p)
          for (peer = get_first_peer(); peer; peer = peer->next)
             if (peer->tcpfd == cfd)
             {
-               log_msg(LOG_INFO | LOG_FCONN, "close request for %d", cfd);
                oe_close(cfd);
                delete_peer(peer);
+               log_msg(LOG_INFO | LOG_FCONN, "%d was successfully closed up on user request", cfd);
                break;
             }
          if (!peer)
