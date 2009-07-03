@@ -36,7 +36,7 @@ void usage(const char *s)
          "   -L <log_file>         log output to <log_file> (default = stderr)\n"
          "   -o <ipv6_addr>        convert IPv6 address to onion url and exit\n"
          "   -p                    use TAP device instead of TUN\n"
-         "   -P <pid_file>         create pid file at location of <pid_file> (default = %s)\n"
+         "   -P [<pid_file>]       create pid file at location of <pid_file> (default = %s)\n"
          "   -r                    run as root, i.e. do not change uid/gid\n"
          "   -R                    generate a random local onion URL\n"
          "   -s <port>             set hidden service virtual port, default = %d\n"
@@ -506,7 +506,7 @@ int main(int argc, char *argv[])
       log_msg(LOG_INFO, "reading config file %s", CNF(config_file));
       if ((c = open(CNF(config_file), O_RDONLY)) == -1)
          log_msg(LOG_ERR, "error opening file: %s", strerror(errno)), exit(1);
-      ctrl_handler((void*) c);
+      ctrl_handler((void*) (long) c);
    }
 
    // install signal handler

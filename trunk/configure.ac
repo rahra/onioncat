@@ -1,7 +1,7 @@
 
-AC_PREREQ(2.61)
+AC_PREREQ(2.62)
 define([svnversion], esyscmd([sh -c "svnversion | tr -d 'M\n'"]))dnl
-AC_INIT([onioncat], [[0.2.0.r]svnversion], [rahra@cypherpunk.at])
+AC_INIT([onioncat],[[0.2.0.r]svnversion],[rahra@cypherpunk.at])
 AM_INIT_AUTOMAKE([-Wall -Werror])
 AC_CONFIG_HEADERS([config.h])
 
@@ -9,12 +9,12 @@ AC_DEFINE(SVN_REVISION, "svnversion", [SVN Revision])
 
 AC_SUBST([CFLAGS], [["-Wall -O2"]])
 
-AC_ARG_ENABLE([debug], AC_HELP_STRING([--enable-debug], [enable debugging]), AC_DEFINE([DEBUG], [], [enable debugging]))
-AC_ARG_ENABLE([packet-log], AC_HELP_STRING([--enable-packet-log], [enable packet logging]), AC_DEFINE([PACKET_LOG], [], [enable packet logging]))
-AC_ARG_ENABLE([handle-http], AC_HELP_STRING([--enable-handle-http], [enable handling of accidental HTTP requests]), AC_DEFINE([HANDLE_HTTP], [], [enable handling of accidental HTTP requests]))
-AC_ARG_ENABLE([packet-queue], AC_HELP_STRING([--enable-packet-queue], [enable queueuing of packets while connecting setup]), AC_DEFINE([PACKET_QUEUE], [], [enable packet queue]))
-AC_ARG_ENABLE([check-ipsrc], AC_HELP_STRING([--disable-check-ipsrc], [disable source ip checking before forwarding]), AC_DEFINE([CHECK_IPSRC], [], [disable source ip checking]))
-AC_ARG_ENABLE([rtt], AC_HELP_STRING([--enable-rtt], [enable inband RTT measurement]), AC_DEFINE([MEASURE_RTT], [], [enable RTT measurement]))
+AC_ARG_ENABLE([debug], AS_HELP_STRING([--enable-debug],[enable debugging]), AC_DEFINE([DEBUG], [], [enable debugging]))
+AC_ARG_ENABLE([packet-log], AS_HELP_STRING([--enable-packet-log],[enable packet logging]), AC_DEFINE([PACKET_LOG], [], [enable packet logging]))
+AC_ARG_ENABLE([handle-http], AS_HELP_STRING([--enable-handle-http],[enable handling of accidental HTTP requests]), AC_DEFINE([HANDLE_HTTP], [], [enable handling of accidental HTTP requests]))
+AC_ARG_ENABLE([packet-queue], AS_HELP_STRING([--enable-packet-queue],[enable queueuing of packets while connecting setup]), AC_DEFINE([PACKET_QUEUE], [], [enable packet queue]))
+AC_ARG_ENABLE([check-ipsrc], AS_HELP_STRING([--disable-check-ipsrc],[disable source ip checking before forwarding]), AC_DEFINE([CHECK_IPSRC], [], [disable source ip checking]))
+AC_ARG_ENABLE([rtt], AS_HELP_STRING([--enable-rtt],[enable inband RTT measurement]), AC_DEFINE([MEASURE_RTT], [], [enable RTT measurement]))
 
 # Checks for programs.
 AC_PROG_CC
