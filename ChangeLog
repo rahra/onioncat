@@ -1,5 +1,8 @@
 * version 0.2.0
  - syslog messages contain name and PID
+ - fixed some compiler warnings
+ - updated hosts.onioncat
+ - pid file creation optional
 
 * version 0.1.13
  - released 2009/06/09, Bernhard R. Fischer

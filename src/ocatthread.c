@@ -241,7 +241,7 @@ void detach_thread(void)
 {
    OcatThread_t *th;
    pthread_t thread = pthread_self();
-   int rc;
+   int rc = 0;
 
    pthread_mutex_lock(&thread_mutex_);
    for (th = octh_; th; th = th->next)

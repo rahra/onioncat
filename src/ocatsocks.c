@@ -256,7 +256,7 @@ void socks_output_queue(FILE *f)
          strlcpy(addrstr, "ERROR", INET6_ADDRSTRLEN);
       }
 
-      snprintf(buf, SIZE_1K, "%d: %39s, %s.onion, state = %d, %s(%d), retry = %d, connect_time = %ld, restart_time = %ld",
+      snprintf(buf, SIZE_1K, "%d: %39s, %s.onion, state = %d, %s(%d), retry = %d, connect_time = %d, restart_time = %d",
             i, 
             addrstr, 
             ipv6tonion(&squeue->addr, onstr),
@@ -264,14 +264,14 @@ void socks_output_queue(FILE *f)
             squeue->perm ? "PERMANENT" : "TEMPORARY",
             squeue->perm,
             squeue->retry,
-            squeue->connect_time,
-            squeue->restart_time
+            (int) squeue->connect_time,
+            (int) squeue->restart_time
             );
 //      log_debug("%s", buf);
-      write((int) f, buf, strlen(buf));
-      write((int) f, "\n", 1);
+      write((int) (long) f, buf, strlen(buf));
+      write((int) (long) f, "\n", 1);
    }
-   write((int) f, "\0", 1);
+   write((int) (long) f, "\0", 1);
    log_debug("socks_output_queue() finished");
 }
 
