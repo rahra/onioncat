@@ -111,9 +111,10 @@ int mk_pid_file(uid_t uid)
 
 void background(void)
 {
-   pid_t pid;
+   pid_t pid, ppid;
    log_debug("backgrounding");
 
+   ppid = getpid();
    pid = fork();
    switch(pid)
    {
@@ -123,11 +124,11 @@ void background(void)
          return;
 
       case 0:
-         log_msg(LOG_INFO, "process backgrounded, pid = %d", getpid());
+         log_msg(LOG_INFO, "process backgrounded by parent %d, new pid = %d", ppid, getpid());
          return;
 
       default:
-         log_debug("parent [%d] exits, background pid = %d", getpid(), pid);
+         log_debug("parent %d exits, background pid = %d", ppid, pid);
          if (CNF(logf))
             fclose(CNF(logf));
          _exit(0);
