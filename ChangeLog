@@ -3,6 +3,9 @@
  - fixed some compiler warnings
  - updated hosts.onioncat
  - pid file creation optional
+ - base development environment changed to OpenBSD 4.5
+ - some type conversions fixed
+ - fd 0,1,2 now reconnected to /dev/null
 
 * version 0.1.13
  - released 2009/06/09, Bernhard R. Fischer

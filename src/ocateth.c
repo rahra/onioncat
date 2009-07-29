@@ -500,7 +500,7 @@ char *ether_ntoa_r(const struct ether_addr *addr, char *buf)
       return NULL;
 
    pthread_mutex_lock(&ether_ntoa_mutex_);
-   strlcpy(buf, ether_ntoa(addr), 18);
+   strlcpy(buf, ether_ntoa((struct ether_addr*) addr), 18);
    pthread_mutex_unlock(&ether_ntoa_mutex_);
    return buf;
 }
