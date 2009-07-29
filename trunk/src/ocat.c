@@ -467,7 +467,7 @@ int main(int argc, char *argv[])
       open_connect_log(pwd->pw_dir);
 
    // reconnect stdio if logfile ok and daemonized
-   if (CNF(logf) && CNF(daemon))
+   if (CNF(daemon))
    {
       if ((nullfd = open("/dev/null", O_RDWR)) != -1)
       {

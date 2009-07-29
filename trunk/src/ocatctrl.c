@@ -34,7 +34,7 @@
  */
 void *ctrl_handler(void *p)
 {
-   int fd, c, i;
+   int fd, c;
    FILE *ff, *fo;
    char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[ONION_NAME_SIZE], timestr[32], *s, *tokbuf;
    int rlen, cfd;
@@ -48,7 +48,7 @@ void *ctrl_handler(void *p)
    if (pipe(pfd) == -1)
       log_msg(LOG_EMERG, "couldn't create pipe: \"%s\"", strerror(errno)), exit(1);
 
-   fd = (int) p;
+   fd = (long) p;
    if (CNF(config_read))
    {
       if (!(ff = fdopen(fd, "r+")))
@@ -147,7 +147,7 @@ void *ctrl_handler(void *p)
                      IN6_IS_ADDR_UNSPECIFIED(&peer->addr) ? "--unidentified--" : ipv6tonion(&peer->addr, onionstr), peer->tcpfd,
                      inet_ntop(AF_INET6, &peer->addr, addrstr, INET6_ADDRSTRLEN),
                      peer->dir == PEER_INCOMING ? "IN" : "OUT", peer->dir,
-                     time(NULL) - peer->time, peer->in, peer->out, peer->sdelay, timestr,
+                     (long) (time(NULL) - peer->time), peer->in, peer->out, (long) peer->sdelay, timestr,
                      peer->perm ? "PERMANENT" : "TEMPORARY", peer->perm
                      );
             }
@@ -243,7 +243,7 @@ void *ctrl_handler(void *p)
       }
       else if (!strcmp(buf, "queue"))
       {
-         print_socks_queue((FILE*) pfd[1]);
+         print_socks_queue((FILE*) (long) pfd[1]);
          for (;;)
          {
             read(pfd[0], buf, 1);
@@ -307,7 +307,7 @@ void *ctrl_handler(void *p)
 
 int run_ctrl_handler(int fd)
 {
-   return (int) run_ocat_thread("ctrl_handler", ctrl_handler, (void*) fd);
+   return (int) run_ocat_thread("ctrl_handler", ctrl_handler, (void*) (long) fd);
 }
 
 
