@@ -130,7 +130,11 @@ void init_setup(void)
    setup_.socks_dst->sin_len = SOCKADDR_SIZE(setup_.socks_dst);
 #endif
 
+#ifdef DEBUG
    snprintf(setup_.version, VERSION_STRING_LEN, "%s (c) %s -- compiled %s %s", PACKAGE_STRING, OCAT_AUTHOR, __DATE__, __TIME__);
+#else
+   snprintf(setup_.version, VERSION_STRING_LEN, "%s (c) %s", PACKAGE_STRING, OCAT_AUTHOR);
+#endif
 
    ctrl_listen_.sin_family = AF_INET;
    ctrl_listen_.sin_port = htons(setup_.ocat_ctrl_port);

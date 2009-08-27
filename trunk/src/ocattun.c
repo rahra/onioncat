@@ -34,7 +34,9 @@ char *tun_dev_ = TUN_DEV;
 
 int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 {
+#ifdef __linux__
    struct ifreq ifr;
+#endif
    int fd;
    char astr[INET6_ADDRSTRLEN];
    char astr4[INET_ADDRSTRLEN];

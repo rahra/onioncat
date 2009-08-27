@@ -385,7 +385,7 @@ int main(int argc, char *argv[])
       exit(0);
    }
 
-   log_msg(LOG_INFO | LOG_FERR, "%s (c) %s -- compiled %s %s", OCAT_AUTHOR, PACKAGE_STRING, __DATE__, __TIME__);
+   log_msg(LOG_INFO, "%s", CNF(version));
 
 #if 0
    if (CNF(config_file))
