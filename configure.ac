@@ -1,6 +1,6 @@
 
 AC_PREREQ(2.62)
-define([svnversion], esyscmd([sh -c "svnversion | tr -d 'M\n'"]))dnl
+define([svnversion], esyscmd([sh -c "echo -n $(( `svnversion | tr -d 'M'` + 1 ))"]))dnl
 AC_INIT([onioncat],[[0.2.0.r]svnversion],[rahra@cypherpunk.at])
 AM_INIT_AUTOMAKE([-Wall -Werror])
 AC_CONFIG_HEADERS([config.h])
