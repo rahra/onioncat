@@ -258,7 +258,7 @@ void *ctrl_handler(void *p)
       }
       else if (!strcmp(buf, "version"))
       {
-         fprintf(ff, "%s (c) Bernhard R. Fischer -- compiled %s %s\n", PACKAGE_STRING, __DATE__, __TIME__);
+         fprintf(ff, "%s\n", CNF(version));
       }
       else if (!strcmp(buf, "help") || !strcmp(buf, "?"))
       {
