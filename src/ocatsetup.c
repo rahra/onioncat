@@ -63,6 +63,7 @@ struct OcatSetup setup_ =
    PID_FILE,                               // pid_file
    0,                                      // create_pid_file
    NULL, NULL,                             // logfile
+   0,                                      // use_syslog
 #ifdef __CYGWIN__
    0,
 #else
