@@ -1,3 +1,8 @@
+onioncat (0.2.0.r514) jaunty; urgency=low
+
+  * Upstream svn build debian unstable
+
+ -- Bernhard Fischer <rahra@cypherpunk.at>  Thu, 09 Sep  2009 14:08:00 +0100
 onioncat (0.12.493) jaunty; urgency=low
 
   * Upstream svn build debian unstable

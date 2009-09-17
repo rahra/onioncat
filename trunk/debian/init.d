@@ -124,7 +124,7 @@ start_server() {
         else
 # if we are using a daemonuser then change the user id
             start-stop-daemon --start --quiet --pidfile $PIDFILE \
-                        --exec $DAEMON -- -u $DAEMONUSER $DAEMON_OPTS
+                        --exec $DAEMON -- -u $DAEMONUSER -P $PIDFILE $DAEMON_OPTS
             errcode=$?
         fi
         return $errcode
