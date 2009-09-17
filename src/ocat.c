@@ -125,6 +125,18 @@ void background(void)
 
       case 0:
          log_msg(LOG_INFO, "process backgrounded by parent %d, new pid = %d", ppid, getpid());
+         (void) umask(0);
+         if (setsid() == -1)
+            log_msg(LOG_ERR, "could not set process group ID: \"%s\"", strerror(errno));
+         if (chdir("/") == -1)
+            log_msg(LOG_ERR, "could not change directory to /: \"%s\"", strerror(errno));
+         // redirect standard files to /dev/null
+         if (!freopen( "/dev/null", "r", stdin))
+            log_msg(LOG_ERR, "could not reconnect stdin to /dev/null: \"%s\"", strerror(errno));
+         if (!freopen( "/dev/null", "w", stdout))
+            log_msg(LOG_ERR, "could not reconnect stdout to /dev/null: \"%s\"", strerror(errno));
+         if (!freopen( "/dev/null", "w", stderr))
+            log_msg(LOG_ERR, "could not reconnect stderr to /dev/null: \"%s\"", strerror(errno));
          return;
 
       default:
@@ -223,7 +235,6 @@ int main(int argc, char *argv[])
    int c, runasroot = 0;
    struct passwd *pwd, pwdm;
    int urlconv = 0;
-   int nullfd;
 
    snprintf(def, 100, "127.0.0.1:%d", OCAT_LISTEN_PORT);
 
@@ -465,22 +476,6 @@ int main(int argc, char *argv[])
 
    if (CNF(create_clog))
       open_connect_log(pwd->pw_dir);
-
-   // reconnect stdio if logfile ok and daemonized
-   if (CNF(daemon))
-   {
-      if ((nullfd = open("/dev/null", O_RDWR)) != -1)
-      {
-         oe_close(0);
-         dup(nullfd);
-         oe_close(1);
-         dup(nullfd);
-         oe_close(2);
-         dup(nullfd);
-      }
-      else
-         log_msg(LOG_ERR, "could not reconnect stdio to /dev/null: \"%s\"", strerror(errno));
-   }
 
    // create socks connector thread and communication queue
    if (pipe(CNF(socksfd)) == -1)
