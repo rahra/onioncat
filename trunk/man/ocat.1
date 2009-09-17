@@ -64,7 +64,7 @@ Run OnionCat in background. This is default. OnionCat will detach from a running
 shell and close standard IO if no log file is given with option -L.
 .TP
 \fB\-B\fP
-Run OnionCat in foreground.
+Run OnionCat in foreground. OnionCat will log to stderr by default.
 .TP
 \fB\-C\fP
 Disable the local controller interface. The controller interfaces listens on
@@ -94,7 +94,9 @@ multiple times. IPv6 addresses must be given in square brackets.
 .TP
 \fB\-L\fP \fIlog_file\fP
 Log output to \fIlog_file\fP. If option is omitted, OnionCat logs to syslog if
-running in background or to stderr if running in foreground.
+running in background or to stderr if running in foreground. If syslogging is
+desired while running in foreground, specify the special file name "syslog" as
+log file.
 .TP
 \fB\-o\fP \fIIPv6 address\fP
 Convert \fIIPv6 address\fP to \fIonion_id\fP and exit program.
@@ -104,9 +106,9 @@ Use TAP device instead of TUN device. There are a view differences. See \fBTAP
 DEVICE\fP later.
 .TP
 \fB\-P\fP \fI[pid file]\fP
-Create \fIpid file\fP at \fIpid_file\fP. If the parameter is omitted OC will
-create a pid file at \fB/var/run/ocat.pid\fP. If this option is set without
-parameter it MUST NOT be the last option in the list of options.
+Create \fIpid file\fP at \fIpid_file\fP. If the option parameter is omitted OC
+will create a pid file at \fB/var/run/ocat.pid\fP. In the latter case it MUST
+NOT be the last option in the list of options.
 .TP
 \fB\-r\fP
 Run OnionCat as root and do not change user id (see option \fB\-u\fP).

@@ -280,7 +280,10 @@ int main(int argc, char *argv[])
             break;
 
          case 'L':
-            CNF(logfn) = optarg;
+            if (!strcmp(optarg, "syslog"))
+               CNF(use_syslog) = 1;
+            else
+               CNF(logfn) = optarg;
             break;
 
          case 'o':
@@ -344,7 +347,7 @@ int main(int argc, char *argv[])
       CNF(daemon) = 0;
 
    // log to stderr if in foreground
-   if (!CNF(daemon))
+   if (!CNF(daemon) && !CNF(use_syslog))
       CNF(logf) = stderr;
  
    if ((open_logfile() == -1) && !CNF(logf))

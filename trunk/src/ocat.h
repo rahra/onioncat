@@ -279,6 +279,7 @@ struct OcatSetup
    int create_pid_file;
    char *logfn;
    FILE *logf;
+   int use_syslog;
    int daemon;
    //! hardcoded permanent peers
 #define ROOT_PEERS 1
