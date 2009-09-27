@@ -1,0 +1,25 @@
+Source: onioncat
+Section: comm
+Priority: optional
+Maintainer: Ferdinand Haselbacher <fhasex20@cypherpunk.at>
+Build-Depends: debhelper (>= 7), autotools-dev
+Standards-Version: 3.8.0
+Homepage: http://www.cypherpunk.at/onioncat
+
+Package: onioncat
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, tor
+Description: An IP-Transparent Tor Hidden Service Connector
+ OnionCat creates a transparent IP layer on top of Tor's hidden services. It
+ transmits any kind of IP-based data transparently through the Tor network on a
+ location hidden basis. You can think of it as a point-to-multipoint VPN between
+ hidden services.
+ OnionCat is a stand-alone application which runs in userland and is a connector
+ between Tor and the local OS. Any protocol which is based on IP can be
+ transmitted. Of course, UDP and TCP (and probably ICMP) are the most important
+ ones but all other protocols can also be forwarded through it. OnionCat is
+ based on IPv6 but the since version 0.1.9 also IPv4 packets are forwarded. In
+ any case the local OS must support IPv6. See OnionCat and IPv4 for
+ configuration of IPv4 transport. OnionCat now also supports TAP devices for
+ bridging virtual machines and it supports IPv6 routing.
+

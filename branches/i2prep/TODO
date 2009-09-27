@@ -1,0 +1,32 @@
+* OpenBSD TAP device might not work (see OpenBSD man page tun(4))
+* finish SOCKS5 code for I2P
+* work on header compression (start at RFC2507 or 3095)
+* log connect log to OC console
+* forward multicasting packets (ff00::/8)
+* frame checking may be improved
+* generally improve tun opening routine
+* log levels and log output are currently somehow random
+* interaction with OS routing table to be able to forward packets to "foreign" networks beside the TOR prefix
+* peer list should be improved
+* IPv6 routing table should be improved (is just a flat list yet)
+* controller interface should be improved (is not thread-safe)
+* controller interface should use basic IO and timed selects
+//* peer reconnections timeout should be implemented (to not reconnect to fast)
+//* add Windows tunnel code
+//* IPv6 adresses are not checked for their validity
+//* garbage collector for packet queue missing
+//* garbage collector for session cleanup
+//* packets received on sockets should be validated (Ethertype, ip)
+//* socks_connector queue
+//* packet_forwarder depends on socks_connector, currently possible unclean startup (not dangerous) -- socks connector now is multi-threaded and not blocking on a pipe, hence, this error _should_ (i'm currently not sure) not occur anymore.
+//* replace clock_gettime() by time(), no accuracy needed
+//* replace all socket write()s by send()
+//* licence
+//* improve tun header test (check for src and dst ip)
+//* create some kind of connection log
+//* tun-header packet dependent
+//* IPv4 forwarding + routing
+//* fragment handler
+//* improve getopt() -- currently many things are hardcoded
+//* disconnected permanent peers are not reconnected sometimes
+//* sometimes a peer is connected a second time for an unknown reason

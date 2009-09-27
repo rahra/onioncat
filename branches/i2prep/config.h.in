@@ -1,0 +1,128 @@
+/* config.h.in.  Generated from configure.ac by autoheader.  */
+
+/* disable source ip checking */
+#undef CHECK_IPSRC
+
+/* enable debugging */
+#undef DEBUG
+
+/* enable handling of accidental HTTP requests */
+#undef HANDLE_HTTP
+
+/* Define to 1 if you have the <endian.h> header file. */
+#undef HAVE_ENDIAN_H
+
+/* Define to 1 if you have the `ether_ntoa' function. */
+#undef HAVE_ETHER_NTOA
+
+/* Define to 1 if you have the `ether_ntoa_r' function. */
+#undef HAVE_ETHER_NTOA_R
+
+/* Define to 1 if you have the <linux/if_tun.h> header file. */
+#undef HAVE_LINUX_IF_TUN_H
+
+/* Define to 1 if you have the <linux/sockios.h> header file. */
+#undef HAVE_LINUX_SOCKIOS_H
+
+/* Define to 1 if you have the <netinet/ether.h> header file. */
+#undef HAVE_NETINET_ETHER_H
+
+/* Define to 1 if you have the <netinet/icmp6.h> header file. */
+#undef HAVE_NETINET_ICMP6_H
+
+/* Define to 1 if you have the <netinet/if_ether.h> header file. */
+#undef HAVE_NETINET_IF_ETHER_H
+
+/* Define to 1 if you have the <netinet/in6.h> header file. */
+#undef HAVE_NETINET_IN6_H
+
+/* Define to 1 if you have the <netinet/in.h> header file. */
+#undef HAVE_NETINET_IN_H
+
+/* Define to 1 if you have the <netinet/in_systm.h> header file. */
+#undef HAVE_NETINET_IN_SYSTM_H
+
+/* Define to 1 if you have the <netinet/ip6.h> header file. */
+#undef HAVE_NETINET_IP6_H
+
+/* Define to 1 if you have the <netinet/ip.h> header file. */
+#undef HAVE_NETINET_IP_H
+
+/* Define to 1 if you have the <net/ethernet.h> header file. */
+#undef HAVE_NET_ETHERNET_H
+
+/* Define to 1 if you have the <net/if.h> header file. */
+#undef HAVE_NET_IF_H
+
+/* Define to 1 if you have the <net/if_tun.h> header file. */
+#undef HAVE_NET_IF_TUN_H
+
+/* Define if you have POSIX threads libraries and header files. */
+#undef HAVE_PTHREAD
+
+/* Do we have sockaddr_in.sin_len? */
+#undef HAVE_SIN_LEN
+
+/* Define to 1 if you have the `strlcat' function. */
+#undef HAVE_STRLCAT
+
+/* Define to 1 if you have the `strlcpy' function. */
+#undef HAVE_STRLCPY
+
+/* Define to 1 if the system has the type `struct ip'. */
+#undef HAVE_STRUCT_IP
+
+/* Define to 1 if the system has the type `struct ip6_hdr'. */
+#undef HAVE_STRUCT_IP6_HDR
+
+/* Define to 1 if the system has the type `struct iphdr'. */
+#undef HAVE_STRUCT_IPHDR
+
+/* Define to 1 if you have the <sys/endian.h> header file. */
+#undef HAVE_SYS_ENDIAN_H
+
+/* Define to 1 if you have the <sys/socket.h> header file. */
+#undef HAVE_SYS_SOCKET_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* enable RTT measurement */
+#undef MEASURE_RTT
+
+/* Name of package */
+#undef PACKAGE
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* enable packet logging */
+#undef PACKET_LOG
+
+/* enable packet queue */
+#undef PACKET_QUEUE
+
+/* Define to necessary symbol if this constant uses a non-standard name on
+   your system. */
+#undef PTHREAD_CREATE_JOINABLE
+
+/* SVN Revision */
+#undef SVN_REVISION
+
+/* Version number of package */
+#undef VERSION
+
+/* Define to empty if `const' does not conform to ANSI C. */
+#undef const
