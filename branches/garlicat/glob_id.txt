@@ -1,0 +1,21 @@
+Global ID generation as in RFC4193
+
+NTP timestamp: cb5020bf.78f29ad6
+EUI-64: 21b:24ff:fe73:cd0e
+=> key: cb5020bf78f29ad6021b24fffe73cd0e
+=> SHA1: bfb7f7153a68682657986bc6659e7b87d87eeb43
+=> global ID: 87d87eeb43
+=> IPv6: FD87:D87E:EB43::/48
+
+/* 
+   DO NOT USE THIS!
+   IT IS JUST A PERSONAL REMARK...
+generation for I2P
+NTP timestamp: 0xcd6cd83f947d805e
+EUI-64: 21b:24ff:fece:d108
+=> key: cd6cd83f947d805e21b24fffeced108
+=> SHA1: 366168b7aa3fd7326df894b907991b60db4dddb5
+=> global ID: 60db4dddb5
+=> IPv6: FD60:DB4D:DDB5::/48
+*/
+
