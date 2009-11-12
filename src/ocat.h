@@ -111,12 +111,21 @@
 #define TOR_PREFIX4 {0x0a000000}
 #define TOR_PREFIX4_MASK 0xff000000
 #endif
+//! hidden service TLD
+#define ONION_TLD "onion"
 //! Length of an .onion-URL (without ".onion" and '\0')
 #define ONION_URL_LEN 16
 //! Total length of .onion-URL
 #define ONION_NAME_SIZE (ONION_URL_LEN + 7)
 //! Total length of .onion-URL (equal to ONION_NAME_SIZE)
 #define ONION_NAME_LEN ONION_NAME_SIZE
+//! hidden service TLD
+#define I2P_TLD "oc.b32.i2p"
+//! Length of an .onion-URL (without ".onion" and '\0')
+#define I2P_URL_LEN 16
+//! Total length of .onion-URL
+#define I2P_NAME_SIZE (I2P_URL_LEN + 11)
+
 
 #define MAXPEERS 1024
 //! Local listening port for incoming connections from TOR.
@@ -127,6 +136,7 @@
 #define OCAT_DEST_PORT 8060
 //! SOCKS port of TOR proxy
 #define TOR_SOCKS_PORT 9050
+#define I2P_SOCKS_PORT 9051
 #ifdef __OpenBSD__
 #define OCAT_UNAME "_tor"
 #elif __FreeBSD
@@ -234,7 +244,37 @@
 
 #define VERSION_STRING_LEN 256
 
-typedef enum PeerType {PT_TOR, PT_I2P} PeerType_t;
+typedef enum peer{PT_TOR, PT_I2P} peer_t;
+#define PT_TOR_B (1 << (PT_TOR - 1))
+#define PT_I2P_B (1 << (PT_I2P - 1))
+
+typedef struct NetConn
+{
+   peer_t type;
+   int socksfd[2];
+   //! destination socket address of Tor's SOCKS port
+   union
+   {
+      struct sockaddr_in *socks_dst;
+      struct sockaddr_in6 *socks_dst6;
+   };
+   //! local listening socket address for incoming connections
+   struct sockaddr **listen;
+   int *listen_fd;
+   int listen_cnt;
+   //! virtual port of OnionCat hidden service
+   uint16_t dest_port;
+   //! file descriptors of TUN device (usually tunfd[0] == tunfd[1])
+   int tunfd[2];
+   char host_id[ONION_NAME_SIZE];
+   struct in6_addr addr;
+   //! name of tunnel charcter device
+   char *tun_dev;
+   //! tunnel interface name
+   char tunname[SIZE_256];
+   //! local OnionCat MAC address
+   uint8_t hwaddr[ETHER_ADDR_LEN];
+} NetConn_t;
 
 struct OcatSetup
 {
@@ -242,39 +282,23 @@ struct OcatSetup
    //! it is initialized in ocattun.c
    uint32_t fhd_key[2];
    int fhd_key_len;
-   //! TCP port of SOCKS port of local Tor proxy
-   //uint16_t tor_socks_port;
-   //! reload port of OnionCat listening for connections
-   //uint16_t ocat_listen_port;
-   //! virtual port of OnionCat hidden service
-   uint16_t ocat_dest_port;
    //! local port of controller interface
    uint16_t ocat_ctrl_port;
-   //! file descriptors of TUN device (usually tunfd[0] == tunfd[1])
-   int tunfd[2];
    int debug_level;
    //! user name to change uid to
    char *usrname;
-   char onion_url[ONION_NAME_SIZE];
-   struct in6_addr ocat_addr;
    //! flag to create connection log
    int create_clog;
    //! flag to not change uid to unprivileged user
    int runasroot;
    int controller;
    char *ocat_dir;
-   //! name of tunnel charcter device
-   char *tun_dev;
-   //! tunnel interface name
-   char tunname[SIZE_256];
    int ipv4_enable;
    struct in_addr ocat_addr4;
    int ocat_addr4_mask;
    char *config_file;
    int config_read;
    int use_tap;
-   //! local OnionCat MAC address
-   uint8_t ocat_hwaddr[ETHER_ADDR_LEN];
    char *pid_file;
    int create_pid_file;
    char *logfn;
@@ -286,16 +310,6 @@ struct OcatSetup
    struct in6_addr root_peer[ROOT_PEERS];
    time_t uptime;
    char *frandn;
-   //! destination socket address of Tor's SOCKS port
-   union
-   {
-      struct sockaddr_in *socks_dst;
-      struct sockaddr_in6 *socks_dst6;
-   };
-   //! local listening socket address for incoming connections
-   struct sockaddr **oc_listen;
-   int *oc_listen_fd;
-   int oc_listen_cnt;
    int rand_addr;
    char version[VERSION_STRING_LEN];
    int sizeof_setup;
@@ -305,8 +319,8 @@ struct OcatSetup
    struct sockaddr **ctrl_listen;
    int *ctrl_listen_fd;
    int ctrl_listen_cnt;
-   //! communication pipe for socks "selected" connector
-   int socksfd[2];
+   int conn_enabled;
+   NetConn_t conn[2];
 };
 
 #ifdef PACKET_QUEUE
@@ -358,7 +372,7 @@ typedef struct OcatPeer
    time_t last_io;         //!< timestamp when last I/O packet measurement started
    unsigned inm;
    unsigned outm;
-   PeerType_t type;
+   peer_t type;
 } OcatPeer_t;
 
 typedef struct OcatThread

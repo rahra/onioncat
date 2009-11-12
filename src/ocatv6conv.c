@@ -40,6 +40,7 @@ static const char deBASE32_[] = {
       50  51  52  53  54  55  56  57  58  59  5a */
       15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25 };  
 static const struct in6_addr tor_prefix_ = TOR_PREFIX;
+static const struct in6_addr i2p_prefix_ = I2P_PREFIX;
 
 
 int has_tor_prefix(const struct in6_addr *addr)
@@ -51,6 +52,12 @@ int has_tor_prefix(const struct in6_addr *addr)
 void set_tor_prefix(struct in6_addr *addr)
 {
    memcpy(addr, &tor_prefix_, 6);
+}
+
+
+void set_i2p_prefix(struct in6_addr *addr)
+{
+   memcpy(addr, &i2p_prefix_, 6);
 }
 
 
@@ -71,7 +78,7 @@ void shl5(char *bin)
 }
 
 
-int oniontipv6(const char *onion, struct in6_addr *ip6)
+int b32_decode(const char *onion, struct in6_addr *ip6)
 {
    int i, j;
 
@@ -87,8 +94,21 @@ int oniontipv6(const char *onion, struct in6_addr *ip6)
          return -1;
       *(((char*) ip6) + 15) |= j;
    }
-   set_tor_prefix(ip6);
    return 0;
+}
+
+
+int oniontipv6(const char *onion, struct in6_addr *ip6)
+{
+   b32_decode(onion, ip6);
+   set_tor_prefix(ip6);
+}
+
+
+int i2ptipv6(const char *onion, struct in6_addr *ip6)
+{
+   b32_decode(onion, ip6);
+   set_i2p_prefix(ip6);
 }
 
 
@@ -144,6 +164,20 @@ void rand_onion(char *onion)
    for (i = 0; i < ONION_URL_LEN; i++, onion++)
       *onion = BASE32[rand() & 0x1f];
    *onion = '\0';
+}
+
+
+peer_t check_net_id(char *id_str)
+{
+   char *s;
+
+   if (!(s = strtok(id_str, ".")))
+      return PT_TOR;
+   if (!strcmp(s, ONION_TLD))
+      return PT_TOR;
+   if (!strcmp(s, I2P_TLD))
+      return PT_I2P;
+   return -1;
 }
 
 

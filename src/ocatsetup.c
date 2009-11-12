@@ -43,23 +43,16 @@ struct OcatSetup setup_ =
    {0, 0},
    // fhd_key_len
    sizeof(uint32_t),
-   //TOR_SOCKS_PORT, 
-   //OCAT_LISTEN_PORT, 
-   OCAT_DEST_PORT, OCAT_CTRL_PORT, 
-   //! default tunfd is stdin/stdout
-   {0, 1},
-   //! default debug level
+   OCAT_CTRL_PORT, 
+  //! default debug level
    LOG_DEBUG,
-   OCAT_UNAME, {0}, {{{0}}}, 0, 0, 1, OCAT_DIR, TUN_DEV,
-   {'\0'},                                // tunname
-   0, TOR_PREFIX4, TOR_PREFIX4_MASK,
+   OCAT_UNAME,  0, 0, 1, OCAT_DIR,    0, TOR_PREFIX4, TOR_PREFIX4_MASK,
    NULL, 1,
 #ifdef __CYGWIN__
    1,
 #else
    0,                                      // use_tap
 #endif
-   {0x00, 0x00, 0x6c, 0x00, 0x00, 0x00},   // ocat_hwaddr (OnionCat MAC address)
    PID_FILE,                               // pid_file
    0,                                      // create_pid_file
    NULL, NULL,                             // logfile
@@ -70,23 +63,12 @@ struct OcatSetup setup_ =
    1,                                      // daemon
 #endif
    {
-      /*
-      {{{0xfd, 0x87, 0xd8, 0x7e, 0xeb, 0x43,
-           0xed, 0xb1, 0x08, 0xe4, 0x35, 0x88, 0xe5, 0x46, 0x35, 0xca}}}, // initial permanent peer "5wyqrzbvrdsumnok" (mail.root-servers.cat)
-           */
       {{{0xfd, 0x87, 0xd8, 0x7e, 0xeb, 0x43,
            0xf6, 0x83, 0x64, 0xac, 0x73, 0xf9, 0x61, 0xac, 0x9a, 0x00}}}  // initial permanent peer "62bwjldt7fq2zgqa" (dot.cat)
    },
    0,
    "/dev/urandom",
-   {(struct sockaddr_in*) &socks_dst6_},
-   // oc_listen
-   NULL,
-   // oc_listen_fd
-   NULL,
-   // oc_listen_cnt
-   0,
-   //! rand_addr
+  //! rand_addr
    0,
    {0},
    sizeof(struct OcatSetup),
@@ -104,8 +86,53 @@ struct OcatSetup setup_ =
    2
 #endif
    ,
-   // socksfd
-   {-1, -1}
+   0
+   {
+      {
+         PT_TOR,
+         // socksfd
+         {-1, -1},
+         {(struct sockaddr_in*) &socks_dst6_},
+         // oc_listen
+         NULL,
+         // oc_listen_fd
+         NULL,
+         // oc_listen_cnt
+         0,
+         OCAT_DEST_PORT, 
+         //! default tunfd is stdin/stdout
+         {0, 1},
+         //! onion_url
+         {'\0'}, 
+         //! ocat_addr
+         {{{0}}},
+         TUN_DEV,
+         {'\0'},                                // tunname
+         {0x00, 0x00, 0x6c, 0x00, 0x00, 0x00},  // ocat_hwaddr (OnionCat MAC address)
+      },
+      {
+         PT_I2P,
+         // socksfd
+         {-1, -1},
+         {(struct sockaddr_in*) &socks_dst6_},
+         // oc_listen
+         NULL,
+         // oc_listen_fd
+         NULL,
+         // oc_listen_cnt
+         0,
+         OCAT_DEST_PORT, 
+         //! default tunfd is stdin/stdout
+         {0, 1},
+         //! onion_url
+         {'\0'}, 
+         //! ocat_addr
+         {{{0}}},
+         TUN_DEV,
+         {'\0'},                                // tunname
+         {0x00, 0x00, 0x6c, 0x00, 0x00, 0x00},  // ocat_hwaddr (OnionCat MAC address)
+      },
+   }
 };
 
 
@@ -124,11 +151,11 @@ void init_setup(void)
    //setup_.logf = stderr;
    setup_.uptime = time(NULL);
 
-   setup_.socks_dst->sin_family = AF_INET;
-   setup_.socks_dst->sin_port = htons(TOR_SOCKS_PORT);
-   setup_.socks_dst->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+   setup_.conn[PT_TOR].socks_dst->sin_family = AF_INET;
+   setup_.conn[PT_TOR].socks_dst->sin_port = htons(TOR_SOCKS_PORT);
+   setup_.conn[PT_TOR].socks_dst->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 #ifdef HAVE_SIN_LEN
-   setup_.socks_dst->sin_len = SOCKADDR_SIZE(setup_.socks_dst);
+   setup_.conn[PT_TOR].socks_dst->sin_len = SOCKADDR_SIZE(setup_.conn[PT_TOR].socks_dst);
 #endif
 
 #ifdef DEBUG
@@ -165,8 +192,8 @@ void print_setup_struct(FILE *f)
 
    inet_ntop(AF_INET, &setup_.ocat_addr4, ip, SBUF);
    inet_ntop(AF_INET, &setup_.ocat_addr4_mask, nm, SBUF);
-   inet_ntop(AF_INET6, &setup_.ocat_addr, ip6, SBUF);
-   ether_ntoa_r((struct ether_addr*) setup_.ocat_hwaddr, hw);
+   inet_ntop(AF_INET6, &setup_.conn[PT_TOR].ocat_addr, ip6, SBUF);
+   ether_ntoa_r((struct ether_addr*) setup_.conn[PT_TOR].ocat_hwaddr, hw);
 
    if (setup_.logf == stderr)
       strlcpy(logf, "stderr", sizeof(logf));
@@ -182,20 +209,14 @@ void print_setup_struct(FILE *f)
          "fhd_key_len            = %d\n"
          //"tor_socks_port    = %d\n"
          //"ocat_listen_port       = %d\n"
-         "ocat_dest_port         = %d\n"
          "ocat_ctrl_port         = %d\n"
-         "tunfd[0]               = %d\n"
-         "tunfd[1]               = %d\n"
          "debug_level            = %d\n"
          "usrname                = \"%s\"\n"
-         "onion_url              = \"%s\"\n"
          "ocat_addr              = %s\n"
          "create_clog            = %d\n"
          "runasroot              = %d\n"
          "controller             = %d\n"
          "ocat_dir               = \"%s\"\n"
-         "tun_dev                = \"%s\"\n"
-         "tunname                = \"%s\"\n"
          "ipv4_enable            = %d\n"
          "ocat_addr4             = %s\n"
          "ocat_addr4_mask        = %s\n"
@@ -216,19 +237,14 @@ void print_setup_struct(FILE *f)
          setup_.fhd_key_len,
          //setup_.tor_socks_port,
          //setup_.ocat_listen_port,
-         setup_.ocat_dest_port,
          setup_.ocat_ctrl_port,
-         setup_.tunfd[0], setup_.tunfd[1],
          setup_.debug_level,
          setup_.usrname,
-         setup_.onion_url,
          ip6,
          setup_.create_clog,
          setup_.runasroot,
          setup_.controller,
          setup_.ocat_dir,
-         setup_.tun_dev,
-         setup_.tunname,
          setup_.ipv4_enable,
          ip,
          nm,
@@ -249,7 +265,7 @@ void print_setup_struct(FILE *f)
    for (i = 0; i < ROOT_PEERS; i++)
       if (inet_ntop(AF_INET6, &setup_.root_peer[i], rp, SBUF))
          fprintf(f, "root_peer[%d]           = %s\n", i, rp);
-
+/*
    if (inet_ntops((struct sockaddr*) setup_.socks_dst, &sas))
    {
       c = sas.sstr_family == AF_INET6 ? "6" : "";
@@ -271,7 +287,7 @@ void print_setup_struct(FILE *f)
       else
          log_msg(LOG_WARNING, "could not convert struct sockaddr: \"%s\"", strerror(errno));
       fprintf(f, "oc_listen_fd[%d]        = %d\n", i, CNF(oc_listen_fd)[i]);
-   }
+   }*/
 }
 
 
