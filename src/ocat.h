@@ -129,7 +129,7 @@
 #define TOR_SOCKS_PORT 9050
 #ifdef __OpenBSD__
 #define OCAT_UNAME "_tor"
-#elif __FreeBSD
+#elif __FreeBSD__
 #define OCAT_UNAME "_tor"
 #else
 #define OCAT_UNAME "tor"
