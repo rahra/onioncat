@@ -380,6 +380,9 @@ int main(int argc, char *argv[])
    // convert parameter to IPv6 address
    if ((s = strchr(CNF(onion_url), '.')))
          *s = '\0';
+   // set Tor as default network if no TLD is specified
+   else
+      CNF(conn_enabled) = PT_TOR_B;
    if (strlen(CNF(onion_url)) != 16)
       log_msg(LOG_ERR, "parameter seems not to be valid onion hostname"), exit(1);
    if (oniontipv6(CNF(onion_url), &CNF(ocat_addr)) == -1)
