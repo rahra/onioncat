@@ -25,18 +25,19 @@
 /* SOCKS5 is defined in RFC1928 */
 
 #include "ocat.h"
+#include "ocat_netdesc.h"
 
 
 // SOCKS connector queue vars
 static SocksQueue_t *socks_queue_ = NULL;
 
-#define SOCKS_BUFLEN (sizeof(SocksHdr_t) + ONION_NAME_SIZE + strlen(CNF(usrname)) + 2)
+#define SOCKS_BUFLEN (sizeof(SocksHdr_t) + NDESC(name_size) + strlen(CNF(usrname)) + 2)
 
 
 int socks_send_request(const SocksQueue_t *sq)
 {
    int len, ret;
-   char buf[SOCKS_BUFLEN], onion[ONION_NAME_SIZE];
+   char buf[SOCKS_BUFLEN], onion[NDESC(name_size)];
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
 
    ipv6tonion(&sq->addr, onion);
@@ -245,7 +246,7 @@ void print_socks_queue(FILE *f)
 void socks_output_queue(FILE *f)
 {
    int i;
-   char addrstr[INET6_ADDRSTRLEN], onstr[ONION_NAME_LEN], buf[SIZE_1K];
+   char addrstr[INET6_ADDRSTRLEN], onstr[NDESC(name_size)], buf[SIZE_1K];
    SocksQueue_t *squeue;
 
    for (squeue = socks_queue_, i = 0; squeue; squeue = squeue->next, i++)

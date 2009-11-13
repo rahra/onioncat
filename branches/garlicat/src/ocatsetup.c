@@ -24,6 +24,7 @@
 
 
 #include "ocat.h"
+#include "ocat_netdesc.h"
 
 
 static struct sockaddr_in6 socks_dst6_;
@@ -45,14 +46,16 @@ struct OcatSetup setup_ =
    sizeof(uint32_t),
    //TOR_SOCKS_PORT, 
    //OCAT_LISTEN_PORT, 
-   OCAT_DEST_PORT, OCAT_CTRL_PORT, 
+   0, 0,
    //! default tunfd is stdin/stdout
    {0, 1},
    //! default debug level
    LOG_DEBUG,
    OCAT_UNAME, {0}, {{{0}}}, 0, 0, 1, OCAT_DIR, TUN_DEV,
    {'\0'},                                // tunname
-   0, TOR_PREFIX4, TOR_PREFIX4_MASK,
+   0, 
+   //ADDR4_PREFIX, ADDR4_MASK
+   {0}, 0,
    NULL, 1,
 #ifdef __CYGWIN__
    1,
@@ -105,7 +108,9 @@ struct OcatSetup setup_ =
 #endif
    ,
    // socksfd
-   {-1, -1}
+   {-1, -1},
+   // net_type
+   NTYPE_TOR
 };
 
 
@@ -136,6 +141,15 @@ void init_setup(void)
 #else
    snprintf(setup_.version, VERSION_STRING_LEN, "%s (c) %s", PACKAGE_STRING, OCAT_AUTHOR);
 #endif
+}
+
+
+void post_init_setup(void)
+{
+   setup_.ocat_addr4 = NDESC(prefix4);
+   setup_.ocat_addr4_mask = NDESC(addr4_mask);
+   setup_.ocat_dest_port = NDESC(vdest_port);
+   setup_.ocat_ctrl_port = NDESC(ctrl_port);
 
    ctrl_listen_.sin_family = AF_INET;
    ctrl_listen_.sin_port = htons(setup_.ocat_ctrl_port);
@@ -150,7 +164,6 @@ void init_setup(void)
 #ifdef HAVE_SIN_LEN
    ctrl_listen6_.sin6_len = sizeof(ctrl_listen6_);
 #endif
-
 }
 
 
@@ -211,6 +224,7 @@ void print_setup_struct(FILE *f)
          "version[%3d+1/%3d]     = \"%s\"\n"
          "sizeof_setup           = %d\n"
          "term_req               = %d\n"
+         "net_type               = %d (%s)\n"
          ,
          IPV4_KEY, ntohl(setup_.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup_.fhd_key[IPV6_KEY]),
          setup_.fhd_key_len,
@@ -243,7 +257,8 @@ void print_setup_struct(FILE *f)
          t / (3600 * 24), t / 3600 % 24, t / 60 % 60,
          (int) strlen(setup_.version), VERSION_STRING_LEN, setup_.version,
          setup_.sizeof_setup,
-         setup_.term_req
+         setup_.term_req,
+         setup_.net_type, setup_.net_type == NTYPE_TOR ? "NTYPE_TOR" : setup_.net_type == NTYPE_I2P ? "NTYPE_I2P" : "unknown"
          );
 
    for (i = 0; i < ROOT_PEERS; i++)

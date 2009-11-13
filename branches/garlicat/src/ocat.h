@@ -101,7 +101,7 @@
 #endif
 
 #define IP6HLEN sizeof(struct ip6_hdr)
-//! TOR prefix: FD87:D87E:EB43::/48
+/*//! TOR prefix: FD87:D87E:EB43::/48
 #define TOR_PREFIX {{{0xfd,0x87,0xd8,0x7e,0xeb,0x43,0,0,0,0,0,0,0,0,0,0}}}
 #define TOR_PREFIX_LEN 48
 #if BYTE_ORDER == LITTLE_ENDIAN
@@ -110,23 +110,23 @@
 #else
 #define TOR_PREFIX4 {0x0a000000}
 #define TOR_PREFIX4_MASK 0xff000000
-#endif
+#endif*/
 //! Length of an .onion-URL (without ".onion" and '\0')
 #define ONION_URL_LEN 16
-//! Total length of .onion-URL
+/*//! Total length of .onion-URL
 #define ONION_NAME_SIZE (ONION_URL_LEN + 7)
 //! Total length of .onion-URL (equal to ONION_NAME_SIZE)
-#define ONION_NAME_LEN ONION_NAME_SIZE
+#define ONION_NAME_LEN ONION_NAME_SIZE*/
 
 #define MAXPEERS 1024
-//! Local listening port for incoming connections from TOR.
+/*//! Local listening port for incoming connections from TOR.
 #define OCAT_LISTEN_PORT 8060
 //! Local control port for querying status information.
 #define OCAT_CTRL_PORT 8066
 //! Virtual destination port for hidden services
 #define OCAT_DEST_PORT 8060
 //! SOCKS port of TOR proxy
-#define TOR_SOCKS_PORT 9050
+#define TOR_SOCKS_PORT 9050*/
 #ifdef __OpenBSD__
 #define OCAT_UNAME "_tor"
 #elif __FreeBSD__
@@ -234,7 +234,10 @@
 
 #define VERSION_STRING_LEN 256
 
-typedef enum PeerType {PT_TOR, PT_I2P} PeerType_t;
+
+#define NTYPE_TOR 0
+#define NTYPE_I2P 1
+
 
 struct OcatSetup
 {
@@ -255,7 +258,7 @@ struct OcatSetup
    int debug_level;
    //! user name to change uid to
    char *usrname;
-   char onion_url[ONION_NAME_SIZE];
+   char onion_url[SIZE_256];
    struct in6_addr ocat_addr;
    //! flag to create connection log
    int create_clog;
@@ -307,6 +310,7 @@ struct OcatSetup
    int ctrl_listen_cnt;
    //! communication pipe for socks "selected" connector
    int socksfd[2];
+   int net_type;
 };
 
 #ifdef PACKET_QUEUE
@@ -358,7 +362,6 @@ typedef struct OcatPeer
    time_t last_io;         //!< timestamp when last I/O packet measurement started
    unsigned inm;
    unsigned outm;
-   PeerType_t type;
 } OcatPeer_t;
 
 typedef struct OcatThread
@@ -565,6 +568,7 @@ void delete_peer(OcatPeer_t *);
 extern struct OcatSetup setup_;
 void print_setup_struct(FILE *);
 void init_setup(void);
+void post_init_setup(void);
 void lock_setup(void);
 void unlock_setup(void);
 

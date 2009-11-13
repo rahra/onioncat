@@ -26,6 +26,7 @@
 
 
 #include "ocat.h"
+#include "ocat_netdesc.h"
 
 static const char BASE32[] = "abcdefghijklmnopqrstuvwxyz234567";
 //! array contains inverse mapping of base32 starting with '2'.
@@ -39,18 +40,17 @@ static const char deBASE32_[] = {
    /*  P   Q   R   S   T   U   V   W   X   Y   Z
       50  51  52  53  54  55  56  57  58  59  5a */
       15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25 };  
-static const struct in6_addr tor_prefix_ = TOR_PREFIX;
 
 
 int has_tor_prefix(const struct in6_addr *addr)
 {
-   return memcmp(addr, &tor_prefix_, 6) == 0;
+   return memcmp(addr, &NDESC(prefix), 6) == 0;
 }
 
 
 void set_tor_prefix(struct in6_addr *addr)
 {
-   memcpy(addr, &tor_prefix_, 6);
+   memcpy(addr, &NDESC(prefix), 6);
 }
 
 
