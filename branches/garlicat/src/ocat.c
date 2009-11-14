@@ -378,7 +378,7 @@ int main(int argc, char *argv[])
       if (!has_tor_prefix(&CNF(ocat_addr)))
          log_msg(LOG_ERR, "address does not have TOR prefix"), exit(1);
       ipv6tonion(&CNF(ocat_addr), CNF(onion_url));
-      printf("%s.onion\n", CNF(onion_url));
+      printf("%s%s\n", CNF(onion_url), NDESC(domain));
       exit(0);
    }
 

@@ -41,7 +41,7 @@ int socks_send_request(const SocksQueue_t *sq)
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
 
    ipv6tonion(&sq->addr, onion);
-   strlcat(onion, ".onion", sizeof(onion));
+   strlcat(onion, NDESC(domain), sizeof(onion));
    log_msg(LOG_INFO, "trying to connect to \"%s\" [%s]", onion, inet_ntop(AF_INET6, &sq->addr, buf, SOCKS_BUFLEN));
 
    log_debug("doing SOCKS4a handshake");
@@ -257,10 +257,11 @@ void socks_output_queue(FILE *f)
          strlcpy(addrstr, "ERROR", INET6_ADDRSTRLEN);
       }
 
-      snprintf(buf, SIZE_1K, "%d: %39s, %s.onion, state = %d, %s(%d), retry = %d, connect_time = %d, restart_time = %d",
+      snprintf(buf, SIZE_1K, "%d: %39s, %s%s, state = %d, %s(%d), retry = %d, connect_time = %d, restart_time = %d",
             i, 
             addrstr, 
             ipv6tonion(&squeue->addr, onstr),
+            NDESC(domain),
             squeue->state,
             squeue->perm ? "PERMANENT" : "TEMPORARY",
             squeue->perm,
