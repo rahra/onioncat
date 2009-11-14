@@ -238,8 +238,6 @@ int main(int argc, char *argv[])
    struct passwd *pwd, pwdm;
    int urlconv = 0;
 
-   snprintf(def, 100, "127.0.0.1:%d", NDESC(listen_port));
-
    init_setup();
 
    if (argc < 2)
@@ -282,7 +280,7 @@ int main(int argc, char *argv[])
             break;
 
          case 'l':
-            add_listener(optarg, def);
+            add_listener(optarg);
             break;
 
          case 'L':
@@ -351,6 +349,7 @@ int main(int argc, char *argv[])
    if (!strcmp(argv[0], "gcat") || !strcmp(argv[0], "garlicat"))
       CNF(net_type) = NTYPE_I2P;
 
+   snprintf(def, 100, "127.0.0.1:%d", NDESC(listen_port));
    post_init_setup();
 
    if (!CNF(rand_addr) && !argv[optind])
@@ -450,7 +449,7 @@ int main(int argc, char *argv[])
       background();
 
    if (!CNF(oc_listen))
-      add_listener(def, def);
+      add_listener(def);
 
    // start socket receiver thread
    run_ocat_thread("receiver", socket_receiver, NULL);

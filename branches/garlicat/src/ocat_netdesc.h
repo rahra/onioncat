@@ -85,7 +85,7 @@ extern const struct NetDesc netdesc_[2];
 //! Local control port for querying status information.
 #define I2P_OCAT_CTRL_PORT 8067
 //! Virtual destination port for hidden services
-#define I2P_OCAT_DEST_PORT 8060
+#define I2P_OCAT_DEST_PORT I2P_OCAT_LISTEN_PORT
 //! SOCKS port of TOR proxy
 #define I2P_SOCKS_PORT 9051
 

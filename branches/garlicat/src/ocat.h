@@ -602,7 +602,7 @@ void oe_close(int);
 int oe_remtr(char *);
 int strsockaddr(const char *, struct sockaddr *);
 void add_local_listeners(void);
-void add_listener(const char *, const char *);
+void add_listener(const char *);
 void delete_listeners(struct sockaddr **, int *, int);
 int fdprintf(int, const char *, va_list);
 

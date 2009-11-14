@@ -129,13 +129,6 @@ void init_setup(void)
    //setup_.logf = stderr;
    setup_.uptime = time(NULL);
 
-   setup_.socks_dst->sin_family = AF_INET;
-   setup_.socks_dst->sin_port = htons(TOR_SOCKS_PORT);
-   setup_.socks_dst->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-#ifdef HAVE_SIN_LEN
-   setup_.socks_dst->sin_len = SOCKADDR_SIZE(setup_.socks_dst);
-#endif
-
 #ifdef DEBUG
    snprintf(setup_.version, VERSION_STRING_LEN, "%s (c) %s -- compiled %s %s", PACKAGE_STRING, OCAT_AUTHOR, __DATE__, __TIME__);
 #else
@@ -150,6 +143,13 @@ void post_init_setup(void)
    setup_.ocat_addr4_mask = NDESC(addr4_mask);
    setup_.ocat_dest_port = NDESC(vdest_port);
    setup_.ocat_ctrl_port = NDESC(ctrl_port);
+
+   setup_.socks_dst->sin_family = AF_INET;
+   setup_.socks_dst->sin_port = htons(NDESC(socks_port));
+   setup_.socks_dst->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+#ifdef HAVE_SIN_LEN
+   setup_.socks_dst->sin_len = SOCKADDR_SIZE(setup_.socks_dst);
+#endif
 
    ctrl_listen_.sin_family = AF_INET;
    ctrl_listen_.sin_port = htons(setup_.ocat_ctrl_port);
