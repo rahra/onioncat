@@ -72,6 +72,7 @@ struct OcatSetup setup_ =
 #else
    1,                                      // daemon
 #endif
+#ifdef CONNECT_ROOT_PEERS
    {
       /*
       {{{0xfd, 0x87, 0xd8, 0x7e, 0xeb, 0x43,
@@ -80,6 +81,7 @@ struct OcatSetup setup_ =
       {{{0xfd, 0x87, 0xd8, 0x7e, 0xeb, 0x43,
            0xf6, 0x83, 0x64, 0xac, 0x73, 0xf9, 0x61, 0xac, 0x9a, 0x00}}}  // initial permanent peer "62bwjldt7fq2zgqa" (dot.cat)
    },
+#endif
    0,
    "/dev/urandom",
    {(struct sockaddr_in*) &socks_dst6_},
@@ -172,7 +174,7 @@ void post_init_setup(void)
 
 void print_setup_struct(FILE *f)
 {
-   char *c, ip[SBUF], nm[SBUF], ip6[SBUF], logf[SBUF], hw[SBUF], rp[SBUF];
+   char *c, ip[SBUF], nm[SBUF], ip6[SBUF], logf[SBUF], hw[SBUF];
    int i, t;
    struct sockaddr_str sas;
 
@@ -261,9 +263,11 @@ void print_setup_struct(FILE *f)
          setup_.net_type, setup_.net_type == NTYPE_TOR ? "NTYPE_TOR" : setup_.net_type == NTYPE_I2P ? "NTYPE_I2P" : "unknown"
          );
 
+#ifdef CONNECT_ROOT_PEERS
    for (i = 0; i < ROOT_PEERS; i++)
-      if (inet_ntop(AF_INET6, &setup_.root_peer[i], rp, SBUF))
-         fprintf(f, "root_peer[%d]           = %s\n", i, rp);
+      if (inet_ntop(AF_INET6, &setup_.root_peer[i], ip6, SBUF))
+         fprintf(f, "root_peer[%d]           = %s\n", i, ip6);
+#endif
 
    if (inet_ntops((struct sockaddr*) setup_.socks_dst, &sas))
    {

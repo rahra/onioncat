@@ -506,11 +506,13 @@ int main(int argc, char *argv[])
    if (CNF(controller))
       run_ocat_thread("controller", ocat_controller, NULL);
 
+#ifdef CONNECT_ROOT_PEERS
    // initiate connections to permanent root peers
    log_debug("connecting root peers");
    for (c = 0; c < ROOT_PEERS; c++)
       if (!IN6_ARE_ADDR_EQUAL(&CNF(root_peer[c]), &CNF(ocat_addr)))
          socks_queue(CNF(root_peer[c]), 1);
+#endif
 
    // reading config file
    if (CNF(config_file))

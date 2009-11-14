@@ -101,32 +101,10 @@
 #endif
 
 #define IP6HLEN sizeof(struct ip6_hdr)
-/*//! TOR prefix: FD87:D87E:EB43::/48
-#define TOR_PREFIX {{{0xfd,0x87,0xd8,0x7e,0xeb,0x43,0,0,0,0,0,0,0,0,0,0}}}
-#define TOR_PREFIX_LEN 48
-#if BYTE_ORDER == LITTLE_ENDIAN
-#define TOR_PREFIX4 {0x0000000a}
-#define TOR_PREFIX4_MASK 0x000000ff
-#else
-#define TOR_PREFIX4 {0x0a000000}
-#define TOR_PREFIX4_MASK 0xff000000
-#endif*/
 //! Length of an .onion-URL (without ".onion" and '\0')
 #define ONION_URL_LEN 16
-/*//! Total length of .onion-URL
-#define ONION_NAME_SIZE (ONION_URL_LEN + 7)
-//! Total length of .onion-URL (equal to ONION_NAME_SIZE)
-#define ONION_NAME_LEN ONION_NAME_SIZE*/
 
 #define MAXPEERS 1024
-/*//! Local listening port for incoming connections from TOR.
-#define OCAT_LISTEN_PORT 8060
-//! Local control port for querying status information.
-#define OCAT_CTRL_PORT 8066
-//! Virtual destination port for hidden services
-#define OCAT_DEST_PORT 8060
-//! SOCKS port of TOR proxy
-#define TOR_SOCKS_PORT 9050*/
 #ifdef __OpenBSD__
 #define OCAT_UNAME "_tor"
 #elif __FreeBSD__
@@ -284,9 +262,11 @@ struct OcatSetup
    FILE *logf;
    int use_syslog;
    int daemon;
+#ifdef CONNECT_ROOT_PEERS
    //! hardcoded permanent peers
 #define ROOT_PEERS 1
    struct in6_addr root_peer[ROOT_PEERS];
+#endif
    time_t uptime;
    char *frandn;
    //! destination socket address of Tor's SOCKS port
