@@ -14,9 +14,11 @@
 .\" You should have received a copy of the GNU General Public License
 .\" along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
 .\"
-.TH OCAT 1 2008-12-07 "ocat" "OnionCat User's Manual"
+.TH OCAT 1 2009-11-15 "ocat" "OnionCat User's Manual"
 .SH NAME
 ocat \- OnionCat creates a transparent IPv6 layer on top of Tor's hidden services.
+.br
+gcat \- GarliCat is like OnionCat but it works with I2P instead of Tor.
 .SH SYNOPSIS
 .B ocat
 -i \fIonion_id                      (1st form)\fP
@@ -30,29 +32,38 @@ ocat \- OnionCat creates a transparent IPv6 layer on top of Tor's hidden service
 .B ocat
 -R [\fIOPTION\fP]\fI                      (4th form)\fP
 .br
+.B gcat
+[\fIOPTION\fP] \fIi2p_id                  (5th form)\fP
+.br
 .SH DESCRIPTION
-OnionCat creates a transparent IPv6 layer on top of Tor's hidden services. It
-transmits any kind of IP-based data transparently through the Tor network on a
-location hidden basis. You can think of it as a point-to-multipoint VPN
-between hidden services.
+OnionCat creates a transparent IPv6 layer on top of Tor's hidden services or
+I2P's tunnels. It transmits any kind of IP-based data transparently through the
+Tor/I2P network on a location hidden basis. You can think of it as a
+peer-to-peer VPN between hidden services.
 
 OnionCat is a stand-alone application which runs in userland and is a connector
-between Tor and the local OS. Any protocol which is based on IP can be
+between Tor/I2P and the local OS. Any protocol which is based on IP can be
 transmitted. Of course, UDP and TCP (and probably ICMP) are the most important
 ones but all other protocols can also be forwarded through it.
 
 OnionCat opens a TUN device and assigns an IPv6 address to it. All packets
 forwarded to the TUN device by the kernel are forwarded by OnionCat to other
-OnionCats listening on Tor's hidden service ports.  The IPv6 address depends on
-the \fIonion_id\fP of the locally configured hidden service (see \fBtor(8)\fP).
-Depending on the configuration of Tor the \fIonion_id\fP usually can be found
-at \fI/var/lib/tor/hidden_service/hostname\fP or similar location.
+OnionCats listening on Tor's hidden service ports or I2P's server tunnels. The
+IPv6 address depends on the \fIonion_id\fP or the i2p_id, respectively. The
+\fIonion_id\fP is the hostname of the locally configured hidden service (see
+\fBtor(8)\fP). Depending on the configuration of Tor the \fIonion_id\fP usually
+can be found at \fI/var/lib/tor/hidden_service/hostname\fP or similar location.
+The \fIi2p_id\fP is the 80 bit long Base32 encoded hostname of the I2P server
+tunnel.
 
 .SS OPTIONS
 .TP
 \fB\-4\fP
 Enable IPv4 forwarding. See http://www.cypherpunk.at/onioncat/wiki/IPv4 for further
 information on IPv4.
+.br
+Native IPv4 forwarding is deprecated. The recommended solution for IPv4
+forwarding is to build a IPv4-through-IPv6 tunnel through OnionCat.
 .TP
 \fB\-a\fP
 OnionCat creates a log file at $HOME/.ocat/connect_log. All incomming connects are
@@ -86,6 +97,10 @@ Display short usage message and shows options.
 .TP
 \fB\-i\fP
 Convert \fIonion_id\fP to IPv6 address and exit.
+.TP
+\fB\-I\fP
+Run OnionCat in GarliCat mode. Using this option is identical to running OnionCat
+with the command name \fBgcat\fP.
 .TP
 \fB\-l\fP \fI[ip:]port\fP
 Bind Onioncat to specific \fIip \fP and/or \fIport\fP number for incoming
@@ -162,6 +177,8 @@ Daniel Haslinger, and Wim Gaethofs.
 OnionCat project page http://www.cypherpunk.at/onioncat/
 
 Tor project homepage http://www.torproject.org/
+
+I2P project homepage http://www.i2p2.de/
 
 .SH COPYRIGHT
 Copyright 2008-2009 Bernhard R. Fischer.

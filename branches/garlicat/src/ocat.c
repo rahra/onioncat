@@ -240,9 +240,6 @@ int main(int argc, char *argv[])
 
    init_setup();
 
-   if (argc < 2)
-      usage(argv[0]), exit(1);
-
    while ((c = getopt(argc, argv, "abBCd:f:hrRiIopl:t:T:s:u:4L:P:")) != -1)
       switch (c)
       {
@@ -352,6 +349,10 @@ int main(int argc, char *argv[])
    snprintf(def, 100, "127.0.0.1:%d", NDESC(listen_port));
    post_init_setup();
 
+   // usage output must be after mode detection (Tor/I2P)
+   if (argc < 2)
+      usage(argv[0]), exit(1);
+
    if (!CNF(rand_addr) && !argv[optind])
       usage(argv[0]), exit(1);
 
@@ -412,7 +413,6 @@ int main(int argc, char *argv[])
    }
 
    log_msg(LOG_INFO, "%s", CNF(version));
-   log_msg(LOG_INFO, "OC is running in %s mode", CNF(net_type) == NTYPE_I2P ? "GarliCat (I2P)" : "OnionCat (Tor)");
 
 #if 0
    if (CNF(config_file))

@@ -130,12 +130,6 @@ void init_setup(void)
 
    //setup_.logf = stderr;
    setup_.uptime = time(NULL);
-
-#ifdef DEBUG
-   snprintf(setup_.version, VERSION_STRING_LEN, "%s (c) %s -- compiled %s %s", PACKAGE_STRING, OCAT_AUTHOR, __DATE__, __TIME__);
-#else
-   snprintf(setup_.version, VERSION_STRING_LEN, "%s (c) %s", PACKAGE_STRING, OCAT_AUTHOR);
-#endif
 }
 
 
@@ -165,6 +159,11 @@ void post_init_setup(void)
    ctrl_listen6_.sin6_addr = in6addr_loopback; //IN6ADDR_LOOPBACK_INIT;
 #ifdef HAVE_SIN_LEN
    ctrl_listen6_.sin6_len = sizeof(ctrl_listen6_);
+#endif
+
+   snprintf(setup_.version, VERSION_STRING_LEN, "%s (c) %s (%s mode)", PACKAGE_STRING, OCAT_AUTHOR, setup_.net_type == NTYPE_TOR ? "OnionCat" : setup_.net_type == NTYPE_I2P ? "GarliCat" : "unknown");
+#ifdef DEBUG
+   snprintf(&setup_.version[strlen(setup_.version)], VERSION_STRING_LEN - strlen(setup_.version), " -- compiled %s %s", __DATE__, __TIME__);
 #endif
 }
 
