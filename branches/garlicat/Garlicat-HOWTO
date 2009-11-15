@@ -1,0 +1,97 @@
+GarliCat HOWTO
+
+This is a quick introduction into setting up I2P for GarliCat. It is assumed
+that you already have installed I2P. This HOWTO is based on I2P version
+0.7.7-0.
+
+
+1 DOWNLOAD
+First get the GarliCat branch of OnionCat 0.2.0, revision 529 or higher. It
+is found here: http://www.cypherpunk.at/ocat/download/Source/0.2.0/unofficial
+
+
+2 COMPILE AND INSTALL
+Unpack it, change into the directory and run './configure', 'make' and 'make
+install'. If something goes wrong, read the error messages and try to fix the
+problem.
+
+
+3 CONFIGURE I2P
+GarliCat is able to connect to other GarliCats and lets others connect to you, hence,
+the GarliCat software contains a server and a client part. Thus you must configure
+a server and a client tunnel on your I2P router. The server is the "inbound" part.
+I2P will assign an ID (a key) to it which is unique for your server tunnel and your
+GarliCat, respectively. This ID is directly translated into an IPv6 address, hence,
+also this IPv6 address is unique to your GarliCat.
+
+
+3.1 CONFIGURE SERVER TUNNEL
+Open the I2P Router Console in your browser (http://127.0.0.1:7657/) and go to
+"I2P INTERNALS -> Tunnels". Scroll down and click on "i2ptunnel page"
+(http://127.0.0.1:7657/i2ptunnel/).
+In the bottom right corner of the "I2P SERVER TUNNELS" box select "Standard"
+(which should be selected by default) and click "Create". A new page opens. On
+top enter a name, e.g. "GarliCat Inbound".  Select the "Autostart" checkbox.
+In the text field "Port" which is marked as required enter the port number
+8061. Scroll to the bottom and press "Save".
+
+
+3.2 CONFIGURE CLIENT TUNNEL
+In the bottom right corner of the "I2P CLIENT TUNNELS" box select "SOCKS
+4/4a/5" and press "Create". A new page opens. On top enter a name, e.g.
+"GarliCat Outbound".  In the "Port" field which is marked as required enter the
+port number 9051.  Check the "Autostart" checkbox. Scroll down and press
+"Save".
+
+
+3.3 FIGURE OUT _YOUR_ GARLICAT I2P-ID
+On the "i2ptunnel page" (http://127.0.0.1:7657/i2ptunnel/) -- you should
+already be on this page after the last step of 3.2 -- you should see your
+"GarliCat Inbound" tunnel in the "I2P SERVER TUNNELS" box. It lists a string
+called "Base32 Address".  Copy this string to a file. Truncate it to 16
+characters and append the domain ".oc.b32.i2p". The result is your GarliCat
+I2P-ID.
+Example:
+Base32 Address:  ktmhezukbp6jyuldedcjmso6p4e6aegeikqli2mne67hnttgmvfa.b32.i2p
+GarliCat I2P-ID: ktmhezukbp6jyuld.oc.b32.i2p
+
+Your I2P router is now ready.
+
+
+4 RUN GARLICAT
+Your Garlicat I2P-ID is directly convertable into an IPv6 address and vice
+versa by Garlicat. You can test if you figured out your GC I2P-ID correct by
+running `gcat -i <your_gc_i2p_id>`. It should output an (your) IPv6 address.
+Now start Garlicat as root and give your I2P-ID as a single parameter:
+`gcat <your_gc_i2p_id>`
+(Note: GarliCat will immediately drop root privileges after initialization).
+You may have a look at the log files. By default, GarliCat logs to syslog with
+facility "daemon".
+If everything works you should now have a tunnel device (`ifconfig`) having
+your IPv6 address configure. You should be able to ping to your own address
+by running `ping6 <your_gc_ipv6_address>`.
+
+
+5 TELL I2P FROM OTHER GARLICATS
+Basically everything is ready now but you need to enter the I2P-IDs and keys
+from others that you want to connect to to your I2P address book. The best way
+to do this is using SusiDNS.
+If you want to connect to someone else's GarliCat you first need to receive his
+GarliCat IPv6 address, his I2P-ID, and his key. Then go to your Susi-DNS page
+(click on "Addressbook" on your I2P Router console) and add a new entry being
+the I2P-ID the name.  Test if it works. Simply try to ping to the IPv6 address.
+(NOTE: THERE MAY BE BETTER OPTIONS BUT THIS SECTION WAS WRITTEN BY SOMEONE
+WHO DOES NOT NO TOO MUCH DETAILS ABOUT SUSIDNS, YET. SORRY.)
+
+
+A APPENDIX
+What is the difference between OnionCat and GarliCat?
+OC and GC is basically the same. They completely share the code base. The
+difference just lies in port numbers and the domain extensions which are
+specific for Tor (.onion) and I2P (.oc.b32.i2p), respectively.
+OC and GC can run in parallel on a host. 
+
+
+B AUTHOR
+This HOWTO was written by Bernhard R. Fischer, 15th of November 2009.
+
