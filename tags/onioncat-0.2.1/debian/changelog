@@ -1,0 +1,20 @@
+onioncat (0.2.0.r514) jaunty; urgency=low
+
+  * Upstream svn build debian unstable
+
+ -- Bernhard Fischer <rahra@cypherpunk.at>  Thu, 09 Sep  2009 14:08:00 +0100
+onioncat (0.12.493) jaunty; urgency=low
+
+  * Upstream svn build debian unstable
+
+ -- Ferdinand Haselbacher <fhasex20@cypherpunk.at>  Thu, 19 Mar  2009 13:27:29 +0100
+onioncat (0.436) hardy; urgency=low
+
+  * Upstream svn build
+
+ -- Ferdinand Haselbacher <fhasex20@cypherpunk.at>  Thu, 19 Feb 2009 13:27:29 +0100
+onioncat (0.435) hardy; urgency=low
+
+  * Initial Debian Package Release.
+
+ -- Ferdinand Haselbacher <fhasex20@cypherpunk.at>  Thu, 19 Feb 2009 13:27:29 +0100
