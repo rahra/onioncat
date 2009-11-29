@@ -26,6 +26,7 @@
 
 
 #include "ocat.h"
+#include "ocat_netdesc.h"
 
 
 char *tun_dev_ = TUN_DEV;
@@ -60,7 +61,7 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
    if (system(buf) == -1)
       log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
 
-   snprintf(buf, sizeof(buf), "netsh interface ipv6 add route %s/%d \"%s\"", astr, TOR_PREFIX_LEN, dev);
+   snprintf(buf, sizeof(buf), "netsh interface ipv6 add route %s/%d \"%s\"", astr, NDESC(prefix_len), dev);
    log_debug("setting IP routing: \"%s\"", buf);
    if (system(buf) == -1)
       log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
@@ -91,7 +92,7 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
    strlcpy(dev, ifr.ifr_name, IFNAMSIZ);
    if (!CNF(use_tap))
    {
-      snprintf(buf, sizeof(buf), "ifconfig %s add %s/%d up", dev, astr, TOR_PREFIX_LEN);
+      snprintf(buf, sizeof(buf), "ifconfig %s add %s/%d up", dev, astr, NDESC(prefix_len));
       log_msg(LOG_INFO, "configuring tun IP: \"%s\"", buf);
       if (system(buf) == -1)
          log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
@@ -168,9 +169,9 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
    if (!CNF(use_tap))
    {
 #ifdef __OpenBSD__
-      snprintf(buf, sizeof(buf), "ifconfig %s inet6 %s prefixlen %d up", dev, astr, TOR_PREFIX_LEN);
+      snprintf(buf, sizeof(buf), "ifconfig %s inet6 %s prefixlen %d up", dev, astr, NDESC(prefix_len));
 #else
-      snprintf(buf, sizeof(buf), "ifconfig %s inet6 %s/%d up", dev, astr, TOR_PREFIX_LEN);
+      snprintf(buf, sizeof(buf), "ifconfig %s inet6 %s/%d up", dev, astr, NDESC(prefix_len));
 #endif
       log_debug("setting IP on tun: \"%s\"", buf);
       if (system(buf) == -1)
@@ -180,7 +181,7 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 
       // MacOSX requires the route to be set up manually
       // FIXME: the prefix shouldn't be hardcoded here
-      snprintf(buf, sizeof(buf), "route add -inet6 -net fd87:d87e:eb43:: -prefixlen %d -gateway %s", TOR_PREFIX_LEN, astr);
+      snprintf(buf, sizeof(buf), "route add -inet6 -net fd87:d87e:eb43:: -prefixlen %d -gateway %s", NDESC(prefix_len), astr);
       log_msg(LOG_INFO, "setup routing: \"%s\"", buf);
       if (system(buf) == -1)
          log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));

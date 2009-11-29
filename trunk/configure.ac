@@ -19,6 +19,7 @@ AC_ARG_ENABLE([rtt], AS_HELP_STRING([--enable-rtt],[enable inband RTT measuremen
 # Checks for programs.
 AC_PROG_CC
 #AC_PROG_INSTALL
+AC_PROG_LN_S
 ACX_PTHREAD
 
 # Checks for libraries.

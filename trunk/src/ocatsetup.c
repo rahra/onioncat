@@ -24,6 +24,7 @@
 
 
 #include "ocat.h"
+#include "ocat_netdesc.h"
 
 
 static struct sockaddr_in6 socks_dst6_;
@@ -45,14 +46,16 @@ struct OcatSetup setup_ =
    sizeof(uint32_t),
    //TOR_SOCKS_PORT, 
    //OCAT_LISTEN_PORT, 
-   OCAT_DEST_PORT, OCAT_CTRL_PORT, 
+   0, 0,
    //! default tunfd is stdin/stdout
    {0, 1},
    //! default debug level
    LOG_DEBUG,
    OCAT_UNAME, {0}, {{{0}}}, 0, 0, 1, OCAT_DIR, TUN_DEV,
    {'\0'},                                // tunname
-   0, TOR_PREFIX4, TOR_PREFIX4_MASK,
+   0, 
+   //ADDR4_PREFIX, ADDR4_MASK
+   {0}, 0,
    NULL, 1,
 #ifdef __CYGWIN__
    1,
@@ -69,6 +72,7 @@ struct OcatSetup setup_ =
 #else
    1,                                      // daemon
 #endif
+#ifdef CONNECT_ROOT_PEERS
    {
       /*
       {{{0xfd, 0x87, 0xd8, 0x7e, 0xeb, 0x43,
@@ -77,6 +81,7 @@ struct OcatSetup setup_ =
       {{{0xfd, 0x87, 0xd8, 0x7e, 0xeb, 0x43,
            0xf6, 0x83, 0x64, 0xac, 0x73, 0xf9, 0x61, 0xac, 0x9a, 0x00}}}  // initial permanent peer "62bwjldt7fq2zgqa" (dot.cat)
    },
+#endif
    0,
    "/dev/urandom",
    {(struct sockaddr_in*) &socks_dst6_},
@@ -105,7 +110,9 @@ struct OcatSetup setup_ =
 #endif
    ,
    // socksfd
-   {-1, -1}
+   {-1, -1},
+   // net_type
+   NTYPE_TOR
 };
 
 
@@ -123,18 +130,21 @@ void init_setup(void)
 
    //setup_.logf = stderr;
    setup_.uptime = time(NULL);
+}
+
+
+void post_init_setup(void)
+{
+   setup_.ocat_addr4 = NDESC(prefix4);
+   setup_.ocat_addr4_mask = NDESC(addr4_mask);
+   setup_.ocat_dest_port = NDESC(vdest_port);
+   setup_.ocat_ctrl_port = NDESC(ctrl_port);
 
    setup_.socks_dst->sin_family = AF_INET;
-   setup_.socks_dst->sin_port = htons(TOR_SOCKS_PORT);
+   setup_.socks_dst->sin_port = htons(NDESC(socks_port));
    setup_.socks_dst->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 #ifdef HAVE_SIN_LEN
    setup_.socks_dst->sin_len = SOCKADDR_SIZE(setup_.socks_dst);
-#endif
-
-#ifdef DEBUG
-   snprintf(setup_.version, VERSION_STRING_LEN, "%s (c) %s -- compiled %s %s", PACKAGE_STRING, OCAT_AUTHOR, __DATE__, __TIME__);
-#else
-   snprintf(setup_.version, VERSION_STRING_LEN, "%s (c) %s", PACKAGE_STRING, OCAT_AUTHOR);
 #endif
 
    ctrl_listen_.sin_family = AF_INET;
@@ -151,6 +161,10 @@ void init_setup(void)
    ctrl_listen6_.sin6_len = sizeof(ctrl_listen6_);
 #endif
 
+   snprintf(setup_.version, VERSION_STRING_LEN, "%s (c) %s (%s mode)", PACKAGE_STRING, OCAT_AUTHOR, setup_.net_type == NTYPE_TOR ? "OnionCat" : setup_.net_type == NTYPE_I2P ? "GarliCat" : "unknown");
+#ifdef DEBUG
+   snprintf(&setup_.version[strlen(setup_.version)], VERSION_STRING_LEN - strlen(setup_.version), " -- compiled %s %s", __DATE__, __TIME__);
+#endif
 }
 
 
@@ -159,7 +173,7 @@ void init_setup(void)
 
 void print_setup_struct(FILE *f)
 {
-   char *c, ip[SBUF], nm[SBUF], ip6[SBUF], logf[SBUF], hw[SBUF], rp[SBUF];
+   char *c, ip[SBUF], nm[SBUF], ip6[SBUF], logf[SBUF], hw[SBUF];
    int i, t;
    struct sockaddr_str sas;
 
@@ -211,6 +225,7 @@ void print_setup_struct(FILE *f)
          "version[%3d+1/%3d]     = \"%s\"\n"
          "sizeof_setup           = %d\n"
          "term_req               = %d\n"
+         "net_type               = %d (%s)\n"
          ,
          IPV4_KEY, ntohl(setup_.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup_.fhd_key[IPV6_KEY]),
          setup_.fhd_key_len,
@@ -243,12 +258,15 @@ void print_setup_struct(FILE *f)
          t / (3600 * 24), t / 3600 % 24, t / 60 % 60,
          (int) strlen(setup_.version), VERSION_STRING_LEN, setup_.version,
          setup_.sizeof_setup,
-         setup_.term_req
+         setup_.term_req,
+         setup_.net_type, setup_.net_type == NTYPE_TOR ? "NTYPE_TOR" : setup_.net_type == NTYPE_I2P ? "NTYPE_I2P" : "unknown"
          );
 
+#ifdef CONNECT_ROOT_PEERS
    for (i = 0; i < ROOT_PEERS; i++)
-      if (inet_ntop(AF_INET6, &setup_.root_peer[i], rp, SBUF))
-         fprintf(f, "root_peer[%d]           = %s\n", i, rp);
+      if (inet_ntop(AF_INET6, &setup_.root_peer[i], ip6, SBUF))
+         fprintf(f, "root_peer[%d]           = %s\n", i, ip6);
+#endif
 
    if (inet_ntops((struct sockaddr*) setup_.socks_dst, &sas))
    {

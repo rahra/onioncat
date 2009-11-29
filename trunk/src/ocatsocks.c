@@ -25,22 +25,23 @@
 /* SOCKS5 is defined in RFC1928 */
 
 #include "ocat.h"
+#include "ocat_netdesc.h"
 
 
 // SOCKS connector queue vars
 static SocksQueue_t *socks_queue_ = NULL;
 
-#define SOCKS_BUFLEN (sizeof(SocksHdr_t) + ONION_NAME_SIZE + strlen(CNF(usrname)) + 2)
+#define SOCKS_BUFLEN (sizeof(SocksHdr_t) + NDESC(name_size) + strlen(CNF(usrname)) + 2)
 
 
 int socks_send_request(const SocksQueue_t *sq)
 {
    int len, ret;
-   char buf[SOCKS_BUFLEN], onion[ONION_NAME_SIZE];
+   char buf[SOCKS_BUFLEN], onion[NDESC(name_size)];
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
 
    ipv6tonion(&sq->addr, onion);
-   strlcat(onion, ".onion", sizeof(onion));
+   strlcat(onion, NDESC(domain), sizeof(onion));
    log_msg(LOG_INFO, "trying to connect to \"%s\" [%s]", onion, inet_ntop(AF_INET6, &sq->addr, buf, SOCKS_BUFLEN));
 
    log_debug("doing SOCKS4a handshake");
@@ -245,7 +246,7 @@ void print_socks_queue(FILE *f)
 void socks_output_queue(FILE *f)
 {
    int i;
-   char addrstr[INET6_ADDRSTRLEN], onstr[ONION_NAME_LEN], buf[SIZE_1K];
+   char addrstr[INET6_ADDRSTRLEN], onstr[NDESC(name_size)], buf[SIZE_1K];
    SocksQueue_t *squeue;
 
    for (squeue = socks_queue_, i = 0; squeue; squeue = squeue->next, i++)
@@ -256,10 +257,11 @@ void socks_output_queue(FILE *f)
          strlcpy(addrstr, "ERROR", INET6_ADDRSTRLEN);
       }
 
-      snprintf(buf, SIZE_1K, "%d: %39s, %s.onion, state = %d, %s(%d), retry = %d, connect_time = %d, restart_time = %d",
+      snprintf(buf, SIZE_1K, "%d: %39s, %s%s, state = %d, %s(%d), retry = %d, connect_time = %d, restart_time = %d",
             i, 
             addrstr, 
             ipv6tonion(&squeue->addr, onstr),
+            NDESC(domain),
             squeue->state,
             squeue->perm ? "PERMANENT" : "TEMPORARY",
             squeue->perm,
