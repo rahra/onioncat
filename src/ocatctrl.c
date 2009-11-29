@@ -24,6 +24,7 @@
 
 
 #include "ocat.h"
+#include "ocat_netdesc.h"
 
 
 /*! ctrl_handler handles connections to local control port.
@@ -36,7 +37,7 @@ void *ctrl_handler(void *p)
 {
    int fd, c;
    FILE *ff, *fo;
-   char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[ONION_NAME_SIZE], timestr[32], *s, *tokbuf;
+   char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[NDESC(name_size)], timestr[32], *s, *tokbuf;
    int rlen, cfd;
    struct tm *tm;
    OcatPeer_t *peer;

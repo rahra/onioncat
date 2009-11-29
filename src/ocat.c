@@ -17,6 +17,7 @@
 
 
 #include "ocat.h"
+#include "ocat_netdesc.h"
 
 
 void usage(const char *s)
@@ -32,6 +33,7 @@ void usage(const char *s)
          "   -d <n>                set debug level to n, default = %d\n"
          "   -f <config_file>      read config from config_file\n"
          "   -i                    convert onion hostname to IPv6 and exit\n"
+         "   -I                    GarliCat mode, use I2P instead of Tor\n"
          "   -l [<ip>:]<port>      set ocat listen address and port, default = 127.0.0.1:%d\n"
          "   -L <log_file>         log output to <log_file> (default = stderr)\n"
          "   -o <ipv6_addr>        convert IPv6 address to onion url and exit\n"
@@ -50,7 +52,7 @@ void usage(const char *s)
          // option defaults start here
          OCAT_DIR, OCAT_CONNECT_LOG, CNF(create_clog), 
          CNF(daemon), CNF(daemon) ^ 1,
-         CNF(debug_level), OCAT_LISTEN_PORT,
+         CNF(debug_level), NDESC(listen_port),
          CNF(pid_file),
          CNF(ocat_dest_port), ntohs(CNF(socks_dst)->sin_port), 
 #ifndef WITHOUT_TUN
@@ -236,14 +238,9 @@ int main(int argc, char *argv[])
    struct passwd *pwd, pwdm;
    int urlconv = 0;
 
-   snprintf(def, 100, "127.0.0.1:%d", OCAT_LISTEN_PORT);
-
    init_setup();
 
-   if (argc < 2)
-      usage(argv[0]), exit(1);
-
-   while ((c = getopt(argc, argv, "abBCd:f:hrRiopl:t:T:s:u:4L:P:")) != -1)
+   while ((c = getopt(argc, argv, "abBCd:f:hrRiIopl:t:T:s:u:4L:P:")) != -1)
       switch (c)
       {
          case 'a':
@@ -275,8 +272,12 @@ int main(int argc, char *argv[])
             urlconv = 1;
             break;
 
+         case 'I':
+            CNF(net_type) = NTYPE_I2P;
+            break;
+
          case 'l':
-            add_listener(optarg, def);
+            add_listener(optarg);
             break;
 
          case 'L':
@@ -340,6 +341,18 @@ int main(int argc, char *argv[])
             exit(1);
       }
 
+   // detect network type by command file name
+   // FIXME: this should be not hardcoded in that way
+   if (!strcmp(argv[0], "gcat") || !strcmp(argv[0], "garlicat"))
+      CNF(net_type) = NTYPE_I2P;
+
+   snprintf(def, 100, "127.0.0.1:%d", NDESC(listen_port));
+   post_init_setup();
+
+   // usage output must be after mode detection (Tor/I2P)
+   if (argc < 2)
+      usage(argv[0]), exit(1);
+
    if (!CNF(rand_addr) && !argv[optind])
       usage(argv[0]), exit(1);
 
@@ -366,13 +379,13 @@ int main(int argc, char *argv[])
       if (!has_tor_prefix(&CNF(ocat_addr)))
          log_msg(LOG_ERR, "address does not have TOR prefix"), exit(1);
       ipv6tonion(&CNF(ocat_addr), CNF(onion_url));
-      printf("%s.onion\n", CNF(onion_url));
+      printf("%s%s\n", CNF(onion_url), NDESC(domain));
       exit(0);
    }
 
    // copy onion-URL from command line
    if (!CNF(rand_addr))
-      strncpy(CNF(onion_url), argv[optind], ONION_NAME_SIZE);
+      strncpy(CNF(onion_url), argv[optind], NDESC(name_size));
    // ...or generate a random one
    else
       rand_onion(CNF(onion_url));
@@ -436,7 +449,7 @@ int main(int argc, char *argv[])
       background();
 
    if (!CNF(oc_listen))
-      add_listener(def, def);
+      add_listener(def);
 
    // start socket receiver thread
    run_ocat_thread("receiver", socket_receiver, NULL);
@@ -493,11 +506,13 @@ int main(int argc, char *argv[])
    if (CNF(controller))
       run_ocat_thread("controller", ocat_controller, NULL);
 
+#ifdef CONNECT_ROOT_PEERS
    // initiate connections to permanent root peers
    log_debug("connecting root peers");
    for (c = 0; c < ROOT_PEERS; c++)
       if (!IN6_ARE_ADDR_EQUAL(&CNF(root_peer[c]), &CNF(ocat_addr)))
          socks_queue(CNF(root_peer[c]), 1);
+#endif
 
    // reading config file
    if (CNF(config_file))
