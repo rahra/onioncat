@@ -1,3 +1,8 @@
+* version 0.2.2
+ 
+* version 0.2.1
+ - released 2009/11/29, Bernhard R. Fischer
+
 * version 0.2.0
  - version string improved
  - syslog messages contain name and PID
