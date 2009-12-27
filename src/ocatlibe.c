@@ -141,7 +141,7 @@ void add_listener(const char *buf)
 {
    struct sockaddr_in6 saddr;
 
-   if (strsockaddr(buf, &saddr) == -1)
+   if (strsockaddr(buf, (struct sockaddr*) &saddr) == -1)
       log_msg(LOG_EMERG, "could not convert address string '%s'", buf), exit(1);
 
    CNF(oc_listen_cnt)++;

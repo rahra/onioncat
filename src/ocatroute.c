@@ -630,7 +630,7 @@ int insert_anon_peer(int fd)
 int create_listener(struct sockaddr *addr, int sock_len)
 {
    int family;
-   int fd;
+   int fd, so;
 
    switch (addr->sa_family)
    {
@@ -651,6 +651,9 @@ int create_listener(struct sockaddr *addr, int sock_len)
       return -1;
    }
 
+   so = 1;  
+   if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &so, sizeof(so)) == -1)
+      log_msg(LOG_WARNING, "could not set socket %d to SO_REUSEADDR: \"%s\"", fd, strerror(errno));
    if (bind(fd, addr, sock_len) == -1)
    {
       log_msg(LOG_EMERG, "could not bind listener %d: \"%s\"", fd, strerror(errno));
@@ -821,6 +824,13 @@ void packet_forwarder(void)
                // set global termination flag
                set_term_req();
             }
+            if (CNF(sig_usr1))
+            {
+               lock_setup();
+               CNF(clear_stats) = 1;
+               unlock_setup();
+               log_msg(LOG_NOTICE, "stats will be cleared after next stats output");
+            }
          }
          log_debug("restarting");
          continue;
@@ -964,6 +974,15 @@ void *socket_cleaner(void *ptr)
       {
          stat_wup = act_time;
          log_msg(LOG_INFO, "stats: ... (not implemented yet)");
+
+         lock_setup();
+         if (CNF(clear_stats))
+         {
+            CNF(clear_stats) = 0;
+            // FIXME: implement stats clearing here
+            log_debug("stats cleared");
+         }
+         unlock_setup();
       }
 
       // cleanup MAC table

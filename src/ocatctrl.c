@@ -75,6 +75,10 @@ void *ctrl_handler(void *p)
       //CNF(config_read) = 1;
    }
 
+   lock_setup();
+   CNF(ctrl_active)++;
+   unlock_setup();
+
    fprintf(fo, "%s\n", CNF(version));
    fprintf(fo, "*** ATTENTION! Controller interface not thread-safe yet! Usage could cause deadlocks. ***\n");
 
@@ -302,12 +306,30 @@ void *ctrl_handler(void *p)
    oe_close(pfd[0]);
    oe_close(pfd[1]);
 
+   lock_setup();
+   CNF(ctrl_active)--;
+   unlock_setup();
+
    return NULL;
 }
 
 
 int run_ctrl_handler(int fd)
 {
+   // check number of controller sessions
+   // FIXME: listener should be closed or acceptor delayed instead of
+   // counting after session acceptance.
+   lock_setup();
+   if (CNF(ctrl_active) >= CNF(max_ctrl))
+   {
+      log_msg(LOG_WARNING, "maximum number of controller sessions reached");
+      oe_close(fd);
+      fd = -1;
+   }
+   unlock_setup();
+   if (fd == -1)
+      return -1;
+
    return (int) run_ocat_thread("ctrl_handler", ctrl_handler, (void*) (long) fd);
 }
 

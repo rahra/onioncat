@@ -1,6 +1,10 @@
 * version 0.2.2
  - GarliCat branch merged back into trunk
  - added onioncat-privatehosts.pl to trunk (written by zzz)
+ - option -t did not work correctly
+ - (optional) pid file is removed at exit
+ - SIGUSR1 is handled in preparation for statistics output
+ - controller sessions limited to MAX_DEF_CTRL_SESS (= 5 by default)
  
 * version 0.2.1
  - released 2009/11/29, Bernhard R. Fischer
