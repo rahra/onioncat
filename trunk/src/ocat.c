@@ -93,6 +93,7 @@ int open_logfile(void)
 int mk_pid_file(uid_t uid)
 {
    FILE *f;
+   char c;
 
    if (!(f = fopen(CNF(pid_file), "w")))
    {
@@ -104,10 +105,38 @@ int mk_pid_file(uid_t uid)
    fclose(f);
    log_debug("pid_file %s created, pid = %d", CNF(pid_file), getpid());
 
-   if (chown(CNF(pid_file), uid, 0) == -1)
-      log_msg(LOG_ERR, "could not change owner of pid_file \"%s\" to %d: %s", CNF(pid_file), uid, strerror(errno));
+   if (pipe(CNF(pid_fd)) == -1)
+   {
+      log_msg(LOG_WARNING, "could not open pid pipe: \"%s\"", strerror(errno));
+      return -1;
+   }
 
-   return 0;
+   switch (fork())
+   {
+      case -1:
+         oe_close(CNF(pid_fd[0]));
+         oe_close(CNF(pid_fd[1]));
+         return -1;
+
+      // child
+      case 0:
+         oe_close(CNF(pid_fd[1]));
+         if (read(CNF(pid_fd[0]), &c, 1) == -1)
+            log_msg(LOG_ERR, "error reading from pid_fd %d: \"%s\"",
+                  CNF(pid_fd[0]), strerror(errno)), exit(1);
+
+         if (unlink(CNF(pid_file)) == -1)
+            log_msg(LOG_WARNING, "error deleting pid ]ile \"%s\": \"%s\"",
+                  CNF(pid_file), strerror(errno)), exit(1);
+         exit(0);
+
+      // parent
+      default:
+         oe_close(CNF(pid_fd[0]));
+
+   }
+
+   return CNF(pid_fd[1]);
 }
 
 
@@ -163,6 +192,10 @@ void sig_handler(int sig)
 
          CNF(sig_term) = 1;
          break;
+
+      case SIGUSR1:
+         CNF(sig_usr1) = 1;
+         break;
    }
 }
 
@@ -180,12 +213,15 @@ void install_sig(void)
       log_msg(LOG_ERR, "could not install SIGINT handler: \"%s\"", strerror(errno)), exit(1);
    if (sigaction(SIGHUP, &sa, NULL) == -1)
       log_msg(LOG_ERR, "could not install SIGHUP handler: \"%s\"", strerror(errno)), exit(1);
+   if (sigaction(SIGUSR1, &sa, NULL) == -1)
+      log_msg(LOG_ERR, "could not install SIGUSR1 handler: \"%s\"", strerror(errno)), exit(1);
 }
 
 
 void cleanup_system(void)
 {
    OcatPeer_t *peer, *next;
+   char c;
 
    log_msg(LOG_NOTICE, "waiting for system cleanup...");
    // close tunnel interface
@@ -226,8 +262,11 @@ void cleanup_system(void)
 
    delete_listeners(CNF(oc_listen), CNF(oc_listen_fd), CNF(oc_listen_cnt));
 
-   if (CNF(create_pid_file) && (unlink(CNF(pid_file)) == -1))
-      log_msg(LOG_ERR, "could not remove pid file \"%s\": %s", CNF(pid_file), strerror(errno));
+   if (CNF(create_pid_file) && (CNF(pid_fd[1]) != -1))
+   {
+      if (write(CNF(pid_fd[1]), &c, 1) == -1)
+         log_msg(LOG_ERR, "cout not write to pid fd %d: \"%s\"", CNF(pid_fd[1]), strerror(errno));
+   }
 }
 
 

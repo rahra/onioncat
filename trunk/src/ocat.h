@@ -199,6 +199,8 @@
 #define RECONN_ATTEMPTS 3
 //! RECONN_ATTEMPTS must not be faster than MIN_RECONNECT_TIME
 #define MIN_RECONNECT_TIME 30
+//! define default maximum number of concurrent controller sessions
+#define MAX_DEF_CTRL_SESS 5
 
 #define MFD_SET(f,s,m) {FD_SET(f, s); m = f > m ? f : m;}
 
@@ -212,6 +214,7 @@
 
 #define VERSION_STRING_LEN 256
 
+#define MAX_DEF_CTRL 6
 
 #define NTYPE_TOR 0
 #define NTYPE_I2P 1
@@ -291,6 +294,10 @@ struct OcatSetup
    //! communication pipe for socks "selected" connector
    int socksfd[2];
    int net_type;
+   int max_ctrl, ctrl_active;
+   //! pipe filedescriptors for pid deletion process
+   int pid_fd[2];
+   int sig_usr1, clear_stats;
 };
 
 #ifdef PACKET_QUEUE

@@ -112,7 +112,13 @@ struct OcatSetup setup_ =
    // socksfd
    {-1, -1},
    // net_type
-   NTYPE_TOR
+   NTYPE_TOR,
+   // max_ctrl, ctrl_active
+   MAX_DEF_CTRL_SESS, 0,
+   // pid_fd
+   {-1, -1},
+   // sig_usr1, clear_stats
+   0, 0
 };
 
 
@@ -130,6 +136,12 @@ void init_setup(void)
 
    //setup_.logf = stderr;
    setup_.uptime = time(NULL);
+   memset(&socks_dst6_, 0, sizeof(socks_dst6_));
+   setup_.socks_dst->sin_family = AF_INET;
+   setup_.socks_dst->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+#ifdef HAVE_SIN_LEN
+   setup_.socks_dst->sin_len = SOCKADDR_SIZE(setup_.socks_dst);
+#endif
 }
 
 
@@ -140,12 +152,8 @@ void post_init_setup(void)
    setup_.ocat_dest_port = NDESC(vdest_port);
    setup_.ocat_ctrl_port = NDESC(ctrl_port);
 
-   setup_.socks_dst->sin_family = AF_INET;
-   setup_.socks_dst->sin_port = htons(NDESC(socks_port));
-   setup_.socks_dst->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-#ifdef HAVE_SIN_LEN
-   setup_.socks_dst->sin_len = SOCKADDR_SIZE(setup_.socks_dst);
-#endif
+   if (!setup_.socks_dst->sin_port)
+      setup_.socks_dst->sin_port = htons(NDESC(socks_port));
 
    ctrl_listen_.sin_family = AF_INET;
    ctrl_listen_.sin_port = htons(setup_.ocat_ctrl_port);
@@ -226,6 +234,10 @@ void print_setup_struct(FILE *f)
          "sizeof_setup           = %d\n"
          "term_req               = %d\n"
          "net_type               = %d (%s)\n"
+         "max_ctrl               = %d\n"
+         "ctrl_active            = %d\n"
+         "pid_fd[2]              = {%d, %d}\n"
+         "clear_stats            = %d\n"
          ,
          IPV4_KEY, ntohl(setup_.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup_.fhd_key[IPV6_KEY]),
          setup_.fhd_key_len,
@@ -259,7 +271,10 @@ void print_setup_struct(FILE *f)
          (int) strlen(setup_.version), VERSION_STRING_LEN, setup_.version,
          setup_.sizeof_setup,
          setup_.term_req,
-         setup_.net_type, setup_.net_type == NTYPE_TOR ? "NTYPE_TOR" : setup_.net_type == NTYPE_I2P ? "NTYPE_I2P" : "unknown"
+         setup_.net_type, setup_.net_type == NTYPE_TOR ? "NTYPE_TOR" : setup_.net_type == NTYPE_I2P ? "NTYPE_I2P" : "unknown",
+         setup_.max_ctrl, setup_.ctrl_active,
+         setup_.pid_fd[0], setup_.pid_fd[1],
+         setup_.clear_stats
          );
 
 #ifdef CONNECT_ROOT_PEERS
