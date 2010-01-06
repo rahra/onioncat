@@ -1,4 +1,6 @@
 * version 0.2.2
+ - separate name for connect log and pid file for OC/GC.
+ - mode detection (OC/GC) improved
  - GarliCat branch merged back into trunk
  - added onioncat-privatehosts.pl to trunk (written by zzz)
  - option -t did not work correctly

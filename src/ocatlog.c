@@ -22,6 +22,7 @@
  */
 
 #include "ocat.h"
+#include "ocat_netdesc.h"
 
 #define TIMESTRLEN 64
 #define CBUFLEN 1024
@@ -67,7 +68,7 @@ int open_connect_log(const char *dir)
    }
 
    strlcat(buf, "/", CBUFLEN);
-   strlcat(buf, OCAT_CONNECT_LOG, CBUFLEN);
+   strlcat(buf, NDESC(clog_file), CBUFLEN);
 
    log_debug("opening connect log \"%s\"", buf);
    if (!(clog_ = fopen(buf, "a")))

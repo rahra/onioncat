@@ -50,7 +50,7 @@ void usage(const char *s)
          "   -4                    enable IPv4 support (default = %d)\n"
          , CNF(version), s,
          // option defaults start here
-         OCAT_DIR, OCAT_CONNECT_LOG, CNF(create_clog), 
+         OCAT_DIR, NDESC(clog_file), CNF(create_clog), 
          CNF(daemon), CNF(daemon) ^ 1,
          CNF(debug_level), NDESC(listen_port),
          CNF(pid_file),
@@ -275,9 +275,19 @@ int main(int argc, char *argv[])
    char *s, ip6addr[INET6_ADDRSTRLEN], hw[20], def[100], pwdbuf[SIZE_1K];
    int c, runasroot = 0;
    struct passwd *pwd, pwdm;
-   int urlconv = 0;
+   int urlconv = 0, mode_detect = 0;
 
    init_setup();
+   // detect network type by command file name
+   // FIXME: this should be not hardcoded in that way
+   // FIXME: basename() should better be used instead of strstr()
+   if (strstr(argv[0], "gcat"))
+   {
+      CNF(net_type) = NTYPE_I2P;
+      snprintf(def, 100, "127.0.0.1:%d", NDESC(listen_port));
+      post_init_setup();
+      mode_detect = 1;
+   }
 
    while ((c = getopt(argc, argv, "abBCd:f:hrRiIopl:t:T:s:u:4L:P:")) != -1)
       switch (c)
@@ -380,13 +390,11 @@ int main(int argc, char *argv[])
             exit(1);
       }
 
-   // detect network type by command file name
-   // FIXME: this should be not hardcoded in that way
-   if (!strcmp(argv[0], "gcat") || !strcmp(argv[0], "garlicat"))
-      CNF(net_type) = NTYPE_I2P;
-
-   snprintf(def, 100, "127.0.0.1:%d", NDESC(listen_port));
-   post_init_setup();
+   if (!mode_detect)
+   {
+      snprintf(def, 100, "127.0.0.1:%d", NDESC(listen_port));
+      post_init_setup();
+   }
 
    // usage output must be after mode detection (Tor/I2P)
    if (argc < 2)

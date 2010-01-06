@@ -36,6 +36,8 @@ struct NetDesc
    short ctrl_port;
    short vdest_port;
    short socks_port;
+   char *clog_file;
+   char *pid_file;
 };
 
 extern const struct NetDesc netdesc_[2];
@@ -67,6 +69,8 @@ extern const struct NetDesc netdesc_[2];
 #define TOR_OCAT_DEST_PORT 8060
 //! SOCKS port of TOR proxy
 #define TOR_SOCKS_PORT 9050
+#define TOR_OCAT_CONNECT_LOG "ocat_connect_log"
+#define TOR_PID_FILE "/var/run/ocat.pid"
 
 
 // ----- these are #defines for I2P -----
@@ -88,6 +92,8 @@ extern const struct NetDesc netdesc_[2];
 #define I2P_OCAT_DEST_PORT I2P_OCAT_LISTEN_PORT
 //! SOCKS port of TOR proxy
 #define I2P_SOCKS_PORT 9051
+#define I2P_OCAT_CONNECT_LOG "gcat_connect_log"
+#define I2P_PID_FILE "/var/run/gcat.pid"
 
 
 #endif

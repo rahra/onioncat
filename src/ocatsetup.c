@@ -173,6 +173,7 @@ void post_init_setup(void)
 #ifdef DEBUG
    snprintf(&setup_.version[strlen(setup_.version)], VERSION_STRING_LEN - strlen(setup_.version), " -- compiled %s %s", __DATE__, __TIME__);
 #endif
+   setup_.pid_file = NDESC(pid_file);
 }
 
 

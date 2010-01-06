@@ -116,7 +116,7 @@
 #define OCAT_UNPRIV_UNAME "(unknown)"
 #define OCAT_URL "http://www.abenteuerland.at/onioncat/"
 #define OCAT_DIR ".ocat"
-#define OCAT_CONNECT_LOG "connect_log"
+//#define OCAT_CONNECT_LOG "connect_log"
 #define PID_FILE "/var/run/ocat.pid"
 #define OCAT_AUTHOR "Bernhard R. Fischer"
 
