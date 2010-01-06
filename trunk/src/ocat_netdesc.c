@@ -30,6 +30,8 @@ const struct NetDesc netdesc_[2] =
       TOR_OCAT_CTRL_PORT,
       TOR_OCAT_DEST_PORT,
       TOR_SOCKS_PORT,
+      TOR_OCAT_CONNECT_LOG,
+      TOR_PID_FILE,
    },
    {
       I2P_PREFIX, I2P_PREFIX_LEN,
@@ -40,6 +42,8 @@ const struct NetDesc netdesc_[2] =
       I2P_OCAT_CTRL_PORT,
       I2P_OCAT_DEST_PORT,
       I2P_SOCKS_PORT,
+      I2P_OCAT_CONNECT_LOG,
+      I2P_PID_FILE,
    },
 };
 
