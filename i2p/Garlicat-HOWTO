@@ -17,21 +17,22 @@ problem.
 
 
 3 CONFIGURE I2P
-GarliCat is able to connect to other GarliCats and lets others connect to you, hence,
-the GarliCat software contains a server and a client part. Thus you must configure
-a server and a client tunnel on your I2P router. The server is the "inbound" part.
-I2P will assign an ID (a key) to it which is unique for your server tunnel and your
-GarliCat, respectively. This ID is directly translated into an IPv6 address, hence,
-also this IPv6 address is unique to your GarliCat.
+GarliCat is able to connect to other GarliCats and lets others to connect to
+you, hence, the GarliCat software contains a server and a client part. Thus you
+must configure a server and a client tunnel on your I2P router. The server is
+the "incoming" part. I2P will assign an ID (a key) to it which is unique for
+your server tunnel and your GarliCat, respectively. This ID is directly
+translated into an IPv6 address, hence, also this IPv6 address is unique to
+your GarliCat.
 
 
 3.1 CONFIGURE SERVER TUNNEL
-Open the I2P Router Console in your browser (http://127.0.0.1:7657/) and go to
-"I2P INTERNALS -> Tunnels". Scroll down and click on "i2ptunnel page"
-(http://127.0.0.1:7657/i2ptunnel/).
-In the bottom right corner of the "I2P SERVER TUNNELS" box select "Standard"
+Open the I2P router console in your browser (http://127.0.0.1:7657/) and go to
+"LOCAL DESTINATIONS" which is found at the bottom of the menu bar on the left
+side. The "I2P Tunnel Page" (http://127.0.0.1:7657/i2ptunnel/) will open. In
+the bottom right corner of the "I2P SERVER TUNNELS" box select "Standard"
 (which should be selected by default) and click "Create". A new page opens. On
-top enter a name, e.g. "GarliCat Inbound".  Select the "Autostart" checkbox.
+top enter a name, e.g. "GarliCat Incoming". Select the "Autostart" checkbox.
 In the text field "Port" which is marked as required enter the port number
 8061. Scroll to the bottom and press "Save".
 
@@ -39,8 +40,8 @@ In the text field "Port" which is marked as required enter the port number
 3.2 CONFIGURE CLIENT TUNNEL
 In the bottom right corner of the "I2P CLIENT TUNNELS" box select "SOCKS
 4/4a/5" and press "Create". A new page opens. On top enter a name, e.g.
-"GarliCat Outbound".  In the "Port" field which is marked as required enter the
-port number 9051.  Check the "Autostart" checkbox. Scroll down and press
+"GarliCat Outgoing". In the "Port" field which is marked as required enter the
+port number 9051. Check the "Autostart" checkbox. Scroll down and press
 "Save".
 
 
@@ -48,11 +49,11 @@ port number 9051.  Check the "Autostart" checkbox. Scroll down and press
 On the "i2ptunnel page" (http://127.0.0.1:7657/i2ptunnel/) -- you should
 already be on this page after the last step of 3.2 -- you should see your
 "GarliCat Inbound" tunnel in the "I2P SERVER TUNNELS" box. It lists a string
-called "Base32 Address".  Copy this string to a file. Truncate it to 16
+called "Base32 Address". Copy this string to a file. Truncate it to 16
 characters and append the domain ".oc.b32.i2p". The result is your GarliCat
 I2P-ID.
 Example:
-Base32 Address:  ktmhezukbp6jyuldedcjmso6p4e6aegeikqli2mne67hnttgmvfa.b32.i2p
+Base32 Address: ktmhezukbp6jyuldedcjmso6p4e6aegeikqli2mne67hnttgmvfa.b32.i2p
 GarliCat I2P-ID: ktmhezukbp6jyuld.oc.b32.i2p
 
 Your I2P router is now ready.
@@ -79,7 +80,7 @@ to do this is using SusiDNS.
 If you want to connect to someone else's GarliCat you first need to receive his
 GarliCat IPv6 address, his I2P-ID, and his key. Then go to your Susi-DNS page
 (click on "Addressbook" on your I2P Router console) and add a new entry being
-the I2P-ID the name.  Test if it works. Simply try to ping to the IPv6 address.
+the I2P-ID the name. Test if it works. Simply try to ping to the IPv6 address.
 (NOTE: THERE MAY BE BETTER OPTIONS BUT THIS SECTION WAS WRITTEN BY SOMEONE
 WHO DOES NOT NO TOO MUCH DETAILS ABOUT SUSIDNS, YET. SORRY.)
 
