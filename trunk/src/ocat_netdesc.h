@@ -38,6 +38,7 @@ struct NetDesc
    short socks_port;
    char *clog_file;
    char *pid_file;
+   char *config_file;
 };
 
 extern const struct NetDesc netdesc_[2];

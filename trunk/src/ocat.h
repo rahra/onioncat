@@ -219,6 +219,9 @@
 #define NTYPE_TOR 0
 #define NTYPE_I2P 1
 
+#ifndef SYSCONFDIR
+#define SYSCONFDIR "/etc"
+#endif
 
 struct OcatSetup
 {
@@ -256,6 +259,7 @@ struct OcatSetup
    int ocat_addr4_mask;
    char *config_file;
    int config_read;
+   int config_failed;
    int use_tap;
    //! local OnionCat MAC address
    uint8_t ocat_hwaddr[ETHER_ADDR_LEN];

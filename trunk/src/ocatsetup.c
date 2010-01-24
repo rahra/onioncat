@@ -56,7 +56,8 @@ struct OcatSetup setup_ =
    0, 
    //ADDR4_PREFIX, ADDR4_MASK
    {0}, 0,
-   NULL, 1,
+   // config_file, config_read, config_failed
+   NULL, 0, 0,
 #ifdef __CYGWIN__
    1,
 #else
@@ -147,10 +148,17 @@ void init_setup(void)
 
 void post_init_setup(void)
 {
+   size_t l;
    setup_.ocat_addr4 = NDESC(prefix4);
    setup_.ocat_addr4_mask = NDESC(addr4_mask);
    setup_.ocat_dest_port = NDESC(vdest_port);
    setup_.ocat_ctrl_port = NDESC(ctrl_port);
+
+   l = strlen(SYSCONFDIR) + strlen(NDESC(config_file)) + 2;
+   if ((setup_.config_file = malloc(l)) != NULL)
+      snprintf(setup_.config_file, l, "%s/%s", SYSCONFDIR, NDESC(config_file));
+   else
+      log_msg(LOG_WARNING, "could not get memory for config file string: \"%s\"", strerror(errno));
 
    if (!setup_.socks_dst->sin_port)
       setup_.socks_dst->sin_port = htons(NDESC(socks_port));

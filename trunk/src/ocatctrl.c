@@ -37,7 +37,7 @@ void *ctrl_handler(void *p)
 {
    int fd, c;
    FILE *ff, *fo;
-   char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[NDESC(name_size)], timestr[32], *s, *tokbuf;
+   char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[NDESC(name_size)], timestr[32], *s, *tokbuf, *bufp;
    int rlen, cfd;
    struct tm *tm;
    OcatPeer_t *peer;
@@ -71,7 +71,7 @@ void *ctrl_handler(void *p)
          return NULL;
       }
       log_debug("fd %d fdopen'ed \"r\"", fd);
-      fo = CNF(logf);
+      fo = CNF(logf) ? CNF(logf) : stderr;
       //CNF(config_read) = 1;
    }
 
@@ -132,14 +132,14 @@ void *ctrl_handler(void *p)
       if (!(rlen = oe_remtr(buf)))
          continue;
 
-      if (!strtok_r(buf, " \t\r\n", &tokbuf))
+      if (!(bufp = strtok_r(buf, " \t\r\n", &tokbuf)))
          continue;
 
       // "exit"/"quit" => terminate thread
-      if (!strncmp(buf, "exit", 4) || !strncmp(buf, "quit", 4))
+      if (!strncmp(bufp, "exit", 4) || !strncmp(bufp, "quit", 4))
          break;
       // "status"
-      else if (!strcmp(buf, "status"))
+      else if (!strcmp(bufp, "status"))
       {
          lock_peers();
          for (peer = get_first_peer(); peer; peer = peer->next)
@@ -158,9 +158,9 @@ void *ctrl_handler(void *p)
             }
          unlock_peers();
       }
-      else if (!strcmp(buf, "close"))
+      else if (!strcmp(bufp, "close"))
       {
-         cfd = atoi(&buf[6]);
+         cfd = atoi(bufp +6);
          lock_peers();
          for (peer = get_first_peer(); peer; peer = peer->next)
             if (peer->tcpfd == cfd)
@@ -177,21 +177,21 @@ void *ctrl_handler(void *p)
          }
          unlock_peers();
       }
-      else if (!strcmp(buf, "threads"))
+      else if (!strcmp(bufp, "threads"))
       {
          print_threads(ff);
       }
-      else if (!strcmp(buf, "terminate"))
+      else if (!strcmp(bufp, "terminate"))
       {
          log_msg(LOG_INFO, "terminate request from control port");
          kill(getpid(), SIGINT);
       }
-      else if (!strcmp(buf, "route"))
+      else if (!strcmp(bufp, "route"))
       {
          if (rlen > 6)
          {
-            if ((c = parse_route(&buf[6])) == E_RT_SYNTAX)
-               if ((c = ipv6_parse_route(&buf[6])) > 0)
+            if ((c = parse_route(bufp + 6)) == E_RT_SYNTAX)
+               if ((c = ipv6_parse_route(bufp + 6)) > 0)
                   c = 0;
             switch (c)
             {
@@ -223,12 +223,12 @@ void *ctrl_handler(void *p)
             ipv6_print_routes(fo);
          }
       }
-      else if (!strcmp(buf, "connect"))
+      else if (!strcmp(bufp, "connect"))
       {
          if ((s = strtok_r(NULL, " \t\r\n", &tokbuf)))
          {
             if ((strlen(s) != 16) || (oniontipv6(s, &in6) == -1))
-               fprintf(ff, "ERR \"%s\" not valid .onion-URL\n", &buf[8]);
+               fprintf(ff, "ERR \"%s\" not valid .onion-URL\n", bufp + 8);
             else
             {
                if (!(s = strtok_r(NULL, " \t\r\n", &tokbuf)))
@@ -242,11 +242,11 @@ void *ctrl_handler(void *p)
          else
             fprintf(ff, "ERR missing args\n");
       }
-      else if (!strcmp(buf, "macs"))
+      else if (!strcmp(bufp, "macs"))
       {
          print_mac_tbl(ff);
       }
-      else if (!strcmp(buf, "queue"))
+      else if (!strcmp(bufp, "queue"))
       {
          print_socks_queue((FILE*) (long) pfd[1]);
          for (;;)
@@ -257,15 +257,15 @@ void *ctrl_handler(void *p)
             fprintf(ff, "%c", buf[0]);
          }
       }
-      else if (!strcmp(buf, "setup"))
+      else if (!strcmp(bufp, "setup"))
       {
          print_setup_struct(ff);
       }
-      else if (!strcmp(buf, "version"))
+      else if (!strcmp(bufp, "version"))
       {
          fprintf(ff, "%s\n", CNF(version));
       }
-      else if (!strcmp(buf, "help") || !strcmp(buf, "?"))
+      else if (!strcmp(bufp, "help") || !strcmp(bufp, "?"))
       {
          fprintf(fo,
                "commands:\n"

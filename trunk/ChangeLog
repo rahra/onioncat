@@ -1,4 +1,7 @@
 * version 0.2.2
+ - options are parsed sequentially (-f and -I first)
+ - config file is always read from SYSCONFDIR (usually /etc or /usr/local/etc)
+ - changed Makefile.am to not install header files
  - separate name for connect log and pid file for OC/GC.
  - mode detection (OC/GC) improved
  - GarliCat branch merged back into trunk
