@@ -31,7 +31,7 @@ void usage(const char *s)
          "   -h                    display usage message\n"
          "   -C                    disable local controller interface\n"
          "   -d <n>                set debug level to n, default = %d\n"
-         "   -f <config_file>      read config from config_file\n"
+         "   -f <config_file>      read config from config_file (default = %s)\n"
          "   -i                    convert onion hostname to IPv6 and exit\n"
          "   -I                    GarliCat mode, use I2P instead of Tor\n"
          "   -l [<ip>:]<port>      set ocat listen address and port, default = 127.0.0.1:%d\n"
@@ -52,7 +52,7 @@ void usage(const char *s)
          // option defaults start here
          OCAT_DIR, NDESC(clog_file), CNF(create_clog), 
          CNF(daemon), CNF(daemon) ^ 1,
-         CNF(debug_level), NDESC(listen_port),
+         CNF(debug_level), CNF(config_file), NDESC(listen_port),
          CNF(pid_file),
          CNF(ocat_dest_port), ntohs(CNF(socks_dst)->sin_port), 
 #ifndef WITHOUT_TUN
@@ -270,28 +270,46 @@ void cleanup_system(void)
 }
 
 
-int main(int argc, char *argv[])
+void parse_opt_early(int argc, char *argv[])
 {
-   char *s, ip6addr[INET6_ADDRSTRLEN], hw[20], def[100], pwdbuf[SIZE_1K];
-   int c, runasroot = 0;
-   struct passwd *pwd, pwdm;
-   int urlconv = 0, mode_detect = 0;
+   int c;
 
-   init_setup();
-   // detect network type by command file name
-   // FIXME: this should be not hardcoded in that way
-   // FIXME: basename() should better be used instead of strstr()
-   if (strstr(argv[0], "gcat"))
-   {
-      CNF(net_type) = NTYPE_I2P;
-      snprintf(def, 100, "127.0.0.1:%d", NDESC(listen_port));
-      post_init_setup();
-      mode_detect = 1;
-   }
-
-   while ((c = getopt(argc, argv, "abBCd:f:hrRiIopl:t:T:s:u:4L:P:")) != -1)
+   opterr = 0;
+   while ((c = getopt(argc, argv, "f:hI")) != -1)
       switch (c)
       {
+         case 'f':
+            free(CNF(config_file));
+            CNF(config_file) = optarg;
+            CNF(config_read) = 0;
+            break;
+
+         case 'I':
+            CNF(net_type) = NTYPE_I2P;
+            break;
+         case 'h':
+            usage(argv[0]);
+            exit(1);
+         case '?':
+            break;
+      }
+}
+
+ 
+int parse_opt(int argc, char *argv[])
+{
+   int c, urlconv = 0;
+
+   opterr = 1;
+   optind = 1;
+   while ((c = getopt(argc, argv, "f:IabBCd:rRiopl:t:T:s:u:4L:P:")) != -1)
+      switch (c)
+      {
+         // those options are parsed in parse_opt_early()
+         case 'f':
+         case 'I':
+            break;
+
          case 'a':
             CNF(create_clog) = 1;
             break;
@@ -312,17 +330,8 @@ int main(int argc, char *argv[])
             CNF(debug_level) = atoi(optarg);
             break;
 
-         case 'f':
-            CNF(config_file) = optarg;
-            CNF(config_read) = 0;
-            break;
-
          case 'i':
             urlconv = 1;
-            break;
-
-         case 'I':
-            CNF(net_type) = NTYPE_I2P;
             break;
 
          case 'l':
@@ -353,7 +362,7 @@ int main(int argc, char *argv[])
             break;
 
          case 'r':
-            runasroot = 1;
+            CNF(runasroot) = 1;
             CNF(usrname) = "root";
             break;
 
@@ -384,17 +393,48 @@ int main(int argc, char *argv[])
             CNF(ipv4_enable) = 1;
             break;
 
-         case 'h':
          default:
             usage(argv[0]);
             exit(1);
       }
+
+   return urlconv;
+}
+
+
+int main(int argc, char *argv[])
+{
+   char *s, ip6addr[INET6_ADDRSTRLEN], hw[20], def[100], pwdbuf[SIZE_1K];
+   int c;
+   struct passwd *pwd, pwdm;
+   int urlconv = 0, mode_detect = 0;
+
+   init_setup();
+   // detect network type by command file name
+   // FIXME: this should be not hardcoded in that way
+   // FIXME: basename() should better be used instead of strstr()
+   if (strstr(argv[0], "gcat"))
+   {
+      CNF(net_type) = NTYPE_I2P;
+      snprintf(def, 100, "127.0.0.1:%d", NDESC(listen_port));
+      post_init_setup();
+      mode_detect = 1;
+   }
+
+   parse_opt_early(argc, argv);
 
    if (!mode_detect)
    {
       snprintf(def, 100, "127.0.0.1:%d", NDESC(listen_port));
       post_init_setup();
    }
+
+   if ((c = open(CNF(config_file), O_RDONLY)) == -1)
+      CNF(config_failed) = errno;
+   else
+      ctrl_handler((void*) (long) c);
+
+   urlconv = parse_opt(argc, argv);
 
    // usage output must be after mode detection (Tor/I2P)
    if (argc < 2)
@@ -416,6 +456,9 @@ int main(int argc, char *argv[])
    // init main thread
    (void) init_ocat_thread("main");
    detach_thread();
+
+   if (CNF(config_failed))
+      log_msg(LOG_NOTICE, "could not open config file %s: %s", CNF(config_file), strerror(CNF(config_failed)));
 
    if (urlconv == 2)
    {
@@ -460,16 +503,6 @@ int main(int argc, char *argv[])
    }
 
    log_msg(LOG_INFO, "%s", CNF(version));
-
-#if 0
-   if (CNF(config_file))
-   {
-      log_msg(LOG_INFO, "reading config file %s", CNF(config_file));
-      if ((c = open(CNF(config_file), O_RDONLY)) == -1)
-         log_msg(LOG_ERR, "error opening file: %s", strerror(errno)), exit(1);
-      ctrl_handler((void*) c);
-   }
-#endif
 
    memcpy(&CNF(ocat_hwaddr[3]), &CNF(ocat_addr.s6_addr[13]), 3);
    if (CNF(use_tap))
@@ -527,7 +560,7 @@ int main(int argc, char *argv[])
    if (CNF(create_pid_file))
       mk_pid_file(pwd->pw_uid);
 
-   if (!runasroot && !getuid())
+   if (!CNF(runasroot) && !getuid())
    {
       log_msg(LOG_INFO, "running as root, changing uid/gid to %s (uid %d/gid %d)", CNF(usrname), pwd->pw_uid, pwd->pw_gid);
       if (setgid(pwd->pw_gid))
@@ -560,15 +593,6 @@ int main(int argc, char *argv[])
       if (!IN6_ARE_ADDR_EQUAL(&CNF(root_peer[c]), &CNF(ocat_addr)))
          socks_queue(CNF(root_peer[c]), 1);
 #endif
-
-   // reading config file
-   if (CNF(config_file))
-   {
-      log_msg(LOG_INFO, "reading config file %s", CNF(config_file));
-      if ((c = open(CNF(config_file), O_RDONLY)) == -1)
-         log_msg(LOG_ERR, "error opening file: %s", strerror(errno)), exit(1);
-      ctrl_handler((void*) (long) c);
-   }
 
    // install signal handler
    install_sig();
