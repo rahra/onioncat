@@ -249,10 +249,11 @@ int ndp_solicit(const struct in6_addr *src, const struct in6_addr *dst)
    memcpy(((char*) &mcastd) + 13, ((char*) dst) + 13, 3);
 
    // tunnel header
-   *((uint32_t*) buf) = htonl(CNF(fhd_key[IPV6_KEY]));
+   set_tunheader(buf, htonl(CNF(fhd_key[IPV6_KEY])));
 
    // ethernet header
-   *((uint16_t*) ndp6->eth.ether_dhost) = 0x3333;
+   ndp6->eth.ether_dhost[0] = 0x33;
+   ndp6->eth.ether_dhost[1] = 0x33;
    memcpy(&ndp6->eth.ether_dhost[2], ((char*) &mcastd) + 12, 4);
    memcpy(ndp6->eth.ether_shost, CNF(ocat_hwaddr), ETHER_ADDR_LEN);
    ndp6->eth.ether_type = htons(ETHERTYPE_IPV6);
@@ -448,7 +449,7 @@ int eth_check(char *buf, int len)
    }
 
    // check ethernet destination
-   if ((*((uint16_t*) &ndp6->eth.ether_dhost) != 0x3333) && memcmp(ndp6->eth.ether_dhost, CNF(ocat_hwaddr), ETHER_ADDR_LEN))
+   if ((ndp6->eth.ether_dhost[0] != 0x33) && (ndp6->eth.ether_dhost[1] != 0x33) && memcmp(ndp6->eth.ether_dhost, CNF(ocat_hwaddr), ETHER_ADDR_LEN))
    {
       log_debug("unknown destination MAC");
       return E_ETH_ILLDEST;
