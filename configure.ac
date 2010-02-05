@@ -20,16 +20,18 @@ AC_ARG_ENABLE([rtt], AS_HELP_STRING([--enable-rtt],[enable inband RTT measuremen
 AC_PROG_CC
 #AC_PROG_INSTALL
 AC_PROG_LN_S
+
+m4_include([ax_pthread.m4])
 ACX_PTHREAD
+LIBS="$PTHREAD_LIBS $LIBS"
+CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+CC="$PTHREAD_CC"
+
 
 # Checks for libraries.
 #AC_CHECK_LIB([pthread], [pthread_create])
 #AC_CHECK_LIB([rt], [clock_gettime])
 #AC_CHECK_LIB([readline], [main])
-
-LIBS="$PTHREAD_LIBS $LIBS"
-CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
-CC="$PTHREAD_CC"
 
 # Checks for header files.
 #AC_HEADER_STDC
@@ -130,6 +132,6 @@ AC_CHECK_MEMBER([struct sockaddr_in.sin_len],
 #AC_CHECK_FUNCS([clock_gettime memset select socket strchr strerror])
 AC_CHECK_FUNCS([strlcat strlcpy ether_ntoa ether_ntoa_r])
 
-AC_CONFIG_FILES([Makefile src/cygwin/Makefile src/Makefile man/Makefile])
+AC_CONFIG_FILES([Makefile src/cygwin/Makefile src/Makefile man/Makefile debian/Makefile freebsd/Makefile])
 AC_OUTPUT
 
