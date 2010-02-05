@@ -264,6 +264,20 @@ void set_select_timeout(struct timeval *tv)
 }
 
 
+void set_tunheader(char *buf, uint32_t tunhdr)
+{
+   uint32_t *ibuf = (uint32_t*) buf;
+   *ibuf = tunhdr;
+}
+
+
+uint32_t get_tunheader(char *buf)
+{
+   uint32_t *ibuf = (uint32_t*) buf;
+   return *ibuf;
+}
+
+
 void *socket_receiver(void *p)
 {
    int maxfd, len;
@@ -511,7 +525,7 @@ void *socket_receiver(void *p)
                   }
                   else
                   {
-                     *((uint32_t*) buf) = *peer->tunhdr;
+                     set_tunheader(buf, *peer->tunhdr);
                      memcpy(buf + 4 + sizeof(struct ether_header), peer->fragbuf, len);
                      memcpy(eh->ether_shost, CNF(ocat_hwaddr), ETHER_ADDR_LEN);
 
@@ -863,7 +877,7 @@ void packet_forwarder(void)
          memmove(eh, eh + 1, rlen - 4);
       }
 
-      if (*((uint32_t*) buf) == CNF(fhd_key[IPV6_KEY]))
+      if (get_tunheader(buf) == CNF(fhd_key[IPV6_KEY]))
       {
          if (((rlen - 4) < IP6HLEN))
          {
@@ -882,7 +896,7 @@ void packet_forwarder(void)
          if (!(dest = ipv6_lookup_route(&((struct ip6_hdr*) &buf[4])->ip6_dst)))
             dest = &((struct ip6_hdr*) &buf[4])->ip6_dst;
       }
-      else if (*((uint32_t*) buf) == CNF(fhd_key[IPV4_KEY]))
+      else if (get_tunheader(buf) == CNF(fhd_key[IPV4_KEY]))
       {
          if (((rlen - 4) < IPHDLEN))
          {
@@ -903,7 +917,7 @@ void packet_forwarder(void)
       }
       else
       {
-         log_msg(LOG_ERR, "protocol 0x%08x not supported. dropping frame.", ntohl(*((uint32_t*) buf)));
+         log_msg(LOG_ERR, "protocol 0x%08x not supported. dropping frame.", ntohl(get_tunheader(buf)));
          continue;
       }
 

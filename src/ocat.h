@@ -523,6 +523,8 @@ int run_listeners(struct sockaddr **, int *, int, int (*)(int));
 int send_keepalive(OcatPeer_t *);
 void set_select_timeout(struct timeval *);
 void set_nonblock(int);
+void set_tunheader(char *, uint32_t);
+uint32_t get_tunheader(char *);
 
 /* ocatthread.c */
 const OcatThread_t *init_ocat_thread(const char *);
