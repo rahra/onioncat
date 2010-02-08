@@ -281,7 +281,6 @@ void parse_opt_early(int argc, char *argv[])
          case 'f':
             free(CNF(config_file));
             CNF(config_file) = optarg;
-            CNF(config_read) = 0;
             break;
 
          case 'I':
@@ -430,9 +429,13 @@ int main(int argc, char *argv[])
    }
 
    if ((c = open(CNF(config_file), O_RDONLY)) == -1)
+   {
       CNF(config_failed) = errno;
+      CNF(config_read) = 1;
+   }
    else
       ctrl_handler((void*) (long) c);
+ 
 
    urlconv = parse_opt(argc, argv);
 
