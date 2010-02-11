@@ -275,7 +275,7 @@ void parse_opt_early(int argc, char *argv[])
    int c;
 
    opterr = 0;
-   while ((c = getopt(argc, argv, "f:hI")) != -1)
+   while ((c = getopt(argc, argv, "f:I")) != -1)
       switch (c)
       {
          case 'f':
@@ -286,9 +286,7 @@ void parse_opt_early(int argc, char *argv[])
          case 'I':
             CNF(net_type) = NTYPE_I2P;
             break;
-         case 'h':
-            usage(argv[0]);
-            exit(1);
+
          case '?':
             break;
       }
@@ -301,7 +299,7 @@ int parse_opt(int argc, char *argv[])
 
    opterr = 1;
    optind = 1;
-   while ((c = getopt(argc, argv, "f:IabBCd:rRiopl:t:T:s:u:4L:P:")) != -1)
+   while ((c = getopt(argc, argv, "f:IabBCd:hrRiopl:t:T:s:u:4L:P:")) != -1)
       switch (c)
       {
          // those options are parsed in parse_opt_early()
@@ -332,6 +330,10 @@ int parse_opt(int argc, char *argv[])
          case 'i':
             urlconv = 1;
             break;
+
+         case 'h':
+            usage(argv[0]);
+            exit(1);
 
          case 'l':
             add_listener(optarg);
