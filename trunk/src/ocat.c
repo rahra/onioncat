@@ -270,12 +270,19 @@ void cleanup_system(void)
 }
 
 
-void parse_opt_early(int argc, char *argv[])
+void parse_opt_early(int argc, char *argv_orig[])
 {
    int c;
+   char *argv[argc + 1];
 
+   log_debug("parse_opt_early()");
+   // argv array is copied to prevent the original one from being modified by
+   // getopt(). This behavior is at least true for Linux.
+   memcpy(&argv, argv_orig, sizeof(char*) * (argc + 1));
    opterr = 0;
    while ((c = getopt(argc, argv, "f:I")) != -1)
+   {
+      log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, optarg);
       switch (c)
       {
          case 'f':
@@ -290,6 +297,7 @@ void parse_opt_early(int argc, char *argv[])
          case '?':
             break;
       }
+   }
 }
 
  
@@ -297,9 +305,12 @@ int parse_opt(int argc, char *argv[])
 {
    int c, urlconv = 0;
 
+   log_debug("parse_opt_early()");
    opterr = 1;
    optind = 1;
    while ((c = getopt(argc, argv, "f:IabBCd:hrRiopl:t:T:s:u:4L:P:")) != -1)
+   {
+      log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, optarg);
       switch (c)
       {
          // those options are parsed in parse_opt_early()
@@ -398,6 +409,7 @@ int parse_opt(int argc, char *argv[])
             usage(argv[0]);
             exit(1);
       }
+   }
 
    return urlconv;
 }
@@ -422,6 +434,9 @@ int main(int argc, char *argv[])
       mode_detect = 1;
    }
 
+#ifdef DEBUG
+   for (c = 0; c < argc; c++) log_debug("argv[%d] = \"%s\"", c, argv[c]);
+#endif
    parse_opt_early(argc, argv);
 
    if (!mode_detect)
@@ -438,7 +453,9 @@ int main(int argc, char *argv[])
    else
       ctrl_handler((void*) (long) c);
  
-
+#ifdef DEBUG
+   for (c = 0; c < argc; c++) log_debug("argv[%d] = \"%s\"", c, argv[c]);
+#endif
    urlconv = parse_opt(argc, argv);
 
    // usage output must be after mode detection (Tor/I2P)
@@ -479,6 +496,7 @@ int main(int argc, char *argv[])
    }
 
    // copy onion-URL from command line
+   log_debug("argv[%d] = \"%s\"", optind, argv[optind]);
    if (!CNF(rand_addr))
       strncpy(CNF(onion_url), argv[optind], NDESC(name_size));
    // ...or generate a random one
