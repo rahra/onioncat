@@ -20,6 +20,7 @@ AC_ARG_ENABLE([rtt], AS_HELP_STRING([--enable-rtt],[enable inband RTT measuremen
 AC_PROG_CC
 #AC_PROG_INSTALL
 AC_PROG_LN_S
+AC_PROG_MKDIR_P
 
 m4_include([ax_pthread.m4])
 ACX_PTHREAD
@@ -35,7 +36,7 @@ CC="$PTHREAD_CC"
 
 # Checks for header files.
 #AC_HEADER_STDC
-AC_CHECK_HEADERS([sys/types.h sys/socket.h netinet/in.h netinet/in_systm.h netinet/ip.h netinet/ip6.h netinet/in6.h net/if.h net/if_tun.h linux/if_tun.h linux/sockios.h endian.h sys/endian.h netinet/icmp6.h net/ethernet.h netinet/if_ether.h netinet/ether.h], [], [],
+AC_CHECK_HEADERS([sys/types.h sys/wait.h sys/socket.h netinet/in.h netinet/in_systm.h netinet/ip.h netinet/ip6.h netinet/in6.h net/if.h net/if_tun.h linux/if_tun.h linux/sockios.h endian.h sys/endian.h netinet/icmp6.h net/ethernet.h netinet/if_ether.h netinet/ether.h], [], [],
 [[
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>

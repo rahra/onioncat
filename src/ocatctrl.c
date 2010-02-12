@@ -55,6 +55,8 @@ void *ctrl_handler(void *p)
       if (!(ff = fdopen(fd, "r+")))
       {
          log_msg(LOG_ERR, "could not open %d for writing: %s", fd, strerror(errno));
+         oe_close(pfd[0]);
+         oe_close(pfd[1]);
          return NULL;
       }
       log_debug("fd %d fdopen'ed \"r+\"", fd);
@@ -68,6 +70,8 @@ void *ctrl_handler(void *p)
       {
          log_msg(LOG_ERR, "could not open %d for reading: %s", fd, strerror(errno));
          CNF(config_read) = 1;
+         oe_close(pfd[0]);
+         oe_close(pfd[1]);
          return NULL;
       }
       log_debug("fd %d fdopen'ed \"r\"", fd);

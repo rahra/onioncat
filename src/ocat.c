@@ -90,7 +90,7 @@ int open_logfile(void)
 }
 
 
-int mk_pid_file(uid_t uid)
+int mk_pid_file(void)
 {
    FILE *f;
    char c;
@@ -121,6 +121,13 @@ int mk_pid_file(uid_t uid)
       // child
       case 0:
          oe_close(CNF(pid_fd[1]));
+
+         // close tunnel device
+         oe_close(CNF(tunfd[0]));
+         if (CNF(tunfd[0]) != CNF(tunfd[1]))
+            oe_close(CNF(tunfd[1]));
+
+         // wait for something happening on pipe
          if (read(CNF(pid_fd[0]), &c, 1) == -1)
             log_msg(LOG_ERR, "error reading from pid_fd %d: \"%s\"",
                   CNF(pid_fd[0]), strerror(errno)), exit(1);
@@ -128,6 +135,7 @@ int mk_pid_file(uid_t uid)
          if (unlink(CNF(pid_file)) == -1)
             log_msg(LOG_WARNING, "error deleting pid ]ile \"%s\": \"%s\"",
                   CNF(pid_file), strerror(errno)), exit(1);
+         log_msg(LOG_INFO, "pid file deleted, exiting.");
          exit(0);
 
       // parent
@@ -182,8 +190,14 @@ void background(void)
 /*! Signal handler for SIGINT. */
 void sig_handler(int sig)
 {
+   int status;
+
    switch (sig)
    {
+      case SIGCHLD:
+         // FIXME: there should be some error handling
+         (void) waitpid(-1, &status, WNOHANG);
+
       case SIGTERM:
       case SIGINT:
          // emergency shutdown if signalled twice
@@ -215,6 +229,9 @@ void install_sig(void)
       log_msg(LOG_ERR, "could not install SIGHUP handler: \"%s\"", strerror(errno)), exit(1);
    if (sigaction(SIGUSR1, &sa, NULL) == -1)
       log_msg(LOG_ERR, "could not install SIGUSR1 handler: \"%s\"", strerror(errno)), exit(1);
+   if (sigaction(SIGCHLD, &sa, NULL) == -1)
+      log_msg(LOG_ERR, "could not install SIGCHLD handler: \"%s\"", strerror(errno)), exit(1);
+
 }
 
 
@@ -551,6 +568,10 @@ int main(int argc, char *argv[])
    if (CNF(daemon))
       background();
 
+   // create pid_file
+   if (CNF(create_pid_file))
+      mk_pid_file();
+
    if (!CNF(oc_listen))
       add_listener(def);
 
@@ -578,10 +599,6 @@ int main(int argc, char *argv[])
       log_msg(LOG_NOTICE, "disabling connect log");
       CNF(create_clog) = 0;
    }
-
-   // create pid_file
-   if (CNF(create_pid_file))
-      mk_pid_file(pwd->pw_uid);
 
    if (!CNF(runasroot) && !getuid())
    {
