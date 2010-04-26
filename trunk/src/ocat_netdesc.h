@@ -52,10 +52,18 @@ extern const struct NetDesc netdesc_[2];
 #define TOR_PREFIX {{{0xfd,0x87,0xd8,0x7e,0xeb,0x43,0,0,0,0,0,0,0,0,0,0}}}
 #define TOR_PREFIX_LEN 48
 #if BYTE_ORDER == LITTLE_ENDIAN
+#ifdef __sun__
+#define TOR_PREFIX4 {{{0x0000000a}}}
+#else
 #define TOR_PREFIX4 {0x0000000a}
+#endif
 #define TOR_PREFIX4_MASK 0x000000ff
 #else
+#ifdef __sun__
+#define TOR_PREFIX4 {{{0x0a000000}}}
+#else
 #define TOR_PREFIX4 {0x0a000000}
+#endif
 #define TOR_PREFIX4_MASK 0xff000000
 #endif
 //! internal domain

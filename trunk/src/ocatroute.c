@@ -507,9 +507,9 @@ void *socket_receiver(void *p)
                // write directly on TUN device
                if (!CNF(use_tap))
                {
-                  log_debug("writing to tun %d framesize %d + 4", CNF(tunfd[1]), len);
-                  if (write(CNF(tunfd[1]), peer->tunhdr, len + 4) != (len + 4))
-                     log_msg(LOG_ERR, "could not write %d bytes to tunnel %d", len + 4, CNF(tunfd[1]));
+                  log_debug("writing to tun %d framesize %d + %d", CNF(tunfd[1]), len, 4 - BUF_OFF);
+                  if (tun_write(CNF(tunfd[1]), ((char*) peer->tunhdr) + BUF_OFF, len + 4 - BUF_OFF) != (len + 4 - BUF_OFF))
+                     log_msg(LOG_ERR, "could not write %d bytes to tunnel %d", len + 4 - BUF_OFF, CNF(tunfd[1]));
                }
                // create ethernet header and handle MAC on TAP device
                else if (*peer->tunhdr == CNF(fhd_key[IPV6_KEY]))
@@ -517,8 +517,8 @@ void *socket_receiver(void *p)
                   log_debug("creating ethernet header");
 
                   // FIXME: should differentiate between IPv6 and IP!!
-                  memset(eh->ether_dhost, 0, ETHER_ADDR_LEN);
-                  if (mac_set(&((struct ip6_hdr*)peer->fragbuf)->ip6_dst, eh->ether_dhost) == -1)
+                  memset(eh->ether_dst, 0, ETHER_ADDR_LEN);
+                  if (mac_set(&((struct ip6_hdr*)peer->fragbuf)->ip6_dst, eh->ether_dst) == -1)
                   {
                      log_debug("dest MAC unknown, resolving");
                      ndp_solicit(&((struct ip6_hdr*)peer->fragbuf)->ip6_src, &((struct ip6_hdr*)peer->fragbuf)->ip6_dst);
@@ -527,20 +527,15 @@ void *socket_receiver(void *p)
                   {
                      set_tunheader(buf, *peer->tunhdr);
                      memcpy(buf + 4 + sizeof(struct ether_header), peer->fragbuf, len);
-                     memcpy(eh->ether_shost, CNF(ocat_hwaddr), ETHER_ADDR_LEN);
+                     memcpy(eh->ether_src, CNF(ocat_hwaddr), ETHER_ADDR_LEN);
 
                      if (*peer->tunhdr == CNF(fhd_key[IPV6_KEY]))
                         eh->ether_type = htons(ETHERTYPE_IPV6);
                      else if (*peer->tunhdr == CNF(fhd_key[IPV4_KEY]))
                         eh->ether_type = htons(ETHERTYPE_IP);
 
-#ifdef __CYGWIN__
-                     if (win_write_tun(buf + 4, len + sizeof(struct ether_header)) != (len + sizeof(struct ether_header)))
-                        log_msg(LOG_ERR, "could not write %d bytes to WinTAP", len + sizeof(struct ether_header));
-#else
-                     if (write(CNF(tunfd[1]), buf, len + 4 + sizeof(struct ether_header)) != (len + 4 + sizeof(struct ether_header)))
-                        log_msg(LOG_ERR, "could not write %d bytes to tunnel %d", len + 4 + sizeof(struct ether_header), CNF(tunfd[1]));
-#endif
+                     if (tun_write(CNF(tunfd[1]), buf + BUF_OFF, len + 4 + sizeof(struct ether_header) - BUF_OFF) != (len + 4 + sizeof(struct ether_header) - BUF_OFF))
+                        log_msg(LOG_ERR, "could not write %d bytes to tunnel %d", len + 4 + sizeof(struct ether_header) - BUF_OFF, CNF(tunfd[1]));
                   }
                }
                else
@@ -811,21 +806,12 @@ void packet_forwarder(void)
       if (term_req())
          break;
 
-#ifdef __CYGWIN__
-      log_debug("reading from WinTAP");
-      if ((rlen = win_read_tun(buf + 4, FRAME_SIZE - 4)) == -1)
-      {
-         log_debug("win_read_tun failed. restarting");
-         continue;
-      }
-      rlen += 4;
-#else
 #ifdef __OpenBSD__
       // workaround for OpenBSD userland threads
       fcntl(CNF(tunfd[0]), F_SETFL, fcntl(CNF(tunfd[0]), F_GETFL) & ~O_NONBLOCK);
 #endif
       log_debug("reading from tunfd[0] = %d", CNF(tunfd[0]));
-      if ((rlen = read(CNF(tunfd[0]), buf, FRAME_SIZE)) == -1)
+      if ((rlen = tun_read(CNF(tunfd[0]), buf + BUF_OFF, FRAME_SIZE - BUF_OFF)) == -1)
       {
          rlen = errno;
          log_debug("read from tun %d returned on error: \"%s\"", CNF(tunfd[0]), strerror(rlen));
@@ -849,9 +835,9 @@ void packet_forwarder(void)
          log_debug("restarting");
          continue;
       }
-#endif
+      rlen += BUF_OFF;
 
-      log_debug("received on tunfd %d, framesize %d + 4", CNF(tunfd[0]), rlen - 4);
+      log_debug("received on tunfd %d, framesize %d + %d", CNF(tunfd[0]), rlen - 4, 4 - BUF_OFF);
 
 #ifdef PACKET_LOG
       if ((pktlog != -1) && (write(pktlog, buf, rlen) == -1))
@@ -876,6 +862,17 @@ void packet_forwarder(void)
          rlen -= sizeof(struct ether_header);
          memmove(eh, eh + 1, rlen - 4);
       }
+
+#if defined(__sun__) || defined(__CYGWIN__)
+      // Solaris tunnel driver does not send tunnel
+      // header thus we guess and set it manually
+      if ((buf[BUF_OFF] & 0xf0) == 0x60)
+         set_tunheader(buf, CNF(fhd_key[IPV6_KEY]));
+      else if ((buf[BUF_OFF] & 0xf0) == 0x40)
+         set_tunheader(buf, CNF(fhd_key[IPV4_KEY]));
+      else
+         set_tunheader(buf, -1);
+#endif
 
       if (get_tunheader(buf) == CNF(fhd_key[IPV6_KEY]))
       {

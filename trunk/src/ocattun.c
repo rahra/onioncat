@@ -22,28 +22,44 @@
  *  @version 2008/02/03-01
  */
 
-#ifndef WITHOUT_TUN
 
 
 #include "ocat.h"
 #include "ocat_netdesc.h"
 
+#ifndef WITHOUT_TUN
 
 char *tun_dev_ = TUN_DEV;
 
 #define IFCBUF 1024
+
+
+void system_w(const char *s)
+{
+   int e;
+
+   log_debug("running command \"%s\"", s);
+   if ((e = system(s)) == -1)
+      log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", s, strerror(errno));
+   log_debug("exit status = %d", WEXITSTATUS(e));
+}
+
 
 int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 {
 #ifdef __linux__
    struct ifreq ifr;
 #endif
+#ifdef __sun__
+   int ppa = -1;
+#endif
    int fd;
    char astr[INET6_ADDRSTRLEN];
    char astr4[INET_ADDRSTRLEN];
    char buf[IFCBUF];
-   struct in_addr netmask = {CNF(ocat_addr4_mask)};
+   struct in_addr netmask;// = {CNF(ocat_addr4_mask)};
 
+   memcpy(&netmask, &CNF(ocat_addr4_mask), sizeof(netmask));
    inet_ntop(AF_INET6, &addr, astr, INET6_ADDRSTRLEN);
    inet_ntop(AF_INET, &CNF(ocat_addr4), astr4, INET_ADDRSTRLEN);
 
@@ -57,14 +73,10 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
       // 183    // % netsh interface ipv6 add route  fd87:d87e:eb43::/48 "LAN-Verbindung 2"
 
    snprintf(buf, sizeof(buf), "netsh interface ipv6 add address \"%s\" %s", dev, astr);
-   log_debug("setting IP on tun: \"%s\"", buf);
-   if (system(buf) == -1)
-      log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+   system_w(buf);
 
    snprintf(buf, sizeof(buf), "netsh interface ipv6 add route %s/%d \"%s\"", astr, NDESC(prefix_len), dev);
-   log_debug("setting IP routing: \"%s\"", buf);
-   if (system(buf) == -1)
-      log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+   system_w(buf);
 
    return 0;
 #endif
@@ -93,9 +105,7 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
    if (!CNF(use_tap))
    {
       snprintf(buf, sizeof(buf), "ifconfig %s add %s/%d up", dev, astr, NDESC(prefix_len));
-      log_msg(LOG_INFO, "configuring tun IP: \"%s\"", buf);
-      if (system(buf) == -1)
-         log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+      system_w(buf);
    }
 
    // according to drivers/net/tun.c only IFF_MULTICAST and IFF_PROMISC are supported.
@@ -104,15 +114,7 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
       log_msg(LOG_ERR, "could not set interface flags: \"%s\"", strerror(errno));
       */
 
-   // set tun frame header to ethertype IPv6
-   CNF(fhd_key[IPV6_KEY]) = htonl(ETHERTYPE_IPV6);
-   CNF(fhd_key[IPV4_KEY]) = htonl(ETHERTYPE_IP);
-
 #else
-
-   // set tun frame header to address family AF_INET6 (FreeBSD = 0x1c, OpenBSD = 0x18)
-   CNF(fhd_key[IPV6_KEY]) = htonl(AF_INET6);
-   CNF(fhd_key[IPV4_KEY]) = htonl(AF_INET);
 
    // get interface name
    if (!CNF(use_tap))
@@ -165,27 +167,36 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 
 #endif /* __linux__ */
 
+#ifdef __sun__
+   if( (ppa = ioctl(fd, TUNNEWPPA, ppa)) == -1)
+      log_msg(LOG_ERR, "Can't assign new interface");
+   else
+      snprintf(dev, dev_s, "%s%d", dev, ppa);
+
+#endif
 
    if (!CNF(use_tap))
    {
 #ifdef __OpenBSD__
       snprintf(buf, sizeof(buf), "ifconfig %s inet6 %s prefixlen %d up", dev, astr, NDESC(prefix_len));
+#elif __sun__
+      snprintf(buf, sizeof(buf), "ifconfig %s inet6 plumb %s/%d %s up", dev, astr, NDESC(prefix_len), astr);
 #else
       snprintf(buf, sizeof(buf), "ifconfig %s inet6 %s/%d up", dev, astr, NDESC(prefix_len));
 #endif
-      log_debug("setting IP on tun: \"%s\"", buf);
-      if (system(buf) == -1)
-         log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+      system_w(buf);
 
+      // some OSes require routes to be set manually
 #ifdef __APPLE__
-
       // MacOSX requires the route to be set up manually
       // FIXME: the prefix shouldn't be hardcoded here
       snprintf(buf, sizeof(buf), "route add -inet6 -net fd87:d87e:eb43:: -prefixlen %d -gateway %s", NDESC(prefix_len), astr);
-      log_msg(LOG_INFO, "setup routing: \"%s\"", buf);
-      if (system(buf) == -1)
-         log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
- 
+      system_w(buf);
+#elif __sun__
+      // Solaris requires the route to be set up manually
+      // FIXME: the prefix shouldn't be hardcoded here
+      snprintf(buf, sizeof(buf), "route add -inet6 fd87:d87e:eb43::/%d %s -iface", NDESC(prefix_len), astr);
+      system_w(buf);
 #endif
 
    }
@@ -196,18 +207,14 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
    if (CNF(ipv4_enable) && !CNF(use_tap))
    {
       snprintf(buf, sizeof(buf), "ifconfig %s %s netmask %s", dev, astr4, inet_ntoa(netmask));
-      log_msg(LOG_INFO, "configuring tun IP: \"%s\"", buf);
-      if (system(buf) == -1)
-         log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+      system_w(buf);
    }
 
    // bring up tap device
    if (CNF(use_tap))
    {
       snprintf(buf, sizeof(buf), "ifconfig %s up", dev);
-      log_msg(LOG_INFO, "bringing up TAP device \"%s\"", buf);
-      if (system(buf) == -1)
-         log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", buf, strerror(errno));
+      system_w(buf);
    }
 
    return fd;

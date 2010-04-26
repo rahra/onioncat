@@ -29,8 +29,9 @@
  *  it must be freed again with fdf_free().
  *  @param fd File descriptor if open file.
  *  @param delim Delimiting character.
- *  @return Pointer to fdFile_t structure.
- */
+ *  @return Pointer to fdFile_t structure or NULL in case of error.
+ *          In the latter case errno is set appropriately.
+ **/
 fdFile_t* fdf_init(int fd, char delim)
 {
    fdFile_t *fdf;

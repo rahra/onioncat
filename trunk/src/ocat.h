@@ -18,7 +18,9 @@
 #ifndef OCAT_H
 #define OCAT_H
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,6 +56,9 @@
 #endif
 #ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
+#endif
+#ifdef HAVE_SYS_ETHERNET_H
+#include <sys/ethernet.h>
 #endif
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
@@ -101,6 +106,23 @@
 #endif
 #ifndef ETHERTYPE_IPV6
 #define ETHERTYPE_IPV6 0x86dd
+#endif
+
+#ifndef ETHER_ADDR_LEN
+#ifdef ETHERADDRL
+#define ETHER_ADDR_LEN ETHERADDRL
+#endif
+#endif
+
+// At least on Solaris the Ethernet addresses are defined as struct containing
+// an array of bytes.  This is different from most other OSes which define the
+// addresses directly as array.
+#ifdef HAVE_ETHER_ADDR_OCTET
+#define ether_dst ether_dhost.ether_addr_octet
+#define ether_src ether_shost.ether_addr_octet
+#else
+#define ether_dst ether_dhost
+#define ether_src ether_shost
 #endif
 
 #define IP6HLEN sizeof(struct ip6_hdr)
@@ -226,6 +248,18 @@
 #define SYSCONFDIR "/etc"
 #endif
 
+// this macro returns a constains string if a buffer points to NULL.
+#define SSTR(x) (x != NULL ? x : "(nil)")
+
+// Solaris and the Windows OpenVPN tunnel driver do not send a 4 byte tunnel
+// header thus we adjust reads and writes.
+#if defined(__sun__) || defined(__CYGWIN__)
+#define BUF_OFF 4
+#else
+#define BUF_OFF 0
+#endif
+
+
 struct OcatSetup
 {
    //! frame header of local OS in network byte order
@@ -305,6 +339,7 @@ struct OcatSetup
    //! pipe filedescriptors for pid deletion process
    int pid_fd[2];
    int sig_usr1, clear_stats;
+   int hosts_lookup;
 };
 
 #ifdef PACKET_QUEUE
@@ -467,14 +502,16 @@ typedef struct OcatCtrlHdr
 
 
 #ifndef WITHOUT_TUN
-#ifdef __FreeBSD__
-#define TUN_DEV "/dev/tun0"
-#elif __OpenBSD__
-#define TUN_DEV "/dev/tun0"
-#else
+#ifdef __sun__
+#define TUN_DEV "/dev/tun"
+#elif __linux__
 #define TUN_DEV "/dev/net/tun"
+#else
+#define TUN_DEV "/dev/tun0"
 #endif
 extern char *tun_dev_;
+#else
+#define TUN_DEV "STDIO"
 #endif
 
 extern pthread_mutex_t thread_mutex_;
@@ -613,7 +650,13 @@ int win_open_tun(char *, int);
 int win_close_tun(void);
 int win_read_tun(char *, int);
 int win_write_tun(const char *, int);
+#define tun_read(x,y,z) win_read_tun(y,z)
+#define tun_write(x,y,z) win_write_tun(y,z)
+#else
+#define tun_read(x,y,z) read(x,y,z)
+#define tun_write(x,y,z) write(x,y,z)
 #endif
+
 
 #endif
 

@@ -1,3 +1,5 @@
+* Solaris: tunnel device should be unplumbed on program exit
+* Solaris TAP device untestet
 * OpenBSD TAP device might not work (see OpenBSD man page tun(4))
 * finish SOCKS5 code for I2P
 * work on header compression (start at RFC2507 or 3095)

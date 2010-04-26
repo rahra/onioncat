@@ -29,6 +29,7 @@ void usage(const char *s)
          "   -b                    daemonize (default = %d)\n"
          "   -B                    do not daemonize (default = %d)\n"
          "   -h                    display usage message\n"
+         "   -H                    ignore /etc/hosts while in GarliCat mode\n"
          "   -C                    disable local controller interface\n"
          "   -d <n>                set debug level to n, default = %d\n"
          "   -f <config_file>      read config from config_file (default = %s)\n"
@@ -101,7 +102,7 @@ int mk_pid_file(void)
       return -1;
    }
 
-   fprintf(f, "%d\n", getpid());
+   fprintf(f, "%d\n", (int) getpid());
    fclose(f);
    log_debug("pid_file %s created, pid = %d", CNF(pid_file), getpid());
 
@@ -299,7 +300,7 @@ void parse_opt_early(int argc, char *argv_orig[])
    opterr = 0;
    while ((c = getopt(argc, argv, "f:I")) != -1)
    {
-      log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, optarg);
+      log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, SSTR(optarg));
       switch (c)
       {
          case 'f':
@@ -325,9 +326,9 @@ int parse_opt(int argc, char *argv[])
    log_debug("parse_opt_early()");
    opterr = 1;
    optind = 1;
-   while ((c = getopt(argc, argv, "f:IabBCd:hrRiopl:t:T:s:u:4L:P:")) != -1)
+   while ((c = getopt(argc, argv, "f:IabBCd:hHrRiopl:t:T:s:u:4L:P:")) != -1)
    {
-      log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, optarg);
+      log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, SSTR(optarg));
       switch (c)
       {
          // those options are parsed in parse_opt_early()
@@ -362,6 +363,10 @@ int parse_opt(int argc, char *argv[])
          case 'h':
             usage(argv[0]);
             exit(1);
+
+         case 'H':
+            CNF(hosts_lookup) = 0;
+            break;
 
          case 'l':
             add_listener(optarg);
@@ -513,7 +518,7 @@ int main(int argc, char *argv[])
    }
 
    // copy onion-URL from command line
-   log_debug("argv[%d] = \"%s\"", optind, argv[optind]);
+   log_debug("argv[%d] = \"%s\"", optind, SSTR(argv[optind]));
    if (!CNF(rand_addr))
       strncpy(CNF(onion_url), argv[optind], NDESC(name_size));
    // ...or generate a random one

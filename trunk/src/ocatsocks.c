@@ -26,6 +26,7 @@
 
 #include "ocat.h"
 #include "ocat_netdesc.h"
+#include "ocathosts.h"
 
 
 // SOCKS connector queue vars
@@ -36,13 +37,33 @@ static SocksQueue_t *socks_queue_ = NULL;
 
 int socks_send_request(const SocksQueue_t *sq)
 {
-   int len, ret;
-   char buf[SOCKS_BUFLEN], onion[NDESC(name_size)];
+   int len, ret = -1;
+   char buf[SOCKS_BUFLEN], onion[NI_MAXHOST];
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
 
-   ipv6tonion(&sq->addr, onion);
-   strlcat(onion, NDESC(domain), sizeof(onion));
-   log_msg(LOG_INFO, "trying to connect to \"%s\" [%s]", onion, inet_ntop(AF_INET6, &sq->addr, buf, SOCKS_BUFLEN));
+   // Do a hostname lookup if network type is I2P.
+   // This is done in order to be able to retrieve a 256 bit base32 
+   // host from e.g. /etc/hosts.
+   if ((CNF(net_type) == NTYPE_I2P) && CNF(hosts_lookup))
+   {
+      hosts_check();
+      ret = hosts_get_name(&sq->addr, onion, sizeof(onion));
+   }
+
+   // If no hostname was found above or network type is Tor
+   // do usual OnionCat name transformation.
+   if (ret == -1)
+   {
+      ipv6tonion(&sq->addr, onion);
+      strlcat(onion, NDESC(domain), sizeof(onion));
+   }
+
+   if (inet_ntop(AF_INET6, &sq->addr, buf, sizeof(buf)) == NULL)
+   {
+      log_msg(LOG_WARNING, "inet_ntop failed: \"%s\"", strerror(errno));
+      buf[0] = '\0';
+   }
+   log_msg(LOG_INFO, "trying to connect to \"%s\" [%s] on %d", onion, buf, sq->fd);
 
    log_debug("doing SOCKS4a handshake");
    shdr->ver = 4;

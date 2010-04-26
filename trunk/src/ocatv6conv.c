@@ -80,7 +80,7 @@ int oniontipv6(const char *onion, struct in6_addr *ip6)
    for (i = 0; i < 16; i++)
    {
       shl5((char*) ip6);
-      j = toupper(onion[i]);
+      j = toupper((int) onion[i]);
       if ((j < '2') || (j > 'Z'))
          return -1;
       if ((j = deBASE32_[j - '2']) == -1)

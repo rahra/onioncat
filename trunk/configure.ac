@@ -7,14 +7,35 @@ AC_CONFIG_HEADERS([config.h])
 
 AC_DEFINE(SVN_REVISION, "svnversion", [SVN Revision])
 
-AC_SUBST([CFLAGS], [["-Wall -O2"]])
 
-AC_ARG_ENABLE([debug], AS_HELP_STRING([--enable-debug],[enable debugging]), AC_DEFINE([DEBUG], [], [enable debugging]))
-AC_ARG_ENABLE([packet-log], AS_HELP_STRING([--enable-packet-log],[enable packet logging]), AC_DEFINE([PACKET_LOG], [], [enable packet logging]))
-AC_ARG_ENABLE([handle-http], AS_HELP_STRING([--enable-handle-http],[enable handling of accidental HTTP requests]), AC_DEFINE([HANDLE_HTTP], [], [enable handling of accidental HTTP requests]))
-AC_ARG_ENABLE([packet-queue], AS_HELP_STRING([--enable-packet-queue],[enable queueuing of packets while connecting setup]), AC_DEFINE([PACKET_QUEUE], [], [enable packet queue]))
-AC_ARG_ENABLE([check-ipsrc], AS_HELP_STRING([--disable-check-ipsrc],[disable source ip checking before forwarding]), AC_DEFINE([CHECK_IPSRC], [], [disable source ip checking]))
-AC_ARG_ENABLE([rtt], AS_HELP_STRING([--enable-rtt],[enable inband RTT measurement]), AC_DEFINE([MEASURE_RTT], [], [enable RTT measurement]))
+AC_ARG_ENABLE([debug], AS_HELP_STRING([--enable-debug],[enable debugging]), 
+   AC_DEFINE([DEBUG], [1], [enable debugging])
+   )
+
+AC_ARG_ENABLE([packet-log], AS_HELP_STRING([--enable-packet-log],[enable packet logging]), 
+   AC_DEFINE([PACKET_LOG], [], [enable packet logging]))
+
+AC_ARG_ENABLE([handle-http], AS_HELP_STRING([--enable-handle-http],[enable handling of accidental HTTP requests]),
+   AC_DEFINE([HANDLE_HTTP], [], [enable handling of accidental HTTP requests]))
+
+AC_ARG_ENABLE([packet-queue], AS_HELP_STRING([--enable-packet-queue],[enable queueuing of packets while connecting setup]),
+   AC_DEFINE([PACKET_QUEUE], [], [enable packet queue]))
+
+AC_ARG_ENABLE([check-ipsrc], AS_HELP_STRING([--disable-check-ipsrc],[disable source ip checking before forwarding]),
+   AC_DEFINE([CHECK_IPSRC], [1], [disable source ip checking]))
+
+AC_ARG_ENABLE([rtt], AS_HELP_STRING([--enable-rtt],[enable inband RTT measurement]), 
+   AC_DEFINE([MEASURE_RTT], [1], [enable RTT measurement]))
+
+AC_ARG_ENABLE([tundev], AS_HELP_STRING([--disable-tundev],[compile without tunnel device code]),
+   AC_DEFINE([WITHOUT_TUN], [1], [exclude tunnel device code]))
+
+
+if test "${enable_debug+set}" = set ; then
+   AC_SUBST([CFLAGS], [["-Wall -g -D_POSIX_PTHREAD_SEMANTICS"]])
+else
+   AC_SUBST([CFLAGS], [["-Wall -O2 -D_POSIX_PTHREAD_SEMANTICS"]])
+fi
 
 # Checks for programs.
 AC_PROG_CC
@@ -34,9 +55,12 @@ CC="$PTHREAD_CC"
 #AC_CHECK_LIB([rt], [clock_gettime])
 #AC_CHECK_LIB([readline], [main])
 
+AC_SEARCH_LIBS([bind], [socket])
+AC_SEARCH_LIBS([inet_ntop], [nsl])
+
 # Checks for header files.
 #AC_HEADER_STDC
-AC_CHECK_HEADERS([sys/types.h sys/wait.h sys/socket.h netinet/in.h netinet/in_systm.h netinet/ip.h netinet/ip6.h netinet/in6.h net/if.h net/if_tun.h linux/if_tun.h linux/sockios.h endian.h sys/endian.h netinet/icmp6.h net/ethernet.h netinet/if_ether.h netinet/ether.h], [], [],
+AC_CHECK_HEADERS([sys/types.h sys/wait.h sys/socket.h sys/stat.h netdb.h netinet/in.h netinet/in_systm.h netinet/ip.h netinet/ip6.h netinet/in6.h net/if.h net/if_tun.h linux/if_tun.h linux/sockios.h endian.h sys/endian.h netinet/icmp6.h net/ethernet.h netinet/if_ether.h netinet/ether.h sys/ethernet.h fcntl.h time.h], [], [],
 [[
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
@@ -116,10 +140,50 @@ AC_CHECK_MEMBER([struct sockaddr_in.sin_len],
       [ AC_DEFINE(HAVE_SIN_LEN, 1, [Do we have sockaddr_in.sin_len?]) ],
       [],
       [
+#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
+#endif
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
+#endif
+])
+
+AC_CHECK_MEMBER([struct stat.st_mtim],
+                [AC_DEFINE(HAVE_STAT_ST_MTIM, 1, [Do we have stat.st_mtim?])],
+                [
+AC_CHECK_MEMBER([struct stat.st_mtimespec],
+                [AC_DEFINE(HAVE_STAT_ST_MTIMESPEC, 1, [Do we have stat.st_mtimespec?])],
+                [],
+                [
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
+                 ])
+                 ],
+                [
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
+                 ])
+
+AC_CHECK_MEMBER([struct ether_header.ether_dhost.ether_addr_octet],
+                [AC_DEFINE(HAVE_ETHER_ADDR_OCTET, 1, [Do we have ether_header.ether_dhost.ether_addr_octet])],
+                [],
+                [
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_ETHERNET_H
+#include <sys/ethernet.h>
 #endif
 ])
 
