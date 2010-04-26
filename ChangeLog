@@ -1,4 +1,9 @@
 * version 0.2.2
+ - configure.ac refined
+ - OC now compiles and runs on Solaris 10 using the Universal TUN/TAP driver
+   version 1.1 (http://vtun.sourceforge.net/tun/index.html)
+ - ocathosts.[ch] added. It reads IPv6 addresses from /etc/hosts
+ - /etc/hosts reverse lookup for I2P .b32 names added
  - debian directory included into source package.
  - freebsd directory included into source package.
  - acx_pthread.m4 replaced by newer ax_pthread.m4 for autoconf.

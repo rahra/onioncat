@@ -252,10 +252,10 @@ int ndp_solicit(const struct in6_addr *src, const struct in6_addr *dst)
    set_tunheader(buf, htonl(CNF(fhd_key[IPV6_KEY])));
 
    // ethernet header
-   ndp6->eth.ether_dhost[0] = 0x33;
-   ndp6->eth.ether_dhost[1] = 0x33;
-   memcpy(&ndp6->eth.ether_dhost[2], ((char*) &mcastd) + 12, 4);
-   memcpy(ndp6->eth.ether_shost, CNF(ocat_hwaddr), ETHER_ADDR_LEN);
+   ndp6->eth.ether_dst[0] = 0x33;
+   ndp6->eth.ether_dst[1] = 0x33;
+   memcpy(&ndp6->eth.ether_dst[2], ((char*) &mcastd) + 12, 4);
+   memcpy(ndp6->eth.ether_src, CNF(ocat_hwaddr), ETHER_ADDR_LEN);
    ndp6->eth.ether_type = htons(ETHERTYPE_IPV6);
 
    // ipv6 header
@@ -275,7 +275,7 @@ int ndp_solicit(const struct in6_addr *src, const struct in6_addr *dst)
    // icmpv6 ndp option
    ohd->nd_opt_type = ND_OPT_SOURCE_LINKADDR;
    ohd->nd_opt_len = 1;
-   memcpy(ohd + 1, ndp6->eth.ether_shost, ETHER_ADDR_LEN);
+   memcpy(ohd + 1, ndp6->eth.ether_src, ETHER_ADDR_LEN);
 
    // calculate checksum
    ckb = malloc_ckbuf(&ndp6->ip6.ip6_src, &ndp6->ip6.ip6_dst, ntohs(ndp6->ip6.ip6_plen), IPPROTO_ICMPV6, &ndp6->icmp6);
@@ -310,12 +310,12 @@ int ndp_soladv(char *buf, int rlen)
    char hw[20];
 #endif
 
-   if (ndp6->eth.ether_dhost[0] & 1)
+   if (ndp6->eth.ether_dst[0] & 1)
    {
       // check for right multicast destination on ethernet
-      if (ndp6->eth.ether_dhost[2] != 0xff)
+      if (ndp6->eth.ether_dst[2] != 0xff)
       {
-         log_debug("ethernet multicast destination %s cannot be solicited node address", ether_ntoa_r((struct ether_addr*) ndp6->eth.ether_dhost, hw));
+         log_debug("ethernet multicast destination %s cannot be solicited node address", ether_ntoa_r((struct ether_addr*) ndp6->eth.ether_dst, hw));
          return -1;
       }
 
@@ -354,16 +354,16 @@ int ndp_soladv(char *buf, int rlen)
 
    log_debug("generating response");
    // add source MAC to table
-   if (mac_set(&ndp6->ip6.ip6_src, ndp6->eth.ether_shost) == -1)
-      if (mac_add_entry(ndp6->eth.ether_shost, &ndp6->ip6.ip6_src) == -1)
+   if (mac_set(&ndp6->ip6.ip6_src, ndp6->eth.ether_src) == -1)
+      if (mac_add_entry(ndp6->eth.ether_src, &ndp6->ip6.ip6_src) == -1)
       {
          log_msg(LOG_ERR, "MAC table full");
          return -1;
       }
 
    // set MAC addresses for response
-   memcpy(ndp6->eth.ether_dhost, ndp6->eth.ether_shost, ETHER_ADDR_LEN);
-   memcpy(ndp6->eth.ether_shost, CNF(ocat_hwaddr), ETHER_ADDR_LEN);
+   memcpy(ndp6->eth.ether_dst, ndp6->eth.ether_src, ETHER_ADDR_LEN);
+   memcpy(ndp6->eth.ether_src, CNF(ocat_hwaddr), ETHER_ADDR_LEN);
 
    // init ip6 header
    memcpy(&ndp6->ip6.ip6_dst, &ndp6->ip6.ip6_src, sizeof(struct in6_addr));
@@ -405,8 +405,8 @@ int ndp_recadv(char *buf, int len)
    ndp6_t *ndp6 = (ndp6_t*) (buf + 4);
 
    // add source MAC to table
-   if (mac_set(&ndp6->ip6.ip6_src, ndp6->eth.ether_shost) == -1)
-      if (mac_add_entry(ndp6->eth.ether_shost, &ndp6->ip6.ip6_src) == -1)
+   if (mac_set(&ndp6->ip6.ip6_src, ndp6->eth.ether_src) == -1)
+      if (mac_add_entry(ndp6->eth.ether_src, &ndp6->ip6.ip6_src) == -1)
       {
          log_msg(LOG_ERR, "MAC table full");
          return -1;
@@ -449,7 +449,7 @@ int eth_check(char *buf, int len)
    }
 
    // check ethernet destination
-   if ((ndp6->eth.ether_dhost[0] != 0x33) && (ndp6->eth.ether_dhost[1] != 0x33) && memcmp(ndp6->eth.ether_dhost, CNF(ocat_hwaddr), ETHER_ADDR_LEN))
+   if ((ndp6->eth.ether_dst[0] != 0x33) && (ndp6->eth.ether_dst[1] != 0x33) && memcmp(ndp6->eth.ether_dst, CNF(ocat_hwaddr), ETHER_ADDR_LEN))
    {
       log_debug("unknown destination MAC");
       return E_ETH_ILLDEST;

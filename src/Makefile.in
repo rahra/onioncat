@@ -58,7 +58,7 @@ am_ocat_OBJECTS = ocat.$(OBJEXT) ocatlog.$(OBJEXT) ocatroute.$(OBJEXT) \
 	ocatipv4route.$(OBJEXT) ocateth.$(OBJEXT) ocatsocks.$(OBJEXT) \
 	ocatlibe.$(OBJEXT) ocatctrl.$(OBJEXT) ocatipv6route.$(OBJEXT) \
 	ocaticmp.$(OBJEXT) ocat_wintuntap.$(OBJEXT) \
-	ocat_netdesc.$(OBJEXT)
+	ocat_netdesc.$(OBJEXT) ocathosts.$(OBJEXT)
 ocat_OBJECTS = $(am_ocat_OBJECTS)
 ocat_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
@@ -163,8 +163,8 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
-ocat_SOURCES = ocat.c ocatlog.c ocatroute.c ocatthread.c ocattun.c ocatv6conv.c ocatcompat.c ocatpeer.c ocatsetup.c ocatipv4route.c ocateth.c ocatsocks.c ocatlibe.c ocatctrl.c ocatipv6route.c ocaticmp.c ocat_wintuntap.c ocat_netdesc.c
-noinst_HEADERS = ocat.h ocat_netdesc.h strlcpy.c strlcat.c
+ocat_SOURCES = ocat.c ocatlog.c ocatroute.c ocatthread.c ocattun.c ocatv6conv.c ocatcompat.c ocatpeer.c ocatsetup.c ocatipv4route.c ocateth.c ocatsocks.c ocatlibe.c ocatctrl.c ocatipv6route.c ocaticmp.c ocat_wintuntap.c ocat_netdesc.c ocathosts.c
+noinst_HEADERS = ocat.h ocat_netdesc.h strlcpy.c strlcat.c ocathosts.h
 AM_CFLAGS = -DSYSCONFDIR=\"$(sysconfdir)\"
 all: all-am
 
@@ -238,6 +238,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ocatcompat.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ocatctrl.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ocateth.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ocathosts.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ocaticmp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ocatipv4route.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ocatipv6route.Po@am__quote@

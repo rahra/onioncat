@@ -25,15 +25,17 @@
 
 #include "ocat.h"
 #include "ocat_netdesc.h"
+#include "ocathosts.h"
 
 
 static struct sockaddr_in6 socks_dst6_;
 static struct sockaddr_in ctrl_listen_;
 static struct sockaddr_in6 ctrl_listen6_;
 static struct sockaddr *ctrl_listen_ptr_[] = 
-   {(struct sockaddr*) &ctrl_listen_, 
+{
+   (struct sockaddr*) &ctrl_listen_, 
 #ifndef __CYGWIN__
-      (struct sockaddr*) &ctrl_listen6_, 
+   (struct sockaddr*) &ctrl_listen6_, 
 #endif
       NULL};
 static int ctrl_fd_[2] = {-1, -1};
@@ -104,7 +106,7 @@ struct OcatSetup setup_ =
    // oc_listen_fd
    ctrl_fd_,
    // oc_listen_cnt
-#ifdef __CYGWIN__
+#if defined(__CYGWIN__)
    1
 #else
    2
@@ -119,7 +121,9 @@ struct OcatSetup setup_ =
    // pid_fd
    {-1, -1},
    // sig_usr1, clear_stats
-   0, 0
+   0, 0,
+   // hosts_lookup
+   1
 };
 
 
@@ -129,6 +133,7 @@ struct OcatSetup setup_ =
 void init_setup(void)
 {
    struct timeval tv;
+   const uint32_t loop_ = htonl(INADDR_LOOPBACK);
 
    // seeding PRNG rand()
    if (gettimeofday(&tv, NULL) == -1)
@@ -139,9 +144,23 @@ void init_setup(void)
    setup_.uptime = time(NULL);
    memset(&socks_dst6_, 0, sizeof(socks_dst6_));
    setup_.socks_dst->sin_family = AF_INET;
-   setup_.socks_dst->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+   //setup_.socks_dst->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+   memcpy(&setup_.socks_dst->sin_addr, &loop_, sizeof(setup_.socks_dst->sin_addr));
 #ifdef HAVE_SIN_LEN
    setup_.socks_dst->sin_len = SOCKADDR_SIZE(setup_.socks_dst);
+#endif
+
+   memset(&ctrl_listen_, 0, sizeof(ctrl_listen_));
+   memset(&ctrl_listen6_, 0, sizeof(ctrl_listen6_));
+
+   hosts_init(".b32.i2p");
+
+#ifdef __linux__
+   CNF(fhd_key[IPV6_KEY]) = htonl(ETHERTYPE_IPV6);
+   CNF(fhd_key[IPV4_KEY]) = htonl(ETHERTYPE_IP);
+#else
+   CNF(fhd_key[IPV6_KEY]) = htonl(AF_INET6);
+   CNF(fhd_key[IPV4_KEY]) = htonl(AF_INET);
 #endif
 }
 
@@ -149,6 +168,8 @@ void init_setup(void)
 void post_init_setup(void)
 {
    size_t l;
+   const uint32_t loop_ = htonl(INADDR_LOOPBACK);
+
    setup_.ocat_addr4 = NDESC(prefix4);
    setup_.ocat_addr4_mask = NDESC(addr4_mask);
    setup_.ocat_dest_port = NDESC(vdest_port);
@@ -165,7 +186,8 @@ void post_init_setup(void)
 
    ctrl_listen_.sin_family = AF_INET;
    ctrl_listen_.sin_port = htons(setup_.ocat_ctrl_port);
-   ctrl_listen_.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+   //ctrl_listen_.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+   memcpy(&ctrl_listen_.sin_addr, &loop_, sizeof(ctrl_listen_.sin_addr));
 #ifdef HAVE_SIN_LEN
    ctrl_listen_.sin_len = sizeof(ctrl_listen_);
 #endif
@@ -247,6 +269,8 @@ void print_setup_struct(FILE *f)
          "ctrl_active            = %d\n"
          "pid_fd[2]              = {%d, %d}\n"
          "clear_stats            = %d\n"
+         "ctrl_listen_cnt        = %d\n"
+         "hosts_lookup           = %d\n"
          ,
          IPV4_KEY, ntohl(setup_.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup_.fhd_key[IPV6_KEY]),
          setup_.fhd_key_len,
@@ -273,7 +297,7 @@ void print_setup_struct(FILE *f)
          setup_.use_tap,
          hw,
          setup_.pid_file,
-         setup_.logfn,
+         SSTR(setup_.logfn),
          logf,
          setup_.daemon,
          t / (3600 * 24), t / 3600 % 24, t / 60 % 60,
@@ -283,7 +307,9 @@ void print_setup_struct(FILE *f)
          setup_.net_type, setup_.net_type == NTYPE_TOR ? "NTYPE_TOR" : setup_.net_type == NTYPE_I2P ? "NTYPE_I2P" : "unknown",
          setup_.max_ctrl, setup_.ctrl_active,
          setup_.pid_fd[0], setup_.pid_fd[1],
-         setup_.clear_stats
+         setup_.clear_stats,
+         setup_.ctrl_listen_cnt,
+         setup_.hosts_lookup
          );
 
 #ifdef CONNECT_ROOT_PEERS
@@ -313,6 +339,14 @@ void print_setup_struct(FILE *f)
       else
          log_msg(LOG_WARNING, "could not convert struct sockaddr: \"%s\"", strerror(errno));
       fprintf(f, "oc_listen_fd[%d]        = %d\n", i, CNF(oc_listen_fd)[i]);
+   }
+
+   for (i = 0; i < CNF(ctrl_listen_cnt); i++)
+   {
+      if (inet_ntops(ctrl_listen_ptr_[i], &sas))
+         fprintf(f, "ctrl_listen_ptr_[%d]    = %s:%d (0x%04x)\n", i, sas.sstr_addr, ntohs(sas.sstr_port), sas.sstr_family);
+      else
+         log_msg(LOG_WARNING, "could not convert struct sockaddr: \"%s\"", strerror(errno));
    }
 }
 
