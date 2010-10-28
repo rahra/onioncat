@@ -36,8 +36,7 @@
 #define ADAPTER_KEY "SYSTEM\\CurrentControlSet\\Control\\Class\\{4D36E972-E325-11CE-BFC1-08002BE10318}"
 // this registry directory contains also information about network drivers
 #define NETWORK_CONNECTIONS_KEY "SYSTEM\\CurrentControlSet\\Control\\Network\\{4D36E972-E325-11CE-BFC1-08002BE10318}"
-// I changed this from tap0801
-#define TAP_COMPONENT_ID "tap0901"
+const char *tap_component_id_[] = {"tap0901", "tapoas", "tap0801", NULL};
 
 #define USERMODEDEVICEDIR "\\\\.\\Global\\"
 #define TAPSUFFIX         ".tap"
@@ -69,7 +68,7 @@ typedef struct TapData
 static TapData_t tapData_;
 
 
-int findTapDevice(char *deviceID, int deviceIDLen, char *deviceName, int deviceNameLen)
+int findTapDevice(char *deviceID, int deviceIDLen, char *deviceName, int deviceNameLen, const char *tap_component_id)
 {
    HKEY adapterKey, key;
    int i;
@@ -96,7 +95,7 @@ int findTapDevice(char *deviceID, int deviceIDLen, char *deviceName, int deviceN
         
       len = sizeof(componentId);
       if ((RegQueryValueEx(key, "ComponentId", NULL, NULL, componentId, &len) == ERROR_SUCCESS)
-            && !strcmp(componentId, TAP_COMPONENT_ID))
+            && !strcmp(componentId, tap_component_id))
       {
          len = deviceIDLen;
          RegQueryValueEx(key, "NetCfgInstanceId", NULL, NULL, deviceID, &len);
@@ -137,12 +136,15 @@ int win_open_tun(char *dev, int s)
    char deviceId[SIZE_256], deviceName[SIZE_256], tapPath[SIZE_256];
    TapData_t *tapData = &tapData_;
    unsigned long len = 0;
-   int status;
-    
-   if (findTapDevice(deviceId, sizeof(deviceId), deviceName, sizeof(deviceName)) == -1)
+   int status, i;
+
+   for (i = 0; tap_component_id_[i] != NULL; i++)
+      if ((status = findTapDevice(deviceId, sizeof(deviceId), deviceName, sizeof(deviceName), tap_component_id_[i])) != -1)
+         break;
+
+   if (status == -1)
    {
-      log_msg(LOG_ALERT, "could not find TAP driver with componentId \"%s\". Probly not installed",
-            TAP_COMPONENT_ID);
+      log_msg(LOG_ALERT, "could not find TAP driver with valid componentId. Probly not installed");
       return -1;
    }
 

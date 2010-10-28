@@ -36,13 +36,15 @@
 #include <ctype.h>
 #include <syslog.h>
 
-#include <arpa/inet.h>
 
 #include <sys/time.h>
 #include <sys/select.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
@@ -50,9 +52,6 @@
 #include <endian.h>
 #elif HAVE_SYS_ENDIAN_H
 #include <sys/endian.h>
-#endif
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
 #endif
 #ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
@@ -66,6 +65,7 @@
 #ifdef HAVE_NETINET_IN_SYSTM_H
 #include <netinet/in_systm.h>
 #endif
+#include <arpa/inet.h>
 #ifdef HAVE_NET_IF_H
 #include <net/if.h>
 #endif
