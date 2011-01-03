@@ -143,7 +143,7 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
    }
    */
 
-#ifdef __FreeBSD__
+#if defined __FreeBSD__ || defined __DragonFly__
 
    int prm = 1;
    if (ioctl(fd, TUNSIFHEAD, &prm) == -1)

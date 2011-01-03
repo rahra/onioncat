@@ -37,6 +37,7 @@ static pthread_mutex_t mac_mutex_ = PTHREAD_MUTEX_INITIALIZER;
  * RFC2373 is obsoleted by RFC3513 addressing ipv6
  * RFC2461 is obsoleted by RFC4861
  * RFC4862 IPv6 Stateless Address Autoconfiguration
+ * RFC4443 ICMP6 (updates 2780, obsoletes 2463) (20101230)
  */
 
 /* IPv6 Ethernet Multicast: (MAC) 33:33:xx:xx:xx:xx, xx -> 4 lowest order bytes of IPv6 destination

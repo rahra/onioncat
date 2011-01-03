@@ -204,6 +204,8 @@ void post_init_setup(void)
    snprintf(&setup_.version[strlen(setup_.version)], VERSION_STRING_LEN - strlen(setup_.version), " -- compiled %s %s", __DATE__, __TIME__);
 #endif
    setup_.pid_file = NDESC(pid_file);
+   setup_.oc_vdns = NDESC(prefix);
+   setup_.oc_vdns.s6_addr[15] = 1;
 }
 
 
@@ -348,6 +350,9 @@ void print_setup_struct(FILE *f)
       else
          log_msg(LOG_WARNING, "could not convert struct sockaddr: \"%s\"", strerror(errno));
    }
+
+   inet_ntop(AF_INET6, &setup_.oc_vdns, ip6, SBUF);
+   fprintf(f, "ocat_dir               = %s\n", ip6);
 }
 
 

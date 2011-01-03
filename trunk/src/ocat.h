@@ -84,6 +84,12 @@
 #ifdef HAVE_NETINET_IP6_H
 #include <netinet/ip6.h>
 #endif
+#ifdef HAVE_NETINET_UDP_H
+#include <netinet/udp.h>
+#endif
+#ifdef HAVE_ARPA_NAMESER_H
+#include <arpa/nameser.h>
+#endif
 #ifdef HAVE_NET_ETHERNET_H
 #include <net/ethernet.h>
 #endif
@@ -95,6 +101,9 @@
 #endif
 #ifdef HAVE_NET_IF_TUN_H
 #include <net/if_tun.h>
+#endif
+#ifdef HAVE_NET_TUN_IF_TUN_H
+#include <net/tun/if_tun.h>
 #endif
 
 #ifdef __CYGWIN__
@@ -340,6 +349,7 @@ struct OcatSetup
    int pid_fd[2];
    int sig_usr1, clear_stats;
    int hosts_lookup;
+   struct in6_addr oc_vdns;
 };
 
 #ifdef PACKET_QUEUE
@@ -657,6 +667,8 @@ int win_write_tun(const char *, int);
 #define tun_write(x,y,z) write(x,y,z)
 #endif
 
+/* ocatresolv.c */
+int check_dns(const struct ip6_hdr *, int);
 
 #endif
 
