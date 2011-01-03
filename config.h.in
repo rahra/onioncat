@@ -9,6 +9,9 @@
 /* enable handling of accidental HTTP requests */
 #undef HANDLE_HTTP
 
+/* Define to 1 if you have the <arpa/nameser.h> header file. */
+#undef HAVE_ARPA_NAMESER_H
+
 /* Define to 1 if you have the <endian.h> header file. */
 #undef HAVE_ENDIAN_H
 
@@ -57,6 +60,9 @@
 /* Define to 1 if you have the <netinet/ip.h> header file. */
 #undef HAVE_NETINET_IP_H
 
+/* Define to 1 if you have the <netinet/udp.h> header file. */
+#undef HAVE_NETINET_UDP_H
+
 /* Define to 1 if you have the <net/ethernet.h> header file. */
 #undef HAVE_NET_ETHERNET_H
 
@@ -65,6 +71,9 @@
 
 /* Define to 1 if you have the <net/if_tun.h> header file. */
 #undef HAVE_NET_IF_TUN_H
+
+/* Define to 1 if you have the <net/tun/if_tun.h> header file. */
+#undef HAVE_NET_TUN_IF_TUN_H
 
 /* Define if you have POSIX threads libraries and header files. */
 #undef HAVE_PTHREAD

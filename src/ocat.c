@@ -471,6 +471,7 @@ int main(int argc, char *argv[])
    {
       CNF(config_failed) = errno;
       CNF(config_read) = 1;
+      log_debug("opening config file \"%s\" failed: \"%s\"", CNF(config_file), strerror(CNF(config_failed)));
    }
    else
       ctrl_handler((void*) (long) c);
@@ -501,7 +502,7 @@ int main(int argc, char *argv[])
    (void) init_ocat_thread("main");
    detach_thread();
 
-   if (CNF(config_failed))
+   if (CNF(config_failed) && (CNF(config_failed != ENOENT)))
       log_msg(LOG_NOTICE, "could not open config file %s: %s", CNF(config_file), strerror(CNF(config_failed)));
 
    if (urlconv == 2)
