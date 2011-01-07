@@ -32,7 +32,8 @@
 // SOCKS connector queue vars
 static SocksQueue_t *socks_queue_ = NULL;
 
-#define SOCKS_BUFLEN (sizeof(SocksHdr_t) + NDESC(name_size) + strlen(CNF(usrname)) + 2)
+#define SOCKS_MIN_BUFLEN (sizeof(SocksHdr_t) + NDESC(name_size) + strlen(CNF(usrname)) + 2)
+#define SOCKS_BUFLEN (SOCKS_MIN_BUFLEN < INET6_ADDRSTRLEN ? INET6_ADDRSTRLEN : SOCKS_MIN_BUFLEN)
 
 
 int socks_send_request(const SocksQueue_t *sq)
@@ -58,6 +59,7 @@ int socks_send_request(const SocksQueue_t *sq)
       strlcat(onion, NDESC(domain), sizeof(onion));
    }
 
+   log_debug("SOCKS_BUFLEN = %d, NI_MAXHOST = %d", SOCKS_BUFLEN, NI_MAXHOST);
    if (inet_ntop(AF_INET6, &sq->addr, buf, sizeof(buf)) == NULL)
    {
       log_msg(LOG_WARNING, "inet_ntop failed: \"%s\"", strerror(errno));
