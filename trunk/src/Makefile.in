@@ -440,7 +440,7 @@ uninstall-am: uninstall-binPROGRAMS uninstall-info-am
 
 
 install-exec-hook:
-	$(LN_S) -f $(DESTDIR)$(bindir)/ocat$(EXEEXT) \
+	$(LN_S) -f ocat$(EXEEXT) \
 	$(DESTDIR)$(bindir)/gcat$(EXEEXT)
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
