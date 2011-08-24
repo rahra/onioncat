@@ -21,16 +21,16 @@ ocat \- OnionCat creates a transparent IPv6 layer on top of Tor's hidden service
 gcat \- GarliCat is like OnionCat but it works with I2P instead of Tor.
 .SH SYNOPSIS
 .B ocat
--i \fIonion_id                      (1st form)\fP
+\-i \fIonion_id                      (1st form)\fP
 .br
 .B ocat
--o \fIIPv6_address                  (2nd form)\fP
+\-o \fIIPv6_address                  (2nd form)\fP
 .br
 .B ocat
 [\fIOPTION\fP] \fIonion_id                (3rd form)\fP
 .br
 .B ocat
--R [\fIOPTION\fP]\fI                      (4th form)\fP
+\-R [\fIOPTION\fP]\fI                      (4th form)\fP
 .br
 .B gcat
 [\fIOPTION\fP] \fIi2p_id                  (5th form)\fP
@@ -66,20 +66,20 @@ Native IPv4 forwarding is deprecated. The recommended solution for IPv4
 forwarding is to build a IPv4-through-IPv6 tunnel through OnionCat.
 .TP
 \fB\-a\fP
-OnionCat creates a log file at $HOME/.ocat/connect_log. All incomming connects are
+OnionCat creates a log file at $HOME/.ocat/connect_log. All incoming connects are
 logged to that file. $HOME is determined from the user under which OnionCat runs
-(see option -u).
+(see option \-u).
 .TP
 \fB\-b\fP
 Run OnionCat in background. This is default. OnionCat will detach from a running
-shell and close standard IO if no log file is given with option -L.
+shell and close standard IO if no log file is given with option \-L.
 .TP
 \fB\-B\fP
 Run OnionCat in foreground. OnionCat will log to stderr by default.
 .TP
 \fB\-C\fP
 Disable the local controller interface. The controller interfaces listens on
-localhost (127.0.0.1 and ::1 port 8066) for incomming connections. It's
+localhost (127.0.0.1 and ::1 port 8066) for incoming connections. It's
 currently used for debugging purpose and not thread-safe and does not have any
 kind of authentication or authorization mechanism. Hence, it should not be used
 in production environments.
@@ -87,7 +87,7 @@ in production environments.
 \fB\-d\fP \fIn\fP
 Set debug level to \fIn\fP. Default = 7 which is maximum. Debug output will
 only be created if OnionCat was compiled with option DEBUG (i.e. configure was
-run with option --enable-debug).
+run with option \-\-enable\-debug).
 .TP
 \fB\-f\fP \fIconfig file\fP
 Read initial configuration from \fIconfig file\fP. 
@@ -132,9 +132,9 @@ Run OnionCat as root and do not change user id (see option \fB\-u\fP).
 Use this option only if you really know what you do!  OnionCat generates a
 random local onion_id. With this option it is not necessary to add a hidden
 service to the Tor configuration file \fBtorrc\fP.  One might use OnionCat
-services within Tor as usualy but it is NOT possible to receive incoming
+services within Tor as usually but it is NOT possible to receive incoming
 connections. If you plan to also receive connections (e.g.  because you provide
-a service or you use software which opens sockets for incomming connections
+a service or you use software which opens sockets for incoming connections
 like Bitorrent) you MUST configure a hidden service and supply its hostname to
 OnionCat on the command line.
 .TP
