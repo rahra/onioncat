@@ -96,6 +96,9 @@ int strsockaddr(const char *src, struct sockaddr *addr)
                ((struct sockaddr_in6*) addr)->sin6_port = htons(p);
          }
       }
+#ifdef HAVE_SIN_LEN
+      ((struct sockaddr_in6*) addr)->sin6_len = sizeof(struct sockaddr_in6);
+#endif
       return AF_INET6;
    }
 
@@ -112,6 +115,9 @@ int strsockaddr(const char *src, struct sockaddr *addr)
       if (s)
          if ((p = atoi(s)) > 0)
             ((struct sockaddr_in*) addr)->sin_port = htons(p);
+#ifdef HAVE_SIN_LEN
+      ((struct sockaddr_in*) addr)->sin_len = sizeof(struct sockaddr_in);
+#endif
       return AF_INET;
    }
 
@@ -141,6 +147,7 @@ void add_listener(const char *buf)
 {
    struct sockaddr_in6 saddr;
 
+   memset(&saddr, 0, sizeof(saddr));
    if (strsockaddr(buf, (struct sockaddr*) &saddr) == -1)
       log_msg(LOG_EMERG, "could not convert address string '%s'", buf), exit(1);
 
