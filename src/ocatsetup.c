@@ -122,6 +122,8 @@ struct OcatSetup setup_ =
    {-1, -1},
    // sig_usr1, clear_stats
    0, 0,
+   // unidirectional
+   0,
    // hosts_lookup
    1
 };
@@ -272,6 +274,7 @@ void print_setup_struct(FILE *f)
          "pid_fd[2]              = {%d, %d}\n"
          "clear_stats            = %d\n"
          "ctrl_listen_cnt        = %d\n"
+         "unidirectional         = %d\n"
          "hosts_lookup           = %d\n"
          ,
          IPV4_KEY, ntohl(setup_.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup_.fhd_key[IPV6_KEY]),
@@ -311,6 +314,7 @@ void print_setup_struct(FILE *f)
          setup_.pid_fd[0], setup_.pid_fd[1],
          setup_.clear_stats,
          setup_.ctrl_listen_cnt,
+         setup_.unidirectional,
          setup_.hosts_lookup
          );
 
@@ -352,7 +356,7 @@ void print_setup_struct(FILE *f)
    }
 
    inet_ntop(AF_INET6, &setup_.oc_vdns, ip6, SBUF);
-   fprintf(f, "ocat_dir               = %s\n", ip6);
+   fprintf(f, "oc_vdns                = %s\n", ip6);
 }
 
 

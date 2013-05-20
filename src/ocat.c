@@ -47,6 +47,7 @@ void usage(const char *s)
 #ifndef WITHOUT_TUN
          "   -T <tun_device>       path to tun character device, default = \"%s\"\n"
 #endif
+         "   -U                    connections are unidirectional\n"
          "   -u <user>             change UID to user, default = \"%s\"\n"
          "   -4                    enable IPv4 support (default = %d)\n"
          , CNF(version), s,
@@ -326,7 +327,7 @@ int parse_opt(int argc, char *argv[])
    log_debug("parse_opt_early()");
    opterr = 1;
    optind = 1;
-   while ((c = getopt(argc, argv, "f:IabBCd:hHrRiopl:t:T:s:u:4L:P:")) != -1)
+   while ((c = getopt(argc, argv, "f:IabBCd:hHrRiopl:t:T:s:Uu:4L:P:")) != -1)
    {
       log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, SSTR(optarg));
       switch (c)
@@ -418,6 +419,10 @@ int parse_opt(int argc, char *argv[])
             tun_dev_ = optarg;
             break;
 #endif
+
+         case 'U':
+            CNF(unidirectional) = 1;
+            break;
 
          case 'u':
             CNF(usrname) = optarg;

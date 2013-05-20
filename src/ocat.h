@@ -348,6 +348,10 @@ struct OcatSetup
    //! pipe filedescriptors for pid deletion process
    int pid_fd[2];
    int sig_usr1, clear_stats;
+   /*! Define if OC connection should be used uni- or bidirectional.
+      Bidirectional has a faster setup time but unidirectional is more safe in
+      respect to security because both ends are verfied. */
+   int unidirectional;
    int hosts_lookup;
    struct in6_addr oc_vdns;
 };

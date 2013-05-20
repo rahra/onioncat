@@ -468,8 +468,8 @@ void *socket_receiver(void *p)
                break;
             }
 
-            // set IP address if it is not set yet and frame is valid
-            if (!drop && IN6_IS_ADDR_UNSPECIFIED(&peer->addr))
+            // set IP address if it is not set yet and frame is valid and in bidirectional mode
+            if (!CNF(unidirectional) && !drop && IN6_IS_ADDR_UNSPECIFIED(&peer->addr))
             {
                if (*peer->tunhdr == CNF(fhd_key[IPV6_KEY]))
                {
