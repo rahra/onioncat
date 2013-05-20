@@ -47,7 +47,7 @@ void usage(const char *s)
 #ifndef WITHOUT_TUN
          "   -T <tun_device>       path to tun character device, default = \"%s\"\n"
 #endif
-         "   -U                    connections are unidirectional\n"
+         "   -U                    disable unidirectional mode\n"
          "   -u <user>             change UID to user, default = \"%s\"\n"
          "   -4                    enable IPv4 support (default = %d)\n"
          , CNF(version), s,
@@ -421,7 +421,7 @@ int parse_opt(int argc, char *argv[])
 #endif
 
          case 'U':
-            CNF(unidirectional) = 1;
+            CNF(unidirectional) = 0;
             break;
 
          case 'u':

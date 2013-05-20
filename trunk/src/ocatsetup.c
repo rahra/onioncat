@@ -123,7 +123,7 @@ struct OcatSetup setup_ =
    // sig_usr1, clear_stats
    0, 0,
    // unidirectional
-   0,
+   1,
    // hosts_lookup
    1
 };

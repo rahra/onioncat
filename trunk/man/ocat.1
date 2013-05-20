@@ -137,6 +137,9 @@ connections. If you plan to also receive connections (e.g.  because you provide
 a service or you use software which opens sockets for incoming connections
 like Bitorrent) you MUST configure a hidden service and supply its hostname to
 OnionCat on the command line.
+Please note that this option does only work if the remote OC does not run in
+unidirectional mode which is default since SVN version 555 (see option
+\fB\-U\fP).
 .TP
 \fB\-s\fP \fIport\fP
 Set OnionCat's virtual hidden service port to \fIport\fP. This should usually
@@ -152,6 +155,15 @@ TUN device file to open for creation of TUN interface. It defaults to
 /dev/net/tun on Linux and /dev/tun0 on most other OSes, or /dev/tap0 if TAP
 mode is in use. Setup of a TUN device needs root permissions. OnionCat
 automatically changes userid after the TUN device is set up correctly.
+.TP
+\fB\-U\fP
+Deactivate unidirectional mode. Before SVN version 555 OnionCat ran only in
+bidirectional mode. This is that a connection to another OC was used for
+outgoing \fIand\fP incoming packets. Since this could be a security risk under
+certain conditions, unidirectional mode was implemented in SVN r555 and set to
+default. With this option bidirectional mode can be enabled again. Please note
+that this does not interoperate with option \fB\-R\fP if the remote OC is
+working in unidirectional mode.
 .TP
 \fB\-u\fP \fIusername\fP
 \fIusername\fP under which ocat should run. The uid is changed as soon as possible
