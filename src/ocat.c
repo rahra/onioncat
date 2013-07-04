@@ -291,7 +291,7 @@ void cleanup_system(void)
 
 void parse_opt_early(int argc, char *argv_orig[])
 {
-   int c;
+   int c, optf = 0;
    char *argv[argc + 1];
 
    log_debug("parse_opt_early()");
@@ -305,8 +305,14 @@ void parse_opt_early(int argc, char *argv_orig[])
       switch (c)
       {
          case 'f':
-            free(CNF(config_file));
-            CNF(config_file) = optarg;
+            if (!optf)
+            {
+               free(CNF(config_file));
+               CNF(config_file) = optarg;
+               optf++;
+            }
+            else
+               log_msg(LOG_ERR, "multiple options -f ignored");
             break;
 
          case 'I':
