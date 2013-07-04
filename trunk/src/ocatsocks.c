@@ -220,6 +220,10 @@ void socks_queue(struct in6_addr addr, int perm)
 {
    SocksQueue_t *squeue, sq;
 
+   // dont queue if SOCKS is disabled (-t none)
+   if (!CNF(socks_dst)->sin_family)
+      return;
+
    for (squeue = socks_queue_; squeue; squeue = squeue->next)
       if (IN6_ARE_ADDR_EQUAL(&squeue->addr, &addr))
          break;

@@ -104,8 +104,11 @@ with the command name \fBgcat\fP.
 .TP
 \fB\-l\fP \fI[ip:]port\fP
 Bind Onioncat to specific \fIip \fP and/or \fIport\fP number for incoming
-connections.  This defaults to 127.0.0.1:8060. This option could be set
+connections. It defaults to 127.0.0.1:8060. This option could be set
 multiple times. IPv6 addresses must be given in square brackets.
+.br
+The parameter \fI"none"\fP deactivates the listener completely. This is for
+special purpose only and shall not be used in regular operation.
 .TP
 \fB\-L\fP \fIlog_file\fP
 Log output to \fIlog_file\fP. If option is omitted, OnionCat logs to syslog if
@@ -149,6 +152,9 @@ not be changed.
 Set Tor SOCKS \fIIP\fP and/or \fIport\fP. If no \fIIP\fP is specified 127.0.0.1
 will be used, if no \fIport\fP is specified 9050 will be used as defaults. IPv6
 addresses must be escaped by square brackets.
+.br
+The special parameter \fI"none"\fP disables OnionCat from making outbound
+connections. This shall be used only in special test scenarios.
 .TP
 \fB\-T\fP \fItun_dev\fP
 TUN device file to open for creation of TUN interface. It defaults to
