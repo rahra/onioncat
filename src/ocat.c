@@ -370,7 +370,12 @@ int parse_opt(int argc, char *argv[])
             break;
 
          case 'l':
-            add_listener(optarg);
+            if (CNF(oc_listen_cnt) == -1)
+               break;
+            if (!strcasecmp(optarg, "none"))
+               CNF(oc_listen_cnt) = -1;
+            else
+               add_listener(optarg);
             break;
 
          case 'L':
@@ -410,7 +415,9 @@ int parse_opt(int argc, char *argv[])
             break;
 
          case 't':
-            if (strsockaddr(optarg, (struct sockaddr*) CNF(socks_dst)) == -1)
+            if (!strcasecmp(optarg, "none"))
+               CNF(socks_dst)->sin_family = 0;
+            else if (strsockaddr(optarg, (struct sockaddr*) CNF(socks_dst)) == -1)
                exit(1);
             break;
 
@@ -583,13 +590,16 @@ int main(int argc, char *argv[])
    if (CNF(create_pid_file))
       mk_pid_file();
 
-   if (!CNF(oc_listen))
+   if (!CNF(oc_listen_cnt))
       add_listener(def);
 
    // start socket receiver thread
    run_ocat_thread("receiver", socket_receiver, NULL);
    // create listening socket and start socket acceptor
-   run_ocat_thread("acceptor", socket_acceptor, NULL);
+   if (CNF(oc_listen_cnt) > 0)
+      run_ocat_thread("acceptor", socket_acceptor, NULL);
+   else
+      log_msg(LOG_INFO, "acceptor not started");
    // starting socket cleaner
    run_ocat_thread("cleaner", socket_cleaner, NULL);
 
@@ -627,7 +637,10 @@ int main(int argc, char *argv[])
    // create socks connector thread and communication queue
    if (pipe(CNF(socksfd)) == -1)
       log_msg(LOG_EMERG, "couldn't create socks connector pipe: \"%s\"", strerror(errno)), exit(1);
-   run_ocat_thread("connector", socks_connector_sel, NULL);
+   if (CNF(socks_dst)->sin_family)
+      run_ocat_thread("connector", socks_connector_sel, NULL);
+   else
+      log_msg(LOG_INFO, "connector not started");
 
 #ifdef PACKET_QUEUE
    // start packet dequeuer

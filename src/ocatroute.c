@@ -984,7 +984,7 @@ void *socket_cleaner(void *ptr)
       if (act_time - stat_wup >= STAT_WAKEUP)
       {
          stat_wup = act_time;
-         log_msg(LOG_INFO, "stats: ... (not implemented yet)");
+         //log_msg(LOG_INFO, "stats: ... (not implemented yet)");
 
          lock_setup();
          if (CNF(clear_stats))
