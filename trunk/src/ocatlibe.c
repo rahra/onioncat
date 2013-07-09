@@ -134,7 +134,7 @@ int strsockaddr(const char *src, struct sockaddr *addr)
             return AF_INET;
 
          default:
-            log_debug("adress family 0x%04x not supported", ((struct sockaddr_in*) addr)->sin_family);
+            log_debug("address family 0x%04x not supported", ((struct sockaddr_in*) addr)->sin_family);
             return -1;
       }
    }
