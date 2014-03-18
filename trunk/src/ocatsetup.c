@@ -125,7 +125,9 @@ struct OcatSetup setup_ =
    // unidirectional
    1,
    // hosts_lookup
-   1
+   0,
+   // domain
+   ""
 };
 
 
@@ -155,8 +157,6 @@ void init_setup(void)
    memset(&ctrl_listen_, 0, sizeof(ctrl_listen_));
    memset(&ctrl_listen6_, 0, sizeof(ctrl_listen6_));
 
-   hosts_init(".b32.i2p");
-
 #ifdef __linux__
    CNF(fhd_key[IPV6_KEY]) = htonl(ETHERTYPE_IPV6);
    CNF(fhd_key[IPV4_KEY]) = htonl(ETHERTYPE_IP);
@@ -176,6 +176,9 @@ void post_init_setup(void)
    setup_.ocat_addr4_mask = NDESC(addr4_mask);
    setup_.ocat_dest_port = NDESC(vdest_port);
    setup_.ocat_ctrl_port = NDESC(ctrl_port);
+   setup_.hosts_lookup = NDESC(hosts_lookup);
+   setup_.domain = NDESC(domain);
+   hosts_init(NDESC(domain));
 
    l = strlen(SYSCONFDIR) + strlen(NDESC(config_file)) + 2;
    if ((setup_.config_file = malloc(l)) != NULL)
@@ -276,6 +279,8 @@ void print_setup_struct(FILE *f)
          "ctrl_listen_cnt        = %d\n"
          "unidirectional         = %d\n"
          "hosts_lookup           = %d\n"
+         "domain                 = \"%s\"\n"
+         "----------------------\n"
          ,
          IPV4_KEY, ntohl(setup_.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup_.fhd_key[IPV6_KEY]),
          setup_.fhd_key_len,
@@ -315,7 +320,8 @@ void print_setup_struct(FILE *f)
          setup_.clear_stats,
          setup_.ctrl_listen_cnt,
          setup_.unidirectional,
-         setup_.hosts_lookup
+         setup_.hosts_lookup,
+         setup_.domain
          );
 
 #ifdef CONNECT_ROOT_PEERS

@@ -353,6 +353,7 @@ struct OcatSetup
       respect to security because both ends are verfied. */
    int unidirectional;
    int hosts_lookup;
+   const char *domain;     //!< domain name appended to network host name
    struct in6_addr oc_vdns;
 };
 

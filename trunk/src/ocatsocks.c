@@ -42,10 +42,10 @@ int socks_send_request(const SocksQueue_t *sq)
    char buf[SOCKS_BUFLEN], onion[NI_MAXHOST];
    SocksHdr_t *shdr = (SocksHdr_t*) buf;
 
-   // Do a hostname lookup if network type is I2P.
+   // Do a hostname lookup if option set.
    // This is done in order to be able to retrieve a 256 bit base32 
    // host from e.g. /etc/hosts.
-   if ((CNF(net_type) == NTYPE_I2P) && CNF(hosts_lookup))
+   if (CNF(hosts_lookup))
    {
       hosts_check();
       ret = hosts_get_name(&sq->addr, onion, sizeof(onion));
@@ -56,7 +56,7 @@ int socks_send_request(const SocksQueue_t *sq)
    if (ret == -1)
    {
       ipv6tonion(&sq->addr, onion);
-      strlcat(onion, NDESC(domain), sizeof(onion));
+      strlcat(onion, CNF(domain), sizeof(onion));
    }
 
    log_debug("SOCKS_BUFLEN = %d, NI_MAXHOST = %d", SOCKS_BUFLEN, NI_MAXHOST);
@@ -288,7 +288,7 @@ void socks_output_queue(FILE *f)
             i, 
             addrstr, 
             ipv6tonion(&squeue->addr, onstr),
-            NDESC(domain),
+            CNF(domain),
             squeue->state,
             squeue->perm ? "PERMANENT" : "TEMPORARY",
             squeue->perm,

@@ -239,6 +239,30 @@ int hosts_get_name(const struct in6_addr *addr, char *buf, int s)
 }
 
 
+/*! Output list of hosts to file.
+ *  @return Returns always 0.
+ **/
+int hosts_list(FILE *f)
+{
+   char in6[INET6_ADDRSTRLEN];
+   int i;
+   struct hosts_ent *h;
+
+   pthread_mutex_lock(&hosts_mutex_);
+   for (i = hosts_.hosts_ent_cnt - 1, h = hosts_.hosts_ent; i >= 0; i--, h++)
+   {
+      if (inet_ntop(AF_INET6, &h->addr, in6, sizeof(in6)) == NULL)
+      {
+         log_msg(LOG_ERR, "inet_ntop() failed: %s", strerror(errno));
+         continue;
+      }
+      fprintf(f, "%s %s\n", in6, h->name);
+   }
+   pthread_mutex_unlock(&hosts_mutex_);
+   return 0;
+}
+
+
 void hosts_init(const char *dom)
 {
    hosts_.hdom = dom;

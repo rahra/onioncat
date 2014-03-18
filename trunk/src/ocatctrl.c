@@ -25,6 +25,7 @@
 
 #include "ocat.h"
 #include "ocat_netdesc.h"
+#include "ocathosts.h"
 
 
 /*! ctrl_handler handles connections to local control port.
@@ -269,6 +270,14 @@ void *ctrl_handler(void *p)
       {
          fprintf(ff, "%s\n", CNF(version));
       }
+      else if (!strcmp(bufp, "hosts"))
+      {
+         hosts_list(ff);
+      }
+      else if (!strcmp(bufp, "hreload"))
+      {
+         hosts_check();
+      }
       else if (!strcmp(bufp, "help") || !strcmp(bufp, "?"))
       {
          fprintf(fo,
@@ -276,6 +285,8 @@ void *ctrl_handler(void *p)
                "exit | quit .... exit from control interface\n"
                "terminate ...... terminate OnionCat\n"
                "close <n> ...... close file descriptor <n> of a peer\n"
+               "hosts .......... list hosts database\n"
+               "hreload ........ reload hosts database\n"
                "status ......... list peer status\n"
                "threads ........ show active threads\n"
                "route .......... show routing table\n"
