@@ -785,6 +785,28 @@ void *socket_acceptor(void *p)
 }
 
 
+#ifdef HAVE_STRUCT_IPHDR
+/* helper function to avoid pointer aliasing */
+static uint32_t get_saddr(const struct iphdr *ihdr)
+{
+   return ihdr->daddr;
+}
+#else
+/* helper function to avoid pointer aliasing */
+static uint32_t get_saddr(const struct ip *ihdr)
+{
+   return ihdr->ip_dst.s_addr;
+}
+#endif
+ 
+
+/* helper function to avoid pointer aliasing */
+static struct in6_addr *get_6dst_ptr(struct ip6_hdr *i6hdr)
+{
+   return &i6hdr->ip6_dst;
+}
+
+
 void packet_forwarder(void)
 {
    char buf[FRAME_SIZE];
@@ -890,8 +912,8 @@ void packet_forwarder(void)
          }
 #endif
 
-         if (!(dest = ipv6_lookup_route(&((struct ip6_hdr*) &buf[4])->ip6_dst)))
-            dest = &((struct ip6_hdr*) &buf[4])->ip6_dst;
+         if (!(dest = ipv6_lookup_route(get_6dst_ptr((struct ip6_hdr*) &buf[4]))))
+            dest = get_6dst_ptr((struct ip6_hdr*) &buf[4]);
       }
       else if (get_tunheader(buf) == CNF(fhd_key[IPV4_KEY]))
       {
@@ -902,9 +924,9 @@ void packet_forwarder(void)
          }
 
 #ifdef HAVE_STRUCT_IPHDR
-         in.s_addr = ((struct iphdr*) &buf[4])->daddr;
+         in.s_addr = get_saddr((struct iphdr*) &buf[4]);
 #else
-         in.s_addr = ((struct ip*) &buf[4])->ip_dst.s_addr;
+         in.s_addr = get_saddr((struct ip*) &buf[4]);
 #endif
          if (!(dest = ipv4_lookup_route(ntohl(in.s_addr))))
          {

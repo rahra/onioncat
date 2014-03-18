@@ -29,7 +29,6 @@
 
 // global thread id var and mutex for thread initializiation
 static int thread_id_ = 0;
-static int exit_cnt_ = 0;
 pthread_mutex_t thread_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 OcatThread_t *octh_ = NULL;
 
@@ -70,7 +69,10 @@ void *thread_run(void *p)
    OcatThread_t **tl;
    void *r;
    sigset_t ss;
+#ifdef DEBUG
    int ecnt, icnt;
+   static int exit_cnt_ = 0;
+#endif
 
    // block all signals for the thread
    sigfillset(&ss);
@@ -95,8 +97,10 @@ void *thread_run(void *p)
       *tl = (*tl)->next;
       free(p);
    }
+#ifdef DEBUG
    ecnt = ++exit_cnt_;
    icnt = thread_id_;
+#endif
    pthread_mutex_unlock(&thread_mutex_);
 
    log_debug("_exit_ thread, %d inits, %d exits", icnt, ecnt);
