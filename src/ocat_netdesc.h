@@ -39,6 +39,7 @@ struct NetDesc
    char *clog_file;
    char *pid_file;
    char *config_file;
+   int hosts_lookup;
 };
 
 extern const struct NetDesc netdesc_[2];
@@ -90,7 +91,7 @@ extern const struct NetDesc netdesc_[2];
 #define I2P_PREFIX4 TOR_PREFIX4
 #define I2P_PREFIX4_MASK TOR_PREFIX4_MASK
 //! internal domain
-#define I2P_DOMAIN ".oc.b32.i2p"
+#define I2P_DOMAIN ".b32.i2p"
 //! Total length of .onion-URL
 #define I2P_ONION_NAME_SIZE (ONION_URL_LEN + 12)
 //! Local listening port for incoming connections from TOR.

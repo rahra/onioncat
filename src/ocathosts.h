@@ -18,6 +18,9 @@
 #ifndef OCATHOSTS_H
 #define OCATHOSTS_H
 
+#ifdef HAVE_STDIO_H
+#include <stdio.h>
+#endif
 #ifdef HAVE_TIME_H
 #include <time.h>
 #endif
@@ -52,6 +55,7 @@ struct hosts_info
 int hosts_check(void);
 int hosts_get_name(const struct in6_addr*, char*, int);
 void hosts_init(const char*);
+int hosts_list(FILE *);
 
 #endif
 

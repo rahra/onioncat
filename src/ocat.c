@@ -29,7 +29,7 @@ void usage(const char *s)
          "   -b                    daemonize (default = %d)\n"
          "   -B                    do not daemonize (default = %d)\n"
          "   -h                    display usage message\n"
-         "   -H                    ignore /etc/hosts while in GarliCat mode\n"
+         "   -H                    toggle /etc/hosts lookup (default = %d)\n"
          "   -C                    disable local controller interface\n"
          "   -d <n>                set debug level to n, default = %d\n"
          "   -f <config_file>      read config from config_file (default = %s)\n"
@@ -53,7 +53,7 @@ void usage(const char *s)
          , CNF(version), s,
          // option defaults start here
          OCAT_DIR, NDESC(clog_file), CNF(create_clog), 
-         CNF(daemon), CNF(daemon) ^ 1,
+         CNF(daemon), CNF(daemon) ^ 1, CNF(hosts_lookup),
          CNF(debug_level), CNF(config_file), NDESC(listen_port),
          CNF(pid_file),
          CNF(ocat_dest_port), ntohs(CNF(socks_dst)->sin_port), 
@@ -372,7 +372,7 @@ int parse_opt(int argc, char *argv[])
             exit(1);
 
          case 'H':
-            CNF(hosts_lookup) = 0;
+            CNF(hosts_lookup) = !CNF(hosts_lookup);
             break;
 
          case 'l':
