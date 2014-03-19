@@ -32,9 +32,9 @@ AC_ARG_ENABLE([tundev], AS_HELP_STRING([--disable-tundev],[compile without tunne
 
 
 if test "${enable_debug+set}" = set ; then
-   AC_SUBST([CFLAGS], [["-Wall -g -D_POSIX_PTHREAD_SEMANTICS"]])
+   CFLAGS="$CFLAGS -g"
 else
-   AC_SUBST([CFLAGS], [["-Wall -O2 -D_POSIX_PTHREAD_SEMANTICS"]])
+   CFLAGS="$CFLAGS -O2"
 fi
 
 # Checks for programs.
