@@ -98,7 +98,7 @@ int hosts_file_modified_r(struct timespec *ts)
 #elif HAVE_STAT_ST_MTIMESPEC
    *ts = st.st_mtimespec;
 #else
-   ts.tv_sec = st.st_mtime;
+   ts->tv_sec = st.st_mtime;
 #endif
    return 1;
 }
