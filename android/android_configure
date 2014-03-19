@@ -1,0 +1,33 @@
+#!/bin/sh
+
+# Cross compilation script for Android.
+# The Android NDK has to be installed and the environment variable ANDROID_NDK
+# has to be set properly. Run this script from the package root directory (one
+# above this).
+
+export CROSS_COMPILE=arm-linux-androideabi
+ 
+export ANDROID_PREFIX=${ANDROID_NDK}/toolchains/arm-linux-androideabi-4.8/prebuilt/linux-x86_64
+
+# level 9 is Android API 2.3 (Gingerbread)
+export SYSROOT=${ANDROID_NDK}/platforms/android-9/arch-arm
+ 
+export CROSS_PATH=${ANDROID_PREFIX}/bin/${CROSS_COMPILE}
+ 
+export CPP=${CROSS_PATH}-cpp
+export AR=${CROSS_PATH}-ar
+export AS=${CROSS_PATH}-as
+export NM=${CROSS_PATH}-nm
+export CC=${CROSS_PATH}-gcc
+#export CXX=${CROSS_PATH}-g++
+export LD=${CROSS_PATH}-ld
+export RANLIB=${CROSS_PATH}-ranlib
+ 
+#export PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig
+ 
+export CFLAGS="${CFLAGS} --sysroot=${SYSROOT} -I${SYSROOT}/usr/include -I${ANDROID_PREFIX}/include"
+export CPPFLAGS="${CFLAGS}"
+export LDFLAGS="${LDFLAGS} -L${SYSROOT}/usr/lib -L${ANDROID_PREFIX}/lib"
+ 
+./configure --host=${CROSS_COMPILE} "$@"
+
