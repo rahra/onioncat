@@ -457,7 +457,10 @@ int parse_opt(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-   char *s, ip6addr[INET6_ADDRSTRLEN], hw[20], def[100], pwdbuf[SIZE_1K];
+#ifdef HAVE_GETPWNAM_R
+   char pwdbuf[SIZE_1K];
+#endif
+   char *s, ip6addr[INET6_ADDRSTRLEN], hw[20], def[100];
    int c;
    struct passwd *pwd, pwdm;
    int urlconv = 0, mode_detect = 0;
@@ -611,7 +614,12 @@ int main(int argc, char *argv[])
 
    // getting passwd info for user
    log_debug("getting user info for \"%s\"", CNF(usrname));
+#ifdef HAVE_GETPWNAM_R
    c = getpwnam_r(CNF(usrname), &pwdm, pwdbuf, SIZE_1K, &pwd);
+#else
+   if ((pwd = getpwnam(CNF(usrname))) == NULL)
+      c = errno;
+#endif
    if (!pwd)
    {
       log_msg(LOG_WARNING, "can't get information for user \"%s\": \"%s\", defaulting to uid %d",
