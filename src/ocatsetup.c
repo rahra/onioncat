@@ -205,9 +205,13 @@ void post_init_setup(void)
 #endif
 
    snprintf(setup_.version, VERSION_STRING_LEN, "%s (c) %s (%s mode)", PACKAGE_STRING, OCAT_AUTHOR, setup_.net_type == NTYPE_TOR ? "OnionCat" : setup_.net_type == NTYPE_I2P ? "GarliCat" : "unknown");
-#ifdef DEBUG
+
+   // You may comment-in the following lines for debugging purpose. Code was
+   // removed due to request of Debian package maintainer.
+#if 0
    snprintf(&setup_.version[strlen(setup_.version)], VERSION_STRING_LEN - strlen(setup_.version), " -- compiled %s %s", __DATE__, __TIME__);
 #endif
+
    setup_.pid_file = NDESC(pid_file);
    setup_.oc_vdns = NDESC(prefix);
    setup_.oc_vdns.s6_addr[15] = 1;
