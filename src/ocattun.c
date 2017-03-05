@@ -1,4 +1,4 @@
-/* Copyright 2008-2009 Bernhard R. Fischer.
+/* Copyright 2008-2017 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -42,6 +42,43 @@ void system_w(const char *s)
    if ((e = system(s)) == -1)
       log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", s, strerror(errno));
    log_debug("exit status = %d", WEXITSTATUS(e));
+}
+
+
+#define ENVLEN 64
+extern char **environ;
+
+
+int run_tun_ifup(const char *ifname, const char *astr, int prefix_len)
+{
+   char env_ifname[ENVLEN], env_address[ENVLEN], env_prefix_len[ENVLEN];
+   char *env[] = {env_ifname, env_address, env_prefix_len, NULL};
+   pid_t pid;
+
+   log_msg(LOG_INFO, "running ifup script \"%s\"", CNF(ifup));
+   switch (pid = fork())
+   {
+      // fork failed
+      case -1:
+         log_msg(LOG_ERR, "could not fork sub process for script execution: \"%s\"", strerror(errno));
+         return -1;
+
+      // child
+      case 0:
+         snprintf(env_ifname, sizeof(env_ifname), "OCAT_IFNAME=%s", ifname);
+         snprintf(env_address, sizeof(env_address), "OCAT_ADDRESS=%s", astr);
+         snprintf(env_prefix_len, sizeof(env_prefix_len), "OCAT_PREFIXLEN=%d", prefix_len);
+         environ = env;
+
+         execlp(CNF(ifup), CNF(ifup), NULL);
+
+         log_msg(LOG_ERR, "execlp(\"%s\") failed: %s", CNF(ifup), strerror(errno));
+         _exit(1);
+
+      // parent
+      default:
+         return 0;
+   }
 }
 
 
@@ -102,7 +139,8 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
    if (ioctl(fd, TUNSETIFF, (void *) &ifr) < 0)
       log_msg(LOG_EMERG, "could not set TUNSETIFF: %s", strerror(errno)), exit(1);
    strlcpy(dev, ifr.ifr_name, IFNAMSIZ);
-   if (!CNF(use_tap))
+
+   if (!CNF(use_tap) && (CNF(ifup) == NULL))
    {
       snprintf(buf, sizeof(buf), "ifconfig %s add %s/%d up", dev, astr, NDESC(prefix_len));
       system_w(buf);
@@ -165,7 +203,7 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
    if (ioctl(fd, TUNSIFHEAD, &prm) == -1)
       log_msg(LOG_EMERG, "could not ioctl:TUNSIFHEAD: %s", strerror(errno)), exit(1);
 
-#endif /* __linux__ */
+#endif
 
 #ifdef __sun__
    if( (ppa = ioctl(fd, TUNNEWPPA, ppa)) == -1)
@@ -175,7 +213,7 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 
 #endif
 
-   if (!CNF(use_tap))
+   if (!CNF(use_tap) && (CNF(ifup) == NULL))
    {
 #ifdef __OpenBSD__
       snprintf(buf, sizeof(buf), "ifconfig %s inet6 %s prefixlen %d up", dev, astr, NDESC(prefix_len));
@@ -201,7 +239,13 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 
    }
 
-#endif
+#endif /* __linux__ */
+
+   if (CNF(ifup) != NULL)
+   {
+      run_tun_ifup(dev, astr, NDESC(prefix_len));
+      return fd;
+   }
 
    // setting up IPv4 address
    if (CNF(ipv4_enable) && !CNF(use_tap))
@@ -218,7 +262,7 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
    }
 
    return fd;
-}              
+}
  
 #endif /* WITHOUT_TUN */
 

@@ -1,4 +1,4 @@
-/* Copyright 2008 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2017 Bernhard R. Fischer, Daniel Haslinger.
  *
  * This file is part of OnionCat.
  *
@@ -306,6 +306,7 @@ struct OcatSetup
    char *config_file;
    int config_read;
    int config_failed;
+   char *ifup;             //!< path to ifup scripts
    int use_tap;
    //! local OnionCat MAC address
    uint8_t ocat_hwaddr[ETHER_ADDR_LEN];

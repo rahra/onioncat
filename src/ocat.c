@@ -1,4 +1,4 @@
-/* Copyright 2008,2009 Bernhard R. Fischer.
+/* Copyright 2008-2017 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -32,6 +32,7 @@ void usage(const char *s)
          "   -H                    toggle /etc/hosts lookup (default = %d)\n"
          "   -C                    disable local controller interface\n"
          "   -d <n>                set debug level to n, default = %d\n"
+         "   -e <ifup-script>      execute ifup-script after opening interface\n"
          "   -f <config_file>      read config from config_file (default = %s)\n"
          "   -i                    convert onion hostname to IPv6 and exit\n"
          "   -I                    GarliCat mode, use I2P instead of Tor\n"
@@ -135,10 +136,10 @@ int mk_pid_file(void)
                   CNF(pid_fd[0]), strerror(errno)), exit(1);
 
          if (unlink(CNF(pid_file)) == -1)
-            log_msg(LOG_WARNING, "error deleting pid ]ile \"%s\": \"%s\"",
+            log_msg(LOG_WARNING, "error deleting pid file \"%s\": \"%s\"",
                   CNF(pid_file), strerror(errno)), exit(1);
          log_msg(LOG_INFO, "pid file deleted, exiting.");
-         exit(0);
+         _exit(0);
 
       // parent
       default:
@@ -199,6 +200,7 @@ void sig_handler(int sig)
       case SIGCHLD:
          // FIXME: there should be some error handling
          (void) waitpid(-1, &status, WNOHANG);
+         break;
 
       case SIGTERM:
       case SIGINT:
@@ -333,7 +335,7 @@ int parse_opt(int argc, char *argv[])
    log_debug("parse_opt_early()");
    opterr = 1;
    optind = 1;
-   while ((c = getopt(argc, argv, "f:IabBCd:hHrRiopl:t:T:s:Uu:4L:P:")) != -1)
+   while ((c = getopt(argc, argv, "f:IabBCd:e:hHrRiopl:t:T:s:Uu:4L:P:")) != -1)
    {
       log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, SSTR(optarg));
       switch (c)
@@ -361,6 +363,10 @@ int parse_opt(int argc, char *argv[])
 
          case 'd':
             CNF(debug_level) = atoi(optarg);
+            break;
+
+         case 'e':
+            CNF(ifup) = optarg;
             break;
 
          case 'i':
