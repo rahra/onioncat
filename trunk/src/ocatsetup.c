@@ -1,4 +1,4 @@
-/* Copyright 2008 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2017 Bernhard R. Fischer, Daniel Haslinger.
  *
  * This file is part of OnionCat.
  *
@@ -60,6 +60,7 @@ struct OcatSetup setup_ =
    {0}, 0,
    // config_file, config_read, config_failed
    NULL, 0, 0,
+   NULL,                                  // ifup
 #ifdef __CYGWIN__
    1,
 #else

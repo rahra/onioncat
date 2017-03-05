@@ -1,4 +1,4 @@
-.\" Copyright 2008 Bernhard R. Fischer, Daniel Haslinger.
+.\" Copyright 2008-2017 Bernhard R. Fischer, Daniel Haslinger.
 .\"
 .\" This file is part of OnionCat.
 .\"
@@ -14,7 +14,7 @@
 .\" You should have received a copy of the GNU General Public License
 .\" along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
 .\"
-.TH OCAT 1 2009-11-15 "ocat" "OnionCat User's Manual"
+.TH OCAT 1 2017-03-05 "ocat" "OnionCat User's Manual"
 .SH NAME
 ocat \- OnionCat creates a transparent IPv6 layer on top of Tor's hidden services.
 .br
@@ -88,6 +88,36 @@ in production environments.
 Set debug level to \fIn\fP. Default = 7 which is maximum. Debug output will
 only be created if OnionCat was compiled with option DEBUG (i.e. configure was
 run with option \-\-enable\-debug).
+.TP
+\fB\-e\fP \fIifup\fP
+Execute script \fIifup\fP to bring up the tunnel interface.
+.br
+OnionCat will create a new tunnel interface and execute \fIifup\fP immediatly
+after opening the network interface. This is intended as a universial interface
+for configuring the tunnel device and do additinal tasks when starting
+OnionCat.  The script is executed with the same privilege as OnionCat is
+started, i.e. before dropping privileges. This typically is root. The script is
+run only once at startup.
+
+See below in section EXAMPLES for a typical Linux ifup shell script.
+
+OnionCat executes the file \fIifup\fP with a call to execlp(3) and will pass
+the following environment variables: 
+
+\fBOCAT_IFNAME\fP
+.br
+This variable contains the name of the network interface, e.g. "tun0".
+ 
+\fBOCAT_ADDRESS\fP
+.br
+This variable contains the IPv6 address which is associated with this instance
+of OnionCat and its hidden service address.
+
+\fBOCAT_PREFIXLEN\fP
+.br
+This variable contains the prefix length of the IPv6 prefix which typically is
+48.
+
 .TP
 \fB\-f\fP \fIconfig file\fP
 Read initial configuration from \fIconfig file\fP. 
@@ -180,6 +210,18 @@ Usually OnionCat opens a TUN device which is a layer 3 interface. With option
 \fB\-p\fP OnionCat opens a TAP device instead which is a virtual ethernet
 (layer 2) interface.
 
+.SH EXAMPLES
+A typical ifup script for OnionCat for a modern Linux distribution using the
+`ip` command for configuring network related stuff could look like the
+following:
+
+.in +3n
+.nf
+#!/bin/sh
+
+ip address add $OCAT_ADDRESS/$OCAT_PREFIXLEN dev $OCAT_IFNAME
+ip link set $OCAT_IFNAME up 
+.fi
 .SH NOTES
 This man page is still not finished...
 
@@ -192,14 +234,16 @@ Concepts, software, and man page written by Bernhard R. Fischer
 Haselbacher, Daniel Haslinger <creo-ocat@blackmesa.at>, and Wim Gaethofs.
 
 .SH "SEE ALSO"
-OnionCat project page http://www.cypherpunk.at/onioncat/
+OnionCat project page https://www.onioncat.org/
 
-Tor project homepage http://www.torproject.org/
+OnionCat source packages are found at https://www.cypherpunk.at/ocat/download/Source/
 
-I2P project homepage http://www.i2p2.de/
+Tor project homepage https://www.torproject.org/
+
+I2P project homepage https://geti2p.net/
 
 .SH COPYRIGHT
-Copyright 2008-2013 Bernhard R. Fischer.
+Copyright 2008-2017 Bernhard R. Fischer.
 
 This file is part of OnionCat.
 
