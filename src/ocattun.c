@@ -51,8 +51,8 @@ extern char **environ;
 
 int run_tun_ifup(const char *ifname, const char *astr, int prefix_len)
 {
-   char env_ifname[ENVLEN], env_address[ENVLEN], env_prefix_len[ENVLEN];
-   char *env[] = {env_ifname, env_address, env_prefix_len, NULL};
+   char env_ifname[ENVLEN], env_address[ENVLEN], env_prefix[ENVLEN], env_prefix_len[ENVLEN];
+   char *env[] = {env_ifname, env_address, env_prefix, env_prefix_len, NULL};
    pid_t pid;
 
    log_msg(LOG_INFO, "running ifup script \"%s\"", CNF(ifup));
@@ -67,6 +67,8 @@ int run_tun_ifup(const char *ifname, const char *astr, int prefix_len)
       case 0:
          snprintf(env_ifname, sizeof(env_ifname), "OCAT_IFNAME=%s", ifname);
          snprintf(env_address, sizeof(env_address), "OCAT_ADDRESS=%s", astr);
+         strcpy(env_prefix, "OCAT_PREFIX=");
+         inet_ntop(AF_INET6, &NDESC(prefix), env_prefix + strlen(env_prefix), sizeof(env_prefix) - strlen(env_prefix));
          snprintf(env_prefix_len, sizeof(env_prefix_len), "OCAT_PREFIXLEN=%d", prefix_len);
          environ = env;
 
