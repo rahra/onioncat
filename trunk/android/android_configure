@@ -10,7 +10,11 @@ export CROSS_COMPILE=arm-linux-androideabi
 export ANDROID_PREFIX=${ANDROID_NDK}/toolchains/arm-linux-androideabi-4.8/prebuilt/linux-x86_64
 
 # level 9 is Android API 2.3 (Gingerbread)
-export SYSROOT=${ANDROID_NDK}/platforms/android-9/arch-arm
+# level 16 is Android API 4.1 (Jelly Been)
+export SYSROOT=${ANDROID_NDK}/platforms/android-16/arch-arm
+# Starting with Android 4.1 position independet executables (PIE) are required, set flags appropriately
+CFLAGS="${CFLAGS} -fPIE"
+LDFLAGS="${LDFLAGS} -fPIE -pie"
  
 export CROSS_PATH=${ANDROID_PREFIX}/bin/${CROSS_COMPILE}
  
