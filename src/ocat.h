@@ -520,6 +520,8 @@ typedef struct OcatCtrlHdr
 #ifndef WITHOUT_TUN
 #ifdef __sun__
 #define TUN_DEV "/dev/tun"
+#elif __ANDROID__
+#define TUN_DEV "/dev/tun"
 #elif __linux__
 #define TUN_DEV "/dev/net/tun"
 #else
