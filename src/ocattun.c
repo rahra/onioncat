@@ -19,7 +19,7 @@
  *  These functions create the TUN device.
  *
  *  @author Bernhard R. Fischer <rahra _at_ cypherpunk at>
- *  @version 2008/02/03-01
+ *  @version 2008/02/03-01 (last update 20170501)
  */
 
 
