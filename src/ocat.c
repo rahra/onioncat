@@ -38,6 +38,7 @@ void usage(const char *s)
          "   -I                    GarliCat mode, use I2P instead of Tor\n"
          "   -l [<ip>:]<port>      set ocat listen address and port, default = 127.0.0.1:%d\n"
          "   -L <log_file>         log output to <log_file> (default = stderr)\n"
+         "   -n <tunname>          set the tun device name, may contain format string (e.g. tun%%d)\n"
          "   -o <ipv6_addr>        convert IPv6 address to onion url and exit\n"
          "   -p                    use TAP device instead of TUN\n"
          "   -P [<pid_file>]       create pid file at location of <pid_file> (default = %s)\n"
@@ -335,7 +336,7 @@ int parse_opt(int argc, char *argv[])
    log_debug("parse_opt_early()");
    opterr = 1;
    optind = 1;
-   while ((c = getopt(argc, argv, "f:IabBCd:e:hHrRiopl:t:T:s:Uu:4L:P:")) != -1)
+   while ((c = getopt(argc, argv, "f:IabBCd:e:hHrRiopl:t:T:s:Uu:4L:P:n:")) != -1)
    {
       log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, SSTR(optarg));
       switch (c)
@@ -436,6 +437,10 @@ int parse_opt(int argc, char *argv[])
 #ifndef WITHOUT_TUN
          case 'T':
             tun_dev_ = optarg;
+            break;
+
+         case 'n':
+            strlcpy(CNF(tunname), optarg, sizeof(CNF(tunname)));
             break;
 #endif
 
