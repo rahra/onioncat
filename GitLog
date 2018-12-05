@@ -1,3 +1,5 @@
+57c387a automake was updated on OpenBSD
+5d164a0 modified configure to be independent if git, using file GitLog instead
 8e7f6eb Merge pull request #2 from Shulyaka/master
 4cbb7de Command line option to set tun device name
 1b9d955 modified README in accordance to the repository move to Github
