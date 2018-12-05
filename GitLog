@@ -1,0 +1,245 @@
+8e7f6eb Merge pull request #2 from Shulyaka/master
+4cbb7de Command line option to set tun device name
+1b9d955 modified README in accordance to the repository move to Github
+200223e minor update in comment
+38d5fbd build scripts updated
+5425e20 Added ocat-ifup script to distribution
+96414da removed shebang from ifup script for compatibility with Android (and other non-standard systems having the system shell not at /bin/sh)
+7697c10 added tun-dev path for Android
+d895a5a ifup script edited
+d8e5fa0 Android build script updated
+0762676 added ifup script 'ocat-ifup', and added variable OCAT_PREFIX to script environment
+d50cd27 Added option -e <ifup> to support execution of 'ifup'-scripts to bring up the network interface in a flexible way.
+6c87595 forget to check in automake file 'compile'
+1370177 Autotools updated
+8797526 Removed __DATE__/__TIME__ to suffice reproducible builds (requested by Debian package maintainer).
+f85cc13 add android compilation script
+69c7d27 updated autotools
+20da14d add autoconf check for getpwnam_r()
+19eb9e9 syntax error fixed
+ecff3c3 OC now is able to load hostnames from /etc/hosts for Tor-version as well. It is off by default for Tor and on for I2P (the latter was already the case before). Option -H toggle this feature. Controller offer the commands 'hosts' and 'hreload' for hosts debugging. Domains names are looked up in hosts file by domain setup_.domain which is '.onion' for Tor and '.b32.i2p' for I2P.
+63de82e fixed aliasing and unused warnings
+6254b44 minor change in manpage
+f5b3d9f typo fixed. thx to intrigeri.
+34b21a0 bumped version autoconf
+f4b3a26 fixed double free() segfault in case of multiple option -f
+74de33d add option argument 'none' to -t and -l to disable incoming/outgoind sessions
+3a889bc man page updated. unidirectional mode set to default.
+ec72807 Added option -U for unidirectional connections which is a severe security improvement.
+71045ad unclean initialization in strsockaddr() and add_lister() fixed
+251eff2 typos in man page fixed.
+884160d package updated to meet Debian package requirements
+d827c78 inet_ntop error message fixed
+05e2534 OC now works on DragonFly BSD. Misleading config file error message removed. DNS interception started (but not in use yet).
+a11ab59 autoconf updated
+3ed840f Header files reordered according to inet(3). Wincode updated, compiles and runs now on Windows 7 with OpenVPN 2.3 and Cygwin 1.7.
+3d0d7c8 - configure.ac refined - OC now compiles and runs on Solaris 10 using the Universal TUN/TAP driver   version 1.1 (http://vtun.sourceforge.net/tun/index.html) - ocathosts.[ch] added. It reads IPv6 addresses from /etc/hosts - /etc/hosts reverse lookup for I2P .b32 names added
+ff66922 - fixed order of pid-process creation - AC_PROG_MKDIR_P was missing - child reaper was missing in case of pid-process getting killed
+76d8278 parse options twice caused some troubles at least on Linux.
+e55d55d updated revision of *configure
+6bb56b4 fixed erroneous parsing sequence of option -h
+9f92f98 minor bugfix with initial config file read
+4d32642 forgot to include some files into the source package
+25e0874  - debian directory included into source package.  - freebsd directory included into source package.  - acx_pthread.m4 replaced by newer ax_pthread.m4 for autoconf.
+34bd8c5 pointer dereferences recoded in respect to strict alias checking of compiler
+dfa5915  - options are parsed sequentially (-f and -I first)  - config file is always read from SYSCONFDIR (usually /etc or /usr/local/etc)  - changed Makefile.am to not install header files
+2a90cae GarliCat howto updated
+4755e59  - separate name for connect log and pid file for OC/GC.  - mode detection (OC/GC) improved
+1127c4c  - option -t did not work correctly  - (optional) pid file is removed at exit  - SIGUSR1 is handled in preparation for statistics output  - controller sessions limited to MAX_DEF_CTRL_SESS (= 5 by default)
+8bb123c merged GarliCat branch back into trunk onioncat-privatehosts.pl added (code by zzz)
+5d2c972 dev version 0.2.2 started
+c7c765f FreeBSD ifndef corrected
+5a644b0 Debian init-script adapted
+88f5ff7 syslog behavior slightly modified
+e4fa7e0 OC should now detach properly from console
+db3e00a version string fixed in controller
+6ed203a version string improved
+af1aede  - base development environment changed to OpenBSD 4.5  - some type conversions fixed  - fd 0,1,2 now reconnected to /dev/null
+74c78ba manpage updated
+b72788d  - syslog messages contain name and PID  - fixed some compiler warnings  - updated hosts.onioncat
+698fb98 pid file is created optionally, OC stays in foreground in Cygwin by default.
+d718d3c 0.1.13 released, versioning increased to 0.2.0
+7960b58 config.guess added
+53060b0 config.sub added
+61614cc improved autoconf for better pthread configuration (acx_pthread.m4)
+49862c0 Added cyclic buffered read from fd in preparation for controller rewrite
+dbe966d bugfix in socks_pipe_request() introduced fdprintf() in preparation for controller enhancement improved base32-decoding
+fc2d145 error checking for inet_ntop in ocat.c improved syslogging
+b4bd9ab debian package update
+fdd3cd1 SOCKS connector completely rewritten. Works now without dynamic thread pool. This is more memory efficient.
+82fc1f3 debian version changed again to meet configure script
+9dc6c9d added Debian, changelog
+62447d8 added Debian
+aed3aef autoconf updated
+fa3d746 hosts file updated
+7f06b3b idle timeout increased hosts file updated (Onionmail) configure.ac changed (readline() removed)
+8e03597 FreeBSD ports information update
+3f2af43 added missing OpenBSD endianess macros for Cygwin. This affected NDP protocol.
+2d54ec6 FreeBSD ports info add for port submission
+9e1d776 changed version numbering syntax in honor to FreeBSD ports
+3663bec merged Windows branch into trunk
+50d774b sylogging implemented
+516502a version 0.1.11 tagged
+d370752 symlinked manpage
+fb2b4ac manpage updated old init script deleted
+b7c797d introduced fork/pthreads workaround for blocking IO on OpenBSD
+f5dc0c6  - stdio is closed if process is backgrounded  - If signalled twice (TERM, INT) it immediately exits
+0cbcc81 debian start script updated
+de21823 dsafs
+2538660 fdssdf
+d1c4ea1 added debian unstable
+c9480f1 added debian unstable
+215b731 added debian unstable
+5d2e20b debugging of process fork refined, parent exits with exitcode 0
+9d4fa7f ubuntuized
+63a8b00 init startup weirdness ....
+026a57f Debian ............
+82264c8 Debian: fixing Chicken Egg Problem with tor Hidden service
+a65027c Debian: small changes
+0f9b213 Debian: small changes
+d373548 Debian: small changes
+27d90c0 Debian: small changes
+0e45436 Debian: small changes
+abb463c Debian: small changes
+fce7f4a Debian: small changes
+d632ac2 Debian: small changes
+f796b9b Debian: small changes
+ba5616c Debian: small changes
+f6b4423 Debian: small changes
+b2d71cb Debian: small changes
+55d9f7e Debian: small changes
+4c161de Debian: small changes
+90c172e Debian: small changes
+06a1f2f Debian: small changes
+21341a3 Debian: small changes
+ecef40e Debian: small changes
+f268a02 Debian: init.d
+d38c4e8 added Man page for debian
+2639d32 edited Control file
+55faa2e OnionCat daemonizes by default now
+ed3200c fiddling around with debian/rules
+69c783b populated control and copyright files
+bfe8764 Added Debian
+b7fb262 * fragment buffer resynchronization enhanced * onioncat hosts file updated
+27cf8f5  - disabled connect log if unprivileged user -2 is used  - getpwnam() replaced by getpwnam_r() because valgrind reported an error    ...but unfortunatelly it still does  - improved process termination handling  - illegal mem access fixed in termination process  - Socks connect exchanged by timed select  - added signal handler for SIGTERM (and SIGHUP without implementation)  - uid is changed to -2 if default user does not exist
+8cd621a - fixed erroneous sockaddr size in socks connect (leaded to failure on   OpenBSD) - improved tunnel name determination - fixed ifconfig for OpenBSD - fixed mem leak in thread creation process - replaced static local_listeners by configurable ones (for OC listen and   controller listen) - graceful shutdown (CTRL-C or SIGINT)
+411e604 stack size configurable -- needed for OpenBSD
+e52ede0 autoreconf'd
+cd164c8 SOCKS reconnect speed limited
+319fcd0 minor fixes in local Tor listener code (socket acceptor)
+52d532c oc_listen_port removed from setup struct
+9be8184 controller interfaces segfaulted due to error in listener list initialization
+f3d53e6 hidden service listening address now configurable
+ba5b268 version number increased to 0.1.10
+c0fa408 root peer removed because server accidently died
+3ddf4c4 Updated Readme to new homepage
+932d97b svnversion included into PACKAGE_STRING
+4a1ab77 
+0cee407 introduced struct sockaddr_str and inet_ntops()
+f2e6e67 man page updated support of random local addresses added (option -R)
+1a51498 transition to configurable receipient port (not finished yet)
+f8048ec SOCKS destination IP configurable
+8b2daa9 dot.cat root peer added
+cb4e7d6 
+2a15c18 fixed fatal socks queue memory bug disable self connections at root nodes
+c773b44 add route for macosx bugfix in ether_ntoa_r
+87b15c7 debian start-stop script added
+415db16 replaced ether_ntoa by ether_ntoa_r added some comments
+76aeaf7 serious framesize buf with TAP device fixed
+ed4f1d7 seems to run on Darwin yet
+55fc47b ether_ntoa() introduced (instead of self-written function) header files consolidated configure.ac bugfixes and enhancements compiles on freebsd and openbsd again now
+3ac2519 
+24f76ec 
+cdd8e5b replace if_ether.h by ethernet.h
+197b1cd log file and daemonize option improved
+f9722c1 improved peer identification (check tor_prefix of 1st packet)
+a003432 bugfix with configure script
+2a8162f 
+d56fc00 included man page to autoconf
+bd3a1ee man page extended (but still not finished)
+9a590a2 IPv6 routing table improved (prefix length checking)
+9ac10fa IPv6 routing table now is dynamic flat list in head routing table manipulation through controller or config file
+7f030ff changelog updated
+70372e6 ocatipv6.c added. It allows limited IPv6 routing capability. a single keepalive packet is sent after successful connection to remote peer.
+b5497e6 NDP code rewritten. Should be more robust and does also solicitation on socket reception.
+c6af10f ETH_ALEN exchanged by ETHER_ADDR_LEN reconnecting remotely disconnected permanent peers changing name of socks-connector threads
+40ceab6 keepalive bugfix
+56806d6 moved ctrl-stuff to separate file keep_alive didnt increment bytecounter
+1f84814 aclocal.m4 added to repository
+d026912 replace log-constants by syslog-used constants
+d111cbc replaced setup by CNF() and setup_
+1306b48 implemented more robust close()
+5e37c05 split ocatroute.c to ocatsocks.c and ocatlibe.c bugfix in ocat_setup.c
+d1551eb added background option added pid file creation added optional logfile
+4bcbbc6 (*) packet queue disabled by default and configurable by configure-script (*) keepalive activated for permanent connections (*) connections configurable by config file
+00dc92b TAP device and NDP should work sufficient for prototype tests controller interface has additional commands "version", "setup" and "macs"
+10e388a add configurable #defines in configure.ac
+f150c96 merged current tap-branch into trunk
+ffce05e added connect command to control interface connections can be permanent recoded unclean fragbuf pointer
+83e4ffb ndp works a little
+508593b wurm added
+cba67ed todo changed
+24d63a9 prompt added at controller interface and route parser enhanced
+fe79e11 cleanups
+1eeb5e3 some cleanup and adapted code to freebsd again
+eb8d69f ocat now IPv4 aware
+e49407b added sys_types to ocat.h
+b12ce7e ocatsetup added
+240c6ec introduced setup structure and connect log
+221c1f9 onioncat 0.1.8 released
+2a10763 onioncat 0.1.7 released
+b4556cc included GPL and strl-functions
+6b1d895 ocat 0.1.6
+8b232f6 implemented strlcat() for compatibility
+8625f16 todo...
+d44d836 replaced clock_gettime by gettimeofday
+187b457 
+51cf35c 
+6dfc99b changed forwading from write() to send()
+94c523c updated freebsd portability
+7f38999 created 0.1.4 tag
+d3c71a0 completely restructured controller and acceptor split to a generic acceptor that calls specific functions for TOR acception or controller acception
+fa0d574 
+5fb8b3b 
+26cb73a directories rearranged
+38ae8fa slight code cleanup
+d83f7ed semaphore/shared mem/message queue example imported
+ba97ad2 tcp sndbuf verification added (thats a workaround...)
+55404f2 peers now do have one mutexes, bug in socket_cleaner fixed
+fedcfd8 increased framebuffer to maximum size of IP packets
+48d29dc increased debug code for defrag bug
+54c33eb 
+c58e207 added some debug code for fragment handling
+1d925c6 fragment handling implemented
+e08fc7c stripped tun frameheader on TOR end
+9326d47 PEERLIST array from code removed and replaced by chained list
+48cd522 
+4915bbe switched to autoconf/automake
+6558186 freeskippers added
+02c1231 
+5b0dda6 
+bfc434a made it capable of autoconf/automake
+77f45a4 
+a922201 cygwin updates
+8f590e1 
+59b766d bugfix: controller accidently used wrong fd
+024bda5 TODO updated
+d6edee4 small tool for querying hidden service descriptors added (checkhidden (sh) and getdesc.c)
+2546cad thread start helper improved
+776e9b0 control commands 'threads' and 'terminate' implemented
+7536542 socket_connector redesigned for parallel queueing
+8000c2b 
+d3183b6 write return code evaluated compiles on OpenBSD 4.2 control command status improved
+4badbfb thread startup improved local control socket implemented with some commands
+31e795e improved FreeBSD tun code
+9c31189 add simpler tun header test
+8c608c0 created tag 0.1.1
+7d4ff43 fixed freebsd frame header: linux AF_INET6 != freebsd AF_INET6
+168b7c6 regarding sin_len-field of struct sockaddr
+2a71c31 added frame header rewriting upon underlying OS
+a52c63c 
+e4c80cf 
+704a3ed typo
+86b2f14 changing tun setup to ifconfig
+96c65e5 
+e967142 repository restructured
