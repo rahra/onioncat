@@ -53,7 +53,7 @@ struct OcatSetup setup_ =
    {0, 1},
    //! default debug level
    LOG_DEBUG,
-   OCAT_UNAME, {0}, {{{0}}}, 0, 0, 1, OCAT_DIR, TUN_DEV,
+   OCAT_UNAME, {0}, {0}, {{{0}}}, 0, 0, 1, OCAT_DIR, TUN_DEV,
    {'\0'},                                // tunname
    0, 
    //ADDR4_PREFIX, ADDR4_MASK
@@ -254,6 +254,7 @@ void print_setup_struct(FILE *f)
          "debug_level            = %d\n"
          "usrname                = \"%s\"\n"
          "onion_url              = \"%s\"\n"
+         "onion3_url             = \"%s\"\n"
          "ocat_addr              = %s\n"
          "create_clog            = %d\n"
          "runasroot              = %d\n"
@@ -297,6 +298,7 @@ void print_setup_struct(FILE *f)
          setup_.debug_level,
          setup_.usrname,
          setup_.onion_url,
+         setup_.onion3_url,
          ip6,
          setup_.create_clog,
          setup_.runasroot,

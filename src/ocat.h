@@ -289,6 +289,8 @@ struct OcatSetup
    //! user name to change uid to
    char *usrname;
    char onion_url[SIZE_256];
+   //! long hs v3 onion name
+   char onion3_url[SIZE_256];
    struct in6_addr ocat_addr;
    //! flag to create connection log
    int create_clog;
