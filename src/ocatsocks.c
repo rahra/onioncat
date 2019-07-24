@@ -33,7 +33,7 @@
 static SocksQueue_t *socks_queue_ = NULL;
 
 #define SOCKS_MIN_BUFLEN (sizeof(SocksHdr_t) + NDESC(name_size) + strlen(CNF(usrname)) + 2)
-#define SOCKS_BUFLEN (SOCKS_MIN_BUFLEN < INET6_ADDRSTRLEN ? INET6_ADDRSTRLEN : SOCKS_MIN_BUFLEN)
+#define SOCKS_BUFLEN (SOCKS_MIN_BUFLEN + NI_MAXHOST + 32)
 
 
 int socks_send_request(const SocksQueue_t *sq)
