@@ -222,6 +222,42 @@ following:
 ip address add $OCAT_ADDRESS/$OCAT_PREFIXLEN dev $OCAT_IFNAME
 ip link set $OCAT_IFNAME up 
 .fi
+
+.SH ONIONCAT AND V3 HIDDEN SERVICES
+Originially Tor's v2 hidden service addresses had a binary length of 80 bits.
+This made it possible to let OnionCat map hidden service addresses to IPv6
+addresses and vice versa. The development of OnionCat started in 2008, and this
+held for a very long time until recently Tor came up with version 3 of hidden
+services. To comply with ongoing development in the field of cryptography the
+new hidden service addresses of Tor (since version 0.3.2) are much bigger,
+meaning 336 bits. This obviously does not fit into an IPv6 address, hence,
+Onioncat is not able any more to translate back and forth between IPv6 and v3
+onion addresses.
+
+As a solution OnionCat offers the possibility to do an external hostname lookup
+within /etc/hosts instead. Please note that for security reasons, OnionCat
+does not use the system resolver, it definitely just reads the local hosts
+file. The big drawback for OnionCat is that with v3 hidden services OnionCat
+does not work out of the box any more. It requires that the destionations are
+configured manually beforehand.
+
+To connect to a v3 hidden service, on the client side add a line to your
+/etc/hosts with the IPv6 address and the v3 hostname and run OnionCat with
+the additional option \fB-H\fP. The hosts entry could look like this (in one
+line!):
+
+\fBfd87:d87e:eb43:45g6:3bbb:9fxf:5877:4319 tulqpcvf7Oeuxzjod6odrpO77ryujc7o0g7kw6c76q9cbnbi7rqskxid.onion\fP
+
+If this client also has a v3 hidden service, you have to enter its
+IPv6/hostname pair to the hosts file on the opposite site as well, except you
+use the option \fB-U\fP on the other side.
+
+Please note that you could pick any IPv6 address in this case, although I
+suggest to truncate the long hostname just to the last 16 characters for use
+with OnionCat, e.g. truncate
+"tulqpcvf7Oeuxzjod6odrpO77ryujc7o0g7kw6c76q9cbnbi7rqskxid.onion" to
+"6q9cbnbi7rqskxid.onion" and use it as parameter for OnionCat.
+
 .SH NOTES
 This man page is still not finished...
 
