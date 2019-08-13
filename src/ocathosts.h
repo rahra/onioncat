@@ -52,6 +52,7 @@ struct hosts_info
    const char *hdom;
 };
 
+char *hosts_set_path(char *);
 int hosts_check(void);
 int hosts_get_name(const struct in6_addr*, char*, int);
 void hosts_init(const char*);

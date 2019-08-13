@@ -127,6 +127,8 @@ struct OcatSetup setup_ =
    1,
    // hosts_lookup
    0,
+   // hosts_path
+   NULL,
    // domain
    ""
 };
@@ -285,6 +287,7 @@ void print_setup_struct(FILE *f)
          "ctrl_listen_cnt        = %d\n"
          "unidirectional         = %d\n"
          "hosts_lookup           = %d\n"
+         "hosts_path             = %s\n"
          "domain                 = \"%s\"\n"
          "----------------------\n"
          ,
@@ -328,6 +331,7 @@ void print_setup_struct(FILE *f)
          setup_.ctrl_listen_cnt,
          setup_.unidirectional,
          setup_.hosts_lookup,
+         SSTR(setup_.hosts_path),
          setup_.domain
          );
 

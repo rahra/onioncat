@@ -29,11 +29,13 @@ void usage(const char *s)
          "   -b                    daemonize (default = %d)\n"
          "   -B                    do not daemonize (default = %d)\n"
          "   -h                    display usage message\n"
-         "   -H                    toggle /etc/hosts lookup (default = %d)\n"
+         "   -H                    toggle hosts lookup (default = %d, see also option -g)\n"
          "   -C                    disable local controller interface\n"
          "   -d <n>                set debug level to n, default = %d\n"
          "   -e <ifup-script>      execute ifup-script after opening interface\n"
          "   -f <config_file>      read config from config_file (default = %s)\n"
+         "   -g <hosts_path>       set path to hosts file for hosts lookup, defaults to system hosts file, if not set.\n"
+         "                         This option implicitly activates -H.\n"
          "   -i                    convert onion hostname to IPv6 and exit\n"
          "   -I                    GarliCat mode, use I2P instead of Tor\n"
          "   -l [<ip>:]<port>      set ocat listen address and port, default = 127.0.0.1:%d\n"
@@ -336,7 +338,7 @@ int parse_opt(int argc, char *argv[])
    log_debug("parse_opt_early()");
    opterr = 1;
    optind = 1;
-   while ((c = getopt(argc, argv, "f:IabBCd:e:hHrRiopl:t:T:s:Uu:4L:P:n:")) != -1)
+   while ((c = getopt(argc, argv, "f:IabBCd:e:g:hHrRiopl:t:T:s:Uu:4L:P:n:")) != -1)
    {
       log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, SSTR(optarg));
       switch (c)
@@ -368,6 +370,12 @@ int parse_opt(int argc, char *argv[])
 
          case 'e':
             CNF(ifup) = optarg;
+            break;
+
+         case 'g':
+            CNF(hosts_path) = optarg;
+            hosts_set_path(CNF(hosts_path));
+            CNF(hosts_lookup) = 1;
             break;
 
          case 'i':
