@@ -202,6 +202,8 @@
 #define SOCKS_CONNECTING 1
 #define SOCKS_4AREQ_SENT 2
 #define SOCKS_4ARESPONSE 3
+#define SOCKS_5GREET_SENT 4
+#define SOCKS_5REQ_SENT 5
 #define SOCKS_DELETE 127
 
 #define SOCKS_MAX_RETRY 3
@@ -300,6 +302,8 @@ struct OcatSetup
    char *ocat_dir;
    //! name of tunnel charcter device
    char *tun_dev;
+   //! use SOCKS5 instead of SOCKS4A
+   int socks5;
    //! tunnel interface name
    char tunname[SIZE_256];
    int ipv4_enable;

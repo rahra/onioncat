@@ -336,11 +336,16 @@ int parse_opt(int argc, char *argv[])
    log_debug("parse_opt_early()");
    opterr = 1;
    optind = 1;
-   while ((c = getopt(argc, argv, "f:IabBCd:e:hHrRiopl:t:T:s:Uu:4L:P:n:")) != -1)
+   while ((c = getopt(argc, argv, "f:IabBCd:e:hHrRiopl:t:T:s:Uu:45L:P:n:")) != -1)
    {
       log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, SSTR(optarg));
       switch (c)
       {
+         // use SOCKS5 instead of SOCKS4A
+         case '5':
+            CNF(socks5) = 1;
+            break;
+
          // those options are parsed in parse_opt_early()
          case 'f':
          case 'I':

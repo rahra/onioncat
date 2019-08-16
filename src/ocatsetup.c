@@ -54,6 +54,7 @@ struct OcatSetup setup_ =
    //! default debug level
    LOG_DEBUG,
    OCAT_UNAME, {0}, {0}, {{{0}}}, 0, 0, 1, OCAT_DIR, TUN_DEV,
+   0,                                     // enable SOCKS5
    {'\0'},                                // tunname
    0, 
    //ADDR4_PREFIX, ADDR4_MASK
@@ -261,6 +262,7 @@ void print_setup_struct(FILE *f)
          "controller             = %d\n"
          "ocat_dir               = \"%s\"\n"
          "tun_dev                = \"%s\"\n"
+         "socks5                 = %d\n"
          "tunname                = \"%s\"\n"
          "ipv4_enable            = %d\n"
          "ocat_addr4             = %s\n"
@@ -305,6 +307,7 @@ void print_setup_struct(FILE *f)
          setup_.controller,
          setup_.ocat_dir,
          setup_.tun_dev,
+         setup_.socks5,
          setup_.tunname,
          setup_.ipv4_enable,
          ip,
