@@ -36,11 +36,9 @@ static SocksQueue_t *socks_queue_ = NULL;
 #define SOCKS_BUFLEN (SOCKS_MIN_BUFLEN + NI_MAXHOST + 32)
 
 
-int socks_send_request(const SocksQueue_t *sq)
+static void get_hostname(const SocksQueue_t *sq, char *onion, int onion_size)
 {
-   int len, ret = -1;
-   char buf[SOCKS_BUFLEN], onion[NI_MAXHOST];
-   SocksHdr_t *shdr = (SocksHdr_t*) buf;
+   int ret = -1;
 
    // Do a hostname lookup if option set.
    // This is done in order to be able to retrieve a 256 bit base32 
@@ -48,7 +46,7 @@ int socks_send_request(const SocksQueue_t *sq)
    if (CNF(hosts_lookup))
    {
       hosts_check();
-      ret = hosts_get_name(&sq->addr, onion, sizeof(onion));
+      ret = hosts_get_name(&sq->addr, onion, onion_size);
    }
 
    // If no hostname was found above or network type is Tor
@@ -56,8 +54,18 @@ int socks_send_request(const SocksQueue_t *sq)
    if (ret == -1)
    {
       ipv6tonion(&sq->addr, onion);
-      strlcat(onion, CNF(domain), sizeof(onion));
+      strlcat(onion, CNF(domain), onion_size);
    }
+}
+
+
+int socks_send_request(const SocksQueue_t *sq)
+{
+   int len, ret = -1;
+   char buf[SOCKS_BUFLEN], onion[NI_MAXHOST];
+   SocksHdr_t *shdr = (SocksHdr_t*) buf;
+
+   get_hostname(sq, onion, sizeof(onion));
 
    log_debug("SOCKS_BUFLEN = %d, NI_MAXHOST = %d", SOCKS_BUFLEN, NI_MAXHOST);
    if (inet_ntop(AF_INET6, &sq->addr, buf, sizeof(buf)) == NULL)
@@ -305,31 +313,116 @@ void socks_output_queue(FILE *f)
 }
 
 
-#if 0
-int socks5_connect(const SocksQueue_t *sq)
+int socks5_greet(const SocksQueue_t *sq)
 {
-   char buf[256 + sizeof(uint16_t) + sizeof(Socks5Hdr_t)];
-   char dest[ONION_URL_LEN + 1];
-   Socks5Hdr_t *shdr = (Socks5Hdr_t*) buf;
-   int fd;
+   char buf[] = {5, 1, 0}; // version 5, 1 auth method, method no_auth (0)
+   int ret, len = sizeof(buf);
 
-   log_msg(LOG_INFO, "trying to connect to \"%s\" [%s]", dest, inet_ntop(AF_INET6, &sq->addr, buf, 256));
-   if ((fd = socks_srv_con()) < 0)
-      return fd;
-
-   memset(buf, 0, sizeof(buf));
-   shdr->ver = '\x05';  // Version 5
-   shdr->cmd = '\x01';  // CONNECT
-   shdr->atyp = '\x03'; // DOMAINNAME
-
-   ipv6tonion(&sq->addr, dest);
-   shdr->addr = strlen(dest);
-   memcpy(&buf[sizeof(Socks5Hdr_t)], dest, strlen(dest));
-   *((uint16_t*) &buf[sizeof(Socks5Hdr_t) + strlen(dest)]) = htons(CNF(ocat_dest_port));
-
-   return fd;
+   if ((ret = write(sq->fd, buf, len)) == -1)
+   {
+      log_msg(LOG_ERR, "error writing %d bytes to fd %d: \"%s\"", len, sq->fd, strerror(errno));
+      return -1;
+   }
+   if (ret < len)
+   {
+      log_msg(LOG_ERR, "SOCKS5 greeting truncated to %d of %d bytes", ret, len);
+      return -1;
+   }
+   log_debug("SOCKS5 greeting sent successfully");
+   return 0;
 }
-#endif
+
+
+int socks5_greet_response(const SocksQueue_t *sq)
+{
+   char buf[2];
+   int ret, len = sizeof(buf);
+
+   if ((ret = read(sq->fd, buf, len)) == -1)
+   {
+      log_msg(LOG_ERR, "reading SOCKS5 greet response on fd %d faile: \"%s\"", sq->fd, strerror(errno));
+      return -1;
+
+   }
+   if (ret < len)
+   {
+      log_msg(LOG_ERR, "SOCKS5 greet response truncated to %d of %d bytes", ret, len);
+      return -1;
+   }
+   log_debug("SOCKS5 greet response received");
+   if (buf[0] != 5 || buf[1] != 0)
+   {
+      log_msg(LOG_ERR, "unexpected SOCKS5 greet response: ver = %d, method = %d", buf[0], buf[1]);
+      return -1;
+   }
+   log_msg(LOG_INFO | LOG_FCONN, "SOCKS5 greeting handshake on fd %d successful", sq->fd);
+   return 0;
+}
+
+
+int socks5_send_request(const SocksQueue_t *sq)
+{
+   char buf[sizeof(Socks5Hdr_t) + sizeof(uint16_t) + NI_MAXHOST];
+   char onion[NI_MAXHOST];
+   Socks5Hdr_t *s5hdr = (Socks5Hdr_t*) buf;
+   int len, ret;
+
+   get_hostname(sq, onion, sizeof(onion));
+   s5hdr->ver = 5;
+   s5hdr->cmd = 1;   // CONNECT
+   s5hdr->rsv = 0;   // reserved
+   s5hdr->atyp = 3;  // DOMAIN
+   s5hdr->addr = strlen(onion);
+   memcpy(buf + sizeof(*s5hdr), onion, strlen(onion));
+   *((uint16_t*) &buf[sizeof(*s5hdr) + strlen(onion)]) = htons(CNF(ocat_dest_port));
+
+   len = sizeof(*s5hdr) + strlen(onion) + sizeof(uint16_t);
+   if ((ret = write(sq->fd, s5hdr, len)) == -1)
+   {
+      log_msg(LOG_ERR, "error writing %d bytes to fd %d: \"%s\"", len, sq->fd, strerror(errno));
+      return -1;
+   }
+   if (ret < len)
+   {
+      log_msg(LOG_ERR, "SOCKS5 request truncated to %d of %d bytes", ret, len);
+      return -1;
+   }
+   log_debug("SOCKS5 request sent successfully");
+   return 0;
+}
+
+
+int socks5_rec_response(SocksQueue_t *sq)
+{
+   Socks5Hdr_t s5hdr;
+   int len, ret;
+
+   len = sizeof(s5hdr);
+   if ((ret = read(sq->fd, &s5hdr, len)) == -1)
+   {
+      log_msg(LOG_ERR, "reading SOCKS5 response on fd %d failed: \"%s\"", sq->fd, strerror(errno));
+      return -1;
+   }
+   if (ret < len)
+   {
+      log_msg(LOG_ERR, "SOCKS5 response truncated to %d of %d bytes", ret, len);
+      return -1;
+   }
+
+   log_debug("SOCKS5 response received");
+   if (s5hdr.ver != 5 || s5hdr.rsv != 0)
+   {
+      log_msg(LOG_ERR, "unexpected SOCKS5 response");
+      return -1;
+   }
+   if (s5hdr.cmd != 0)
+   {
+      log_msg(LOG_ERR, "SOCKS5 server returned error %d", s5hdr.cmd);
+      return -1;
+   }
+   log_msg(LOG_INFO | LOG_FCONN, "SOCKS5 connection successfully opened on fd %d", sq->fd);
+   return 0;
+}
 
 
 int socks_tcp_connect(int fd, struct sockaddr *addr, int len)
@@ -435,6 +528,8 @@ void *socks_connector_sel(void *p)
                break;
 
             case SOCKS_4AREQ_SENT:
+            case SOCKS_5GREET_SENT:
+            case SOCKS_5REQ_SENT:
                MFD_SET(squeue->fd, &rset, maxfd);
                break;
          }
@@ -505,15 +600,31 @@ void *socks_connector_sel(void *p)
                   socks_reschedule(squeue);
                   continue;
                }
-               // everything seems to be ok, now check request status
-               if (socks_send_request(squeue) == -1)
+               // SOCKS4A
+               if (!CNF(socks5))
                {
-                  log_msg(LOG_ERR, "SOCKS request failed");
-                  socks_reschedule(squeue);
-                  continue;
+                  // everything seems to be ok, now check request status
+                  if (socks_send_request(squeue) == -1)
+                  {
+                     log_msg(LOG_ERR, "SOCKS request failed");
+                     socks_reschedule(squeue);
+                     continue;
+                  }
+                  // request successfully sent, advance state machine
+                  squeue->state = SOCKS_4AREQ_SENT;
                }
-               // request successfully sent, advance state machine
-               squeue->state = SOCKS_4AREQ_SENT;
+               else
+               {
+                  // everything seems to be ok, now check request status
+                  if (socks5_greet(squeue) == -1)
+                  {
+                     log_msg(LOG_ERR, "SOCKS5 request failed");
+                     socks_reschedule(squeue);
+                     continue;
+                  }
+                  // request successfully sent, advance state machine
+                  squeue->state = SOCKS_5GREET_SENT;
+               }
             }
             else
                log_debug("unknown state %d in write set", squeue->state);
@@ -526,6 +637,36 @@ void *socks_connector_sel(void *p)
             if (squeue->state == SOCKS_4AREQ_SENT)
             {
                if (socks_rec_response(squeue) == -1)
+               {
+                  socks_reschedule(squeue);
+                  continue;
+               }
+               // success
+               log_debug("activating peer fd %d", squeue->fd);
+               socks_activate_peer(squeue);
+               squeue->state = SOCKS_DELETE;
+            }
+            else if (squeue->state == SOCKS_5GREET_SENT)
+            {
+               // check greet response
+               if (socks5_greet_response(squeue) == -1)
+               {
+                  socks_reschedule(squeue);
+                  continue;
+               }
+               // greeting was successful, send request
+               if (socks5_send_request(squeue) == -1)
+               {
+                  log_msg(LOG_ERR, "sending SOCKS5 request failed");
+                  socks_reschedule(squeue);
+                  continue;
+               }
+               // request successfully sent, advance state machine
+               squeue->state = SOCKS_5REQ_SENT;
+            }
+            else if (squeue->state == SOCKS_5REQ_SENT)
+            {
+               if (socks5_rec_response(squeue) == -1)
                {
                   socks_reschedule(squeue);
                   continue;
