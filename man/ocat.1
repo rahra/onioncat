@@ -122,6 +122,19 @@ This variable contains the prefix length of the IPv6 prefix which typically is
 \fB\-f\fP \fIconfig file\fP
 Read initial configuration from \fIconfig file\fP. 
 .TP
+\fB\-g\fP \fIhosts_path\fP
+Set the path to the hosts file. This option automatically enables option \-H
+(see there). If \-g is not set, the path defaults to the system hosts file
+which typically is /etc/hosts on Un*x systems.
+.TP
+\fB\-H\fP
+This option enables the hosts reverse lookup. If OnionCat receives a packet to
+a destination IPv6 address within the OnionCat prefix, it translates it
+directly to a .onion hostname by default. If option \-H is enabled, OnionCat
+instead looks up the hostname in the hosts file (see also \-g). This option is
+always enabled when OnionCat is used in Garlicat mode for I2P and it is required
+with V3 hidden services of Tor (see below).
+.TP
 \fB\-h\fP
 Display short usage message and shows options.
 .TP

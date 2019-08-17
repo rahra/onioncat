@@ -65,6 +65,19 @@ static char *path_hosts_ = NULL;
 static pthread_mutex_t hosts_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 
 
+/*! Set path to hosts file.
+ * @param s Char pointer to string.
+ * @return Returns old pointer.
+ **/
+char *hosts_set_path(char *s)
+{
+   char *op = path_hosts_;
+
+   path_hosts_ = s;
+   return op;
+}
+
+
 /*! Test if modification time changed.
  *  @param fd File descriptor of file to test;
  *  @param ts Pointer to buffer of old timespec.
@@ -79,7 +92,7 @@ int hosts_file_modified_r(struct timespec *ts)
    log_debug("checking if file \"%s\" was modified", path_hosts_);
    if (stat(path_hosts_, &st) == -1)
    {
-      log_debug("stat on \"%s\" failed: \"%s\"", path_hosts_, strerror(errno));
+      log_msg(LOG_ERR, "stat on \"%s\" failed: \"%s\"", path_hosts_, strerror(errno));
       return -1;
    }
 
@@ -114,7 +127,7 @@ int hosts_read(struct hosts_ent **hent)
 
    if ((f = fopen(path_hosts_, "r")) == NULL)
    {
-      log_debug("fopen(\"%s\"...) failed: \"%s\"", path_hosts_, strerror(errno));
+      log_msg(LOG_ERR, "fopen(\"%s\"...) failed: \"%s\"", path_hosts_, strerror(errno));
       return -1;
    }
 
