@@ -54,6 +54,7 @@ void usage(const char *s)
          "   -U                    disable unidirectional mode\n"
          "   -u <user>             change UID to user, default = \"%s\"\n"
          "   -4                    enable IPv4 support (default = %d)\n"
+         "   -5                    use SOCKS5 instead of SOCKS4A (default = %d)\n"
          , CNF(version), s,
          // option defaults start here
          OCAT_DIR, NDESC(clog_file), CNF(create_clog), 
@@ -64,7 +65,7 @@ void usage(const char *s)
 #ifndef WITHOUT_TUN
          TUN_DEV,
 #endif
-         OCAT_UNAME, CNF(ipv4_enable)
+         OCAT_UNAME, CNF(ipv4_enable), CNF(socks5)
             );
 }
 
