@@ -394,30 +394,32 @@ int socks5_send_request(const SocksQueue_t *sq)
 
 int socks5_rec_response(SocksQueue_t *sq)
 {
-   Socks5Hdr_t s5hdr;
+   char buf[sizeof(Socks5Hdr_t) + sizeof(uint16_t) + NI_MAXHOST];
+   Socks5Hdr_t *s5hdr = (Socks5Hdr_t*) buf;
    int len, ret;
 
-   len = sizeof(s5hdr);
-   if ((ret = read(sq->fd, &s5hdr, len)) == -1)
+   len = sizeof(buf);
+   if ((ret = read(sq->fd, s5hdr, len)) == -1)
    {
       log_msg(LOG_ERR, "reading SOCKS5 response on fd %d failed: \"%s\"", sq->fd, strerror(errno));
       return -1;
    }
-   if (ret < len)
+
+   log_debug("got %d bytes as SOCKS5 response", ret);
+   if (ret < sizeof(*s5hdr))
    {
-      log_msg(LOG_ERR, "SOCKS5 response truncated to %d of %d bytes", ret, len);
+      log_msg(LOG_ERR, "SOCKS5 response seems truncated to %d of at least %d bytes", ret, sizeof(*s5hdr));
       return -1;
    }
 
-   log_debug("SOCKS5 response received");
-   if (s5hdr.ver != 5 || s5hdr.rsv != 0)
+   if (s5hdr->ver != 5 || s5hdr->rsv != 0)
    {
       log_msg(LOG_ERR, "unexpected SOCKS5 response");
       return -1;
    }
-   if (s5hdr.cmd != 0)
+   if (s5hdr->cmd != 0)
    {
-      log_msg(LOG_ERR, "SOCKS5 server returned error %d", s5hdr.cmd);
+      log_msg(LOG_ERR, "SOCKS5 server returned error %d", s5hdr->cmd);
       return -1;
    }
    log_msg(LOG_INFO | LOG_FCONN, "SOCKS5 connection successfully opened on fd %d", sq->fd);
