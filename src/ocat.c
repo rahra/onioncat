@@ -18,6 +18,7 @@
 
 #include "ocat.h"
 #include "ocat_netdesc.h"
+#include "ocathosts.h"
 
 
 void usage(const char *s)
