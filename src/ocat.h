@@ -1,4 +1,4 @@
-/* Copyright 2008-2017 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2019 Bernhard R. Fischer, Daniel Haslinger.
  *
  * This file is part of OnionCat.
  *
@@ -148,7 +148,7 @@
 #endif
 #define OCAT_UNPRIV_UID 65534
 #define OCAT_UNPRIV_UNAME "(unknown)"
-#define OCAT_URL "http://www.abenteuerland.at/onioncat/"
+#define OCAT_URL "https://www.onioncat.org/"
 #define OCAT_DIR ".ocat"
 //#define OCAT_CONNECT_LOG "connect_log"
 #define PID_FILE "/var/run/ocat.pid"
