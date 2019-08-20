@@ -34,7 +34,7 @@ char *tun_dev_ = TUN_DEV;
 #define IFCBUF 1024
 
 
-void system_w(const char *s)
+int system_w(const char *s)
 {
    int e;
 
@@ -44,6 +44,8 @@ void system_w(const char *s)
    else if (WEXITSTATUS(e))
       log_msg(LOG_ERR, "exit status = %d", WEXITSTATUS(e));
    log_debug("exit status = %d", WEXITSTATUS(e));
+
+   return e;
 }
 
 
@@ -96,12 +98,14 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 #endif
    int fd;
    char astr[INET6_ADDRSTRLEN];
+   char pfx[INET6_ADDRSTRLEN];
    char astr4[INET_ADDRSTRLEN];
    char buf[IFCBUF];
    struct in_addr netmask;// = {CNF(ocat_addr4_mask)};
 
    memcpy(&netmask, &CNF(ocat_addr4_mask), sizeof(netmask));
    inet_ntop(AF_INET6, &addr, astr, INET6_ADDRSTRLEN);
+   inet_ntop(AF_INET6, &NDESC(prefix), pfx, INET6_ADDRSTRLEN);
    inet_ntop(AF_INET, &CNF(ocat_addr4), astr4, INET_ADDRSTRLEN);
 
 #ifdef __CYGWIN__
@@ -146,8 +150,30 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 
    if (!CNF(use_tap) && (CNF(ifup) == NULL))
    {
+#ifndef IP_COMMAND
       snprintf(buf, sizeof(buf), "ifconfig %s add %s/%d up", dev, astr, NDESC(prefix_len));
       system_w(buf);
+#else
+      snprintf(buf, sizeof(buf), "which ip");
+      if (!system_w(buf))
+      {
+         snprintf(buf, sizeof(buf), "ip address add %s/%d dev %s", astr, NDESC(prefix_len), dev);
+         system_w(buf);
+         snprintf(buf, sizeof(buf), "ip route add table local %s/%d dev %s", pfx, NDESC(prefix_len), dev);
+         system_w(buf);
+         snprintf(buf, sizeof(buf), "ip link set %s up", dev);
+         system_w(buf);
+      }
+      else
+      {
+         snprintf(buf, sizeof(buf), "which ifconfig");
+         if (!system_w(buf))
+         {
+            snprintf(buf, sizeof(buf), "ifconfig %s add %s/%d up", dev, astr, NDESC(prefix_len));
+            system_w(buf);
+         }
+      }
+#endif
    }
 
    // according to drivers/net/tun.c only IFF_MULTICAST and IFF_PROMISC are supported.
@@ -231,13 +257,11 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
       // some OSes require routes to be set manually
 #ifdef __APPLE__
       // MacOSX requires the route to be set up manually
-      // FIXME: the prefix shouldn't be hardcoded here
-      snprintf(buf, sizeof(buf), "route add -inet6 -net fd87:d87e:eb43:: -prefixlen %d -gateway %s", NDESC(prefix_len), astr);
+      snprintf(buf, sizeof(buf), "route add -inet6 -net %s -prefixlen %d -gateway %s", pfx, NDESC(prefix_len), astr);
       system_w(buf);
 #elif __sun__
       // Solaris requires the route to be set up manually
-      // FIXME: the prefix shouldn't be hardcoded here
-      snprintf(buf, sizeof(buf), "route add -inet6 fd87:d87e:eb43::/%d %s -iface", NDESC(prefix_len), astr);
+      snprintf(buf, sizeof(buf), "route add -inet6 %s/%d %s -iface", pfx, NDESC(prefix_len), astr);
       system_w(buf);
 #endif
 
