@@ -301,6 +301,8 @@ struct OcatSetup
    //! name of tunnel charcter device
    char *tun_dev;
    //! tunnel interface name
+   //! length of long HS names
+   int l_hs_namelen;
    char tunname[SIZE_256];
    int ipv4_enable;
    struct in_addr ocat_addr4;
