@@ -577,19 +577,19 @@ int main(int argc, char *argv[])
    // convert parameter to IPv6 address
    if ((s = strchr(CNF(onion_url), '.')))
          *s = '\0';
-   // check for valid onion name length (v2 -> 16, v3 -> 56)
-   if ((strlen(CNF(onion_url)) != 16) && (strlen(CNF(onion_url)) != 56))
+   // check for valid onion name length (v2 -> 16, HSv3 -> 56, I2P -> 52)
+   if ((strlen(CNF(onion_url)) != 16) && (strlen(CNF(onion_url)) != CNF(l_hs_namelen)))
       log_msg(LOG_ERR, "parameter seems not to be valid onion hostname: invalid length"), exit(1);
    // check for valid base32 charset
    if (strspn(CNF(onion_url), charset) != strlen(CNF(onion_url)))
       log_msg(LOG_ERR, "parameter seems not to be valid onion hostname: invalid characters"), exit(1);
    // if it is a v3 hostname
-   if (strlen(CNF(onion_url)) == 56)
+   if (strlen(CNF(onion_url)) == CNF(l_hs_namelen))
    {
       // copy it to the dedicated v3 variable
       strlcpy(CNF(onion3_url), CNF(onion_url), sizeof(CNF(onion3_url)));
       // truncate name for IPv6 conversion to the lower 16 chars
-      strlcpy(CNF(onion_url), &CNF(onion_url[40]), 17);
+      strlcpy(CNF(onion_url), &CNF(onion_url[CNF(l_hs_namelen) - 16]), 17);
    }
    if (oniontipv6(CNF(onion_url), &CNF(ocat_addr)) == -1)
       log_msg(LOG_ERR, "parameter seems not to be valid onion hostname"), exit(1);

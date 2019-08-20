@@ -55,6 +55,7 @@ struct OcatSetup setup_ =
    LOG_DEBUG,
    OCAT_UNAME, {0}, {0}, {{{0}}}, 0, 0, 1, OCAT_DIR, TUN_DEV,
    0,                                     // enable SOCKS5
+   16,                                    // l_hs_namelen
    {'\0'},                                // tunname
    0, 
    //ADDR4_PREFIX, ADDR4_MASK
@@ -182,6 +183,7 @@ void post_init_setup(void)
    setup_.ocat_ctrl_port = NDESC(ctrl_port);
    setup_.hosts_lookup = NDESC(hosts_lookup);
    setup_.domain = NDESC(domain);
+   setup_.l_hs_namelen = NDESC(l_hs_namelen);
    hosts_init(NDESC(domain));
 
    l = strlen(SYSCONFDIR) + strlen(NDESC(config_file)) + 2;
@@ -265,6 +267,7 @@ void print_setup_struct(FILE *f)
          "ocat_dir               = \"%s\"\n"
          "tun_dev                = \"%s\"\n"
          "socks5                 = %d\n"
+         "l_hs_namelen           = %d\n"
          "tunname                = \"%s\"\n"
          "ipv4_enable            = %d\n"
          "ocat_addr4             = %s\n"
@@ -311,6 +314,7 @@ void print_setup_struct(FILE *f)
          setup_.ocat_dir,
          setup_.tun_dev,
          setup_.socks5,
+         setup_.l_hs_namelen,
          setup_.tunname,
          setup_.ipv4_enable,
          ip,

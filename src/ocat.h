@@ -304,6 +304,8 @@ struct OcatSetup
    char *tun_dev;
    //! use SOCKS5 instead of SOCKS4A
    int socks5;
+   //! length of long HS names
+   int l_hs_namelen;
    //! tunnel interface name
    char tunname[SIZE_256];
    int ipv4_enable;

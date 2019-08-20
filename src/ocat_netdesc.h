@@ -40,6 +40,7 @@ struct NetDesc
    char *pid_file;
    char *config_file;
    int hosts_lookup;
+   int l_hs_namelen;
 };
 
 extern const struct NetDesc netdesc_[2];
@@ -81,7 +82,8 @@ extern const struct NetDesc netdesc_[2];
 #define TOR_SOCKS_PORT 9050
 #define TOR_OCAT_CONNECT_LOG "ocat_connect_log"
 #define TOR_PID_FILE "/var/run/ocat.pid"
-
+//! length of HSv3 names
+#define TOR_HS_NAMELEN 56
 
 // ----- these are #defines for I2P -----
 //
@@ -104,6 +106,8 @@ extern const struct NetDesc netdesc_[2];
 #define I2P_SOCKS_PORT 9051
 #define I2P_OCAT_CONNECT_LOG "gcat_connect_log"
 #define I2P_PID_FILE "/var/run/gcat.pid"
+//! length of hidden service names
+#define I2P_HS_NAMELEN 52
 
 
 #endif
