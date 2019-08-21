@@ -135,7 +135,7 @@ int win_open_tun(char *dev, int s)
 {
    char deviceId[SIZE_256], deviceName[SIZE_256], tapPath[SIZE_256];
    TapData_t *tapData = &tapData_;
-   unsigned long len = 0;
+   DWORD len = 0;
    int status, i;
 
    for (i = 0; tap_component_id_[i] != NULL; i++)
@@ -205,22 +205,8 @@ int win_write_tun(const char *jb, int len)
 {
    TapData_t *tapData = &tapData_;
    DWORD written, err;
-    
-   log_debug("WriteFile %d bytes", len);
-   if (!GetOverlappedResult(tapData->fd, &tapData->write_overlapped, &written, FALSE))
-   {
-      err = GetLastError();
-      log_debug("GetOverlappedResult failed. Error = %ld", err);
-      if (err == ERROR_IO_INCOMPLETE)
-      {
-         log_debug("IO_COMPLETE, WaitForSingleObject");
-         if ((err = WaitForSingleObject(tapData->write_event, INFINITE)) == WAIT_FAILED)
-            log_msg(LOG_ERR, "WaitForSingleObject failed. Error = %ld", GetLastError());
-         else
-            log_debug("WaitForSingleObject returen %08lx", err);
-      }
-   }
 
+   log_debug("WriteFile %d bytes", len);
    if (!WriteFile(tapData->fd, jb, len, &written, &tapData->write_overlapped))
    {
       if ((err = GetLastError()) != ERROR_IO_PENDING)
@@ -229,7 +215,24 @@ int win_write_tun(const char *jb, int len)
          return -1;
       }
       else
+      {
          log_debug("IO_PENDING");
+         if (!GetOverlappedResult(tapData->fd, &tapData->write_overlapped, &written, FALSE))
+         {
+            err = GetLastError();
+            log_debug("GetOverlappedResult failed. Error = %ld", err);
+            if (err == ERROR_IO_INCOMPLETE)
+            {
+               log_debug("IO_COMPLETE, WaitForSingleObject");
+               if ((err = WaitForSingleObject(tapData->write_event, INFINITE)) == WAIT_FAILED)
+                  log_msg(LOG_ERR, "WaitForSingleObject failed. Error = %ld", GetLastError());
+               else
+                  log_debug("WaitForSingleObject returen %08lx", err);
+            }
+            written = -1;
+         }
+         log_debug("GetOverlappedResult(): written = %d", written);
+      }
    }
 
    return written;
