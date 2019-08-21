@@ -150,6 +150,7 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 
    if (!CNF(use_tap) && (CNF(ifup) == NULL))
    {
+#define IP_COMMAND
 #ifndef IP_COMMAND
       snprintf(buf, sizeof(buf), "ifconfig %s add %s/%d up", dev, astr, NDESC(prefix_len));
       system_w(buf);
@@ -171,6 +172,11 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
          {
             snprintf(buf, sizeof(buf), "ifconfig %s add %s/%d up", dev, astr, NDESC(prefix_len));
             system_w(buf);
+         }
+         else
+         {
+            log_msg(LOG_ERR, "could not configure IP address to interface, it must be done manually or execute if-up script with option -e");
+            exit(1);
          }
       }
 #endif
