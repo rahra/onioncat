@@ -1,3 +1,29 @@
+0755993 fixed logic error in win_write_tun() (Note: it worked but produced misleading error messing. Now it waits for the write op to finish.)
+ad9587b gcc attribute __packed now defined in recent version of Cygwin
+dd9a01d activated code for ip(8) command on Linux, ifconfig(8) is used as fallback, otherwise it exits
+d96f73d man page updated (missing env variable of if-up script added)
+322051f added code for modern ip command on Linux (instead of ifconfig)
+100fa53 bump version
+48c1b4d Merge branch 'master' into socks5
+993db79 fixed misplaced comment
+820a7f3 allow long I2P hostnames directly on command line (similar as commit 636b918519a9dca67826a05fba5e691c06752d8c for Tor HSv3)
+5e469c3 Merge branch 'master' into socks5
+54eac3a updated man page date
+74e2d96 updated OnionCat URL
+cc84391 added missing include file
+df56ffe improved error checking on system() commands, replaced strcpy()->strlcpy()
+78f37eb fixed truncated ready of SOCKS5 CONNECT response
+b3ee97b added option -5 to usage message and man page
+86e5ec9 Merge branch 'master' into socks5
+0e7d5e9 implemented SOCKS5
+e41d3e0 added option -5 to enable SOCKS5
+9ad2784 introduced option -g to enable hosts file path configuration as command line argument
+46d1e1f bump version
+636b918 allow v3 hostnames directly on command line
+a145dc1 updated man page: added short hs v3 introduction
+630f1bd fixed too small buffer for hosts lookup (necessary for option -H and hs v3)
+98b0c20 removed stupid logfile dependency in configure.ac, starting manual version numbering/tagging now
+d90817f forgot to add GitLog to Makefile.am
 57c387a automake was updated on OpenBSD
 5d164a0 modified configure to be independent if git, using file GitLog instead
 8e7f6eb Merge pull request #2 from Shulyaka/master
