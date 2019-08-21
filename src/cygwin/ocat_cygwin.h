@@ -44,7 +44,9 @@
 #endif
 
 //! '__packed' is defined in OpenBSD's sys/cdefs.h
+#ifndef __packed
 #define __packed __attribute__((packed))
+#endif
 
 //! 'LIST_ENTRY' is defined in OpenBSD's sys/queue.h
 #define LIST_ENTRY(type)                                                \
