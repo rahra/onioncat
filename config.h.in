@@ -33,6 +33,9 @@
 /* Define to 1 if you have the <linux/if_tun.h> header file. */
 #undef HAVE_LINUX_IF_TUN_H
 
+/* Define to 1 if you have the <linux/ipv6.h> header file. */
+#undef HAVE_LINUX_IPV6_H
+
 /* Define to 1 if you have the <linux/sockios.h> header file. */
 #undef HAVE_LINUX_SOCKIOS_H
 
