@@ -26,6 +26,9 @@
 
 #include "ocat.h"
 #include "ocat_netdesc.h"
+#ifdef __linux__
+#include <linux/ipv6.h>
+#endif
 
 #ifndef WITHOUT_TUN
 
@@ -92,6 +95,8 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 {
 #ifdef __linux__
    struct ifreq ifr;
+   struct in6_ifreq ifr6;
+   int sockfd;                     
 #endif
 #ifdef __sun__
    int ppa = -1;
@@ -150,36 +155,40 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 
    if (!CNF(use_tap) && (CNF(ifup) == NULL))
    {
-#define IP_COMMAND
-#ifndef IP_COMMAND
-      snprintf(buf, sizeof(buf), "ifconfig %s add %s/%d up", dev, astr, NDESC(prefix_len));
-      system_w(buf);
-#else
-      snprintf(buf, sizeof(buf), "which ip");
-      if (!system_w(buf))
+      log_msg(LOG_INFO, "setting interface IPv6 address %s/%d", astr, NDESC(prefix_len));
+      if ((sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_IP)) == -1)
       {
-         snprintf(buf, sizeof(buf), "ip address add %s/%d dev %s", astr, NDESC(prefix_len), dev);
-         system_w(buf);
-         snprintf(buf, sizeof(buf), "ip route add table local %s/%d dev %s", pfx, NDESC(prefix_len), dev);
-         system_w(buf);
-         snprintf(buf, sizeof(buf), "ip link set %s up", dev);
-         system_w(buf);
+         log_msg(LOG_ERR, "failed to create temp socket: %s", strerror(errno));
       }
       else
       {
-         snprintf(buf, sizeof(buf), "which ifconfig");
-         if (!system_w(buf))
+         if (ioctl(sockfd, SIOGIFINDEX, &ifr) < 0)
          {
-            snprintf(buf, sizeof(buf), "ifconfig %s add %s/%d up", dev, astr, NDESC(prefix_len));
-            system_w(buf);
+            log_msg(LOG_ERR, "SIOGIFINDEX: %s", strerror(errno));
          }
-         else
+
+         memcpy(&ifr6.ifr6_addr, &addr, sizeof(struct in6_addr));
+         ifr6.ifr6_ifindex = ifr.ifr_ifindex;
+         ifr6.ifr6_prefixlen = NDESC(prefix_len);
+         if (ioctl(sockfd, SIOCSIFADDR, &ifr6) == -1)
          {
-            log_msg(LOG_ERR, "could not configure IP address to interface, it must be done manually or execute if-up script with option -e");
-            exit(1);
+            log_msg(LOG_ERR, "SIOCSIFADDR: %s", strerror(errno));
          }
+
+         if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1)
+         {
+            log_msg(LOG_ERR, "SIOCGIFFLAGS: %s", strerror(errno));
+            ifr.ifr_flags = 0;
+         }
+
+         ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
+         if (ioctl(sockfd, SIOCSIFFLAGS, &ifr) == -1)
+         {
+            log_msg(LOG_ERR, "SIOCSIFFLAGS: %s", strerror(errno));
+         }
+
+         close(sockfd);
       }
-#endif
    }
 
    // according to drivers/net/tun.c only IFF_MULTICAST and IFF_PROMISC are supported.
@@ -284,15 +293,62 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
    // setting up IPv4 address
    if (CNF(ipv4_enable) && !CNF(use_tap))
    {
+#ifdef __linux__
+      log_msg(LOG_INFO, "setting interface IPv4 address %s/%s", astr4, inet_ntoa(netmask));
+      if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP)) == -1)
+      {
+         log_msg(LOG_ERR, "failed to create temp socket: %s", strerror(errno));
+      }
+      else
+      {
+         ifr.ifr_addr.sa_family = AF_INET;
+         memcpy(&((struct sockaddr_in*) &ifr.ifr_addr)->sin_addr, &CNF(ocat_addr4), sizeof(struct in_addr));
+         if (ioctl(sockfd, SIOCSIFADDR, &ifr) == -1)
+         {
+            log_msg(LOG_ERR, "SIOCSIFADDR: %s", strerror(errno));
+         }
+         ifr.ifr_addr.sa_family = AF_INET;
+         memcpy(&((struct sockaddr_in*) &ifr.ifr_netmask)->sin_addr, &netmask, sizeof(struct in_addr));
+         if (ioctl(sockfd, SIOCSIFNETMASK, &ifr) == -1)
+         {
+            log_msg(LOG_ERR, "SIOCSIFNETMASK: %s", strerror(errno));
+         }
+         close(sockfd);
+      }
+#else
       snprintf(buf, sizeof(buf), "ifconfig %s %s netmask %s", dev, astr4, inet_ntoa(netmask));
       system_w(buf);
+#endif
    }
 
    // bring up tap device
    if (CNF(use_tap))
    {
+#ifdef __linux__
+      log_msg(LOG_INFO, "bringing up TAP interface");
+      if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP)) == -1)
+      {
+         log_msg(LOG_ERR, "failed to create temp socket: %s", strerror(errno));
+      }
+      else
+      {
+         if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1)
+         {
+            log_msg(LOG_ERR, "SIOCGIFFLAGS: %s", strerror(errno));
+            ifr.ifr_flags = 0;
+         }
+
+         ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
+         if (ioctl(sockfd, SIOCSIFFLAGS, &ifr) == -1)
+         {
+            log_msg(LOG_ERR, "SIOCSIFFLAGS: %s", strerror(errno));
+         }
+         close(sockfd);
+      }
+#else
       snprintf(buf, sizeof(buf), "ifconfig %s up", dev);
       system_w(buf);
+#endif
    }
 
    return fd;
