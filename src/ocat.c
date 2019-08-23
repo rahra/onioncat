@@ -55,7 +55,7 @@ void usage(const char *s)
          "   -U                    disable unidirectional mode\n"
          "   -u <user>             change UID to user, default = \"%s\"\n"
          "   -4                    enable IPv4 support (default = %d)\n"
-         "   -5                    use SOCKS5 instead of SOCKS4A (default = %d)\n"
+         "   -5 [socks5|direct]    use SOCKS5 or direct connections instead of SOCKS4A (default = %d)\n"
          , CNF(version), s,
          // option defaults start here
          OCAT_DIR, NDESC(clog_file), CNF(create_clog), 
@@ -340,14 +340,23 @@ int parse_opt(int argc, char *argv[])
    log_debug("parse_opt_early()");
    opterr = 1;
    optind = 1;
-   while ((c = getopt(argc, argv, "f:IabBCd:e:g:hHrRiopl:t:T:s:Uu:45L:P:n:")) != -1)
+   while ((c = getopt(argc, argv, "f:IabBCd:e:g:hHrRiopl:t:T:s:Uu:45:L:P:n:")) != -1)
    {
       log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, SSTR(optarg));
       switch (c)
       {
          // use SOCKS5 instead of SOCKS4A
          case '5':
-            CNF(socks5) = 1;
+            if (!strcasecmp(optarg, "socks5"))
+               CNF(socks5) = CONNTYPE_SOCKS5;
+            else if (!strcasecmp(optarg, "direct"))
+            {
+               CNF(socks5) = CONNTYPE_DIRECT;
+               CNF(hosts_lookup) = 1;
+               hosts_init("");
+            }
+            else
+               log_msg(LOG_ERR, "unknown type \"%s\", ignoring", optarg);
             break;
 
          // those options are parsed in parse_opt_early()
@@ -394,7 +403,7 @@ int parse_opt(int argc, char *argv[])
             exit(1);
 
          case 'H':
-            CNF(hosts_lookup) = !CNF(hosts_lookup);
+            CNF(hosts_lookup) = 1;
             break;
 
          case 'l':
