@@ -26,9 +26,6 @@
 
 #include "ocat.h"
 #include "ocat_netdesc.h"
-#ifdef __linux__
-#include <linux/ipv6.h>
-#endif
 
 #ifndef WITHOUT_TUN
 

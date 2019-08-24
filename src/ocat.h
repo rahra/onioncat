@@ -99,6 +99,9 @@
 #ifdef HAVE_LINUX_IF_TUN_H
 #include <linux/if_tun.h>
 #endif
+#ifdef HAVE_LINUX_IPV6_H
+#include <linux/ipv6.h>
+#endif
 #ifdef HAVE_NET_IF_TUN_H
 #include <net/if_tun.h>
 #endif
