@@ -162,9 +162,9 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
       }
       else
       {
-         if (ioctl(sockfd, SIOGIFINDEX, &ifr) < 0)
+         if (ioctl(sockfd, SIOCGIFINDEX, &ifr) < 0)
          {
-            log_msg(LOG_ERR, "SIOGIFINDEX: %s", strerror(errno));
+            log_msg(LOG_ERR, "SIOCGIFINDEX: %s", strerror(errno));
          }
 
          memcpy(&ifr6.ifr6_addr, &addr, sizeof(struct in6_addr));
