@@ -74,6 +74,9 @@ AC_CHECK_HEADERS([sys/types.h sys/wait.h sys/socket.h sys/stat.h netdb.h arpa/na
 #ifdef HAVE_NET_IF_H
 #include <net/if.h>
 #endif
+#ifdef HAVE_NETINET6_IN6_VAR_H
+#include <netinet6/in6_var.h>
+#endif
 ]]
 )
 #AC_CHECK_HEADERS([readline/readline.h readline/history.h], [], [], [])
@@ -130,6 +133,19 @@ AC_CHECK_TYPES([struct ip], , ,
 #endif
 #ifdef HAVE_NETINET_IP_H
 #include <netinet/ip.h>
+#endif
+])
+
+AC_CHECK_TYPES([struct if_afreq], , ,
+[
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#ifdef HAVE_NET_IF_H
+#include <net/if.h>
 #endif
 ])
 
