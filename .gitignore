@@ -1,0 +1,14 @@
+*.o
+*~
+*.gz
+.deps
+aclocal.m4
+Makefile
+Makefile.in
+autom4te.cache
+configure
+config.h
+config.log
+config.status
+stamp-h1
+ocat
