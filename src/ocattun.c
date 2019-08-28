@@ -19,7 +19,7 @@
  *  These functions create the TUN device.
  *
  *  @author Bernhard R. Fischer <rahra _at_ cypherpunk at>
- *  @version 2008/02/03-01 (last update 20170501)
+ *  @version 2019/08/28
  */
 
 
@@ -88,9 +88,48 @@ int run_tun_ifup(const char *ifname, const char *astr, int prefix_len)
 }
 
 
+int mk_in6_mask(struct in6_addr *msk, int prefixlen)
+{
+   char *buf;
+
+   // safety check
+   if (msk == NULL)
+   {
+      log_msg(LOG_EMERG, "NULL pointer caught in mk_in6_mask()");
+      return -1;
+   }
+
+   memset(msk, 0, sizeof(*msk));
+   for (buf = (char*) msk; prefixlen >= 8; buf++, prefixlen -= 8)
+      *buf = 0xff;
+
+   if (prefixlen > 0)
+      *buf = ~((8 - prefixlen) - 1);
+
+   return 0;
+}
+
+
+int sin6_set_addr(struct sockaddr_in6 *sin6, const struct in6_addr *addr)
+{
+   if (sin6 == NULL || addr == NULL)
+   {
+      log_msg(LOG_EMERG, "NULL pointer caught in sin6_set_addr()");
+      return -1;
+   }
+#ifdef HAVE_SIN_LEN
+   sin6->sin6_len = sizeof(struct sockaddr_in6);
+#endif
+   sin6->sin6_family = AF_INET6;
+   memcpy(&sin6->sin6_addr, addr, sizeof(struct in6_addr));
+
+   return 0;
+}
+
+
 int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 {
-#if defined(__linux__) || defined(__OpenBSD__)
+#ifdef __linux__
    struct ifreq ifr;
    int sockfd;
    struct in6_ifreq ifr6;
@@ -258,9 +297,11 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
    if (!CNF(use_tap) && (CNF(ifup) == NULL))
    {
 #ifdef __OpenBSD__
-#if 1
-      snprintf(buf, sizeof(buf), "ifconfig %s inet6 %s prefixlen %d up", dev, astr, NDESC(prefix_len));
-#else
+      int sockfd;
+      struct if_afreq ifar;
+      struct in6_aliasreq ifr6a;
+      struct in6_addr ifmask;
+
       log_msg(LOG_INFO, "setting interface IPv6 address %s/%d", astr, NDESC(prefix_len));
       if ((sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_IP)) == -1)
       {
@@ -268,37 +309,28 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
       }
       else
       {
-         memset(&ifr6, 0, sizeof(ifr6));
-         strlcpy(ifr6.ifr_name, dev, IFNAMSIZ);
-         ifr6.ifr_addr.sin6_len = sizeof(struct sockaddr_in6);
-         ifr6.ifr_addr.sin6_family = AF_INET6;
-         memcpy(&ifr6.ifr_addr.sin6_addr, &CNF(ocat_addr), sizeof(struct in6_addr));
-         if (ioctl(sockfd, SIOCDIFADDR_IN6, &ifr6) == -1)
-         {
-            log_msg(LOG_ERR, "SIOCDIFADDR_IN6: %s", strerror(errno));
-         }
-         if (ioctl(sockfd, SIOCAIFADDR_IN6, &ifr6) == -1)
+         strlcpy(ifar.ifar_name, dev, sizeof(ifar.ifar_name));
+         ifar.ifar_af = AF_INET6;
+         if (ioctl(sockfd, SIOCIFAFDETACH, &ifar) == -1)
+            log_msg(LOG_ERR, "ioctl(SIOCIFAFDETACH) failed: %s", strerror(errno));
+
+         memset(&ifr6a, 0, sizeof(ifr6a));
+         strlcpy(ifr6a.ifra_name, dev, sizeof(ifr6a.ifra_name));
+
+         sin6_set_addr(&ifr6a.ifra_addr, &addr);
+
+         mk_in6_mask(&ifmask, NDESC(prefix_len));
+         sin6_set_addr(&ifr6a.ifra_prefixmask, &ifmask);
+
+         ifr6a.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
+         ifr6a.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
+
+         if (ioctl(sockfd, SIOCAIFADDR_IN6, &ifr6a) == -1)
          {
             log_msg(LOG_ERR, "SIOCAIFADDR_IN6: %s", strerror(errno));
          }
-
-         memset(&ifr, 0, sizeof(ifr));
-         strlcpy(ifr6.ifr_name, dev, IFNAMSIZ);
-         if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1)
-         {
-            log_msg(LOG_ERR, "SIOCGIFFLAGS: %s", strerror(errno));
-            ifr.ifr_flags = 0;
-         }
-
-         ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
-         if (ioctl(sockfd, SIOCSIFFLAGS, &ifr) == -1)
-         {
-            log_msg(LOG_ERR, "SIOCSIFFLAGS: %s", strerror(errno));
-         }
-
          close(sockfd);
       }
-#endif
 #else /* __OpenBSD__ */
 
 #if __sun__

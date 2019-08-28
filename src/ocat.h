@@ -68,6 +68,9 @@
 #ifdef HAVE_NET_IF_H
 #include <net/if.h>
 #endif
+#ifdef HAVE_NETINET6_ND6_H
+#include <netinet6/nd6.h>
+#endif
 #ifdef HAVE_NETINET6_IN6_VAR_H
 #include <netinet6/in6_var.h>
 #endif
