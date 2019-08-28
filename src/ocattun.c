@@ -298,6 +298,7 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 
          close(sockfd);
       }
+#endif
 #else /* __OpenBSD__ */
 
 #if __sun__
