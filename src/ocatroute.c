@@ -175,27 +175,6 @@ void *packet_dequeuer(void *p)
 #endif
 
 
-/*! Check if source and destination address has
- *  the TOR IPv6 prefix.
- *  @return 0 on error or packet length else. */
-int check_tor_prefix(const struct ip6_hdr *ihd)
-{
-   char buf[INET6_ADDRSTRLEN];
-
-   if (!has_tor_prefix(&ihd->ip6_dst))
-   {
-      log_msg(LOG_ERR, "destination %s unreachable", inet_ntop(AF_INET6, &ihd->ip6_dst, buf, INET6_ADDRSTRLEN));
-      return 0;
-   }
-   if (!has_tor_prefix(&ihd->ip6_src))
-   {
-      log_msg(LOG_ERR, "source address invalid. Remote ocat could not reply");
-      return 0;
-   }
-   return ntohs(ihd->ip6_plen);
-}
-
-
 void cleanup_socket(int fd, OcatPeer_t *peer)
 {
    log_msg(LOG_INFO | LOG_FCONN, "fd %d reached EOF, closing.", fd);
@@ -904,16 +883,17 @@ void packet_forwarder(void)
             continue;
          }
 
-#ifndef CHECK_IPSRC
-         if (!check_tor_prefix((struct ip6_hdr*) &buf[4]))
+         if (has_tor_prefix(get_6dst_ptr((struct ip6_hdr*) &buf[4])))
          {
-            log_msg(LOG_ERR, "dropping frame");
+            dest = get_6dst_ptr((struct ip6_hdr*) &buf[4]);
+         }
+         else if (!(dest = ipv6_lookup_route(get_6dst_ptr((struct ip6_hdr*) &buf[4]))))
+         {
+            char abuf[INET6_ADDRSTRLEN];
+            dest = get_6dst_ptr((struct ip6_hdr*) &buf[4]);
+            log_msg(LOG_ERR, "no route to destination %s, dropping frame.", inet_ntop(AF_INET6, dest, abuf, INET6_ADDRSTRLEN));
             continue;
          }
-#endif
-
-         if (!(dest = ipv6_lookup_route(get_6dst_ptr((struct ip6_hdr*) &buf[4]))))
-            dest = get_6dst_ptr((struct ip6_hdr*) &buf[4]);
       }
       else if (get_tunheader(buf) == CNF(fhd_key[IPV4_KEY]))
       {
