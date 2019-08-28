@@ -691,7 +691,6 @@ enable_debug
 enable_packet_log
 enable_handle_http
 enable_packet_queue
-enable_check_ipsrc
 enable_rtt
 enable_tundev
 enable_dependency_tracking
@@ -1328,7 +1327,6 @@ Optional Features:
   --enable-packet-log     enable packet logging
   --enable-handle-http    enable handling of accidental HTTP requests
   --enable-packet-queue   enable queueuing of packets while connecting setup
-  --disable-check-ipsrc   disable source ip checking before forwarding
   --enable-rtt            enable inband RTT measurement
   --disable-tundev        compile without tunnel device code
   --enable-dependency-tracking
@@ -2714,14 +2712,6 @@ fi
 if test "${enable_packet_queue+set}" = set; then :
   enableval=$enable_packet_queue;
 $as_echo "#define PACKET_QUEUE /**/" >>confdefs.h
-
-fi
-
-
-# Check whether --enable-check-ipsrc was given.
-if test "${enable_check_ipsrc+set}" = set; then :
-  enableval=$enable_check_ipsrc;
-$as_echo "#define CHECK_IPSRC 1" >>confdefs.h
 
 fi
 

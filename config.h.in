@@ -1,8 +1,5 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* disable source ip checking */
-#undef CHECK_IPSRC
-
 /* enable debugging */
 #undef DEBUG
 

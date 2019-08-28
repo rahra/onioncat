@@ -21,9 +21,6 @@ AC_ARG_ENABLE([handle-http], AS_HELP_STRING([--enable-handle-http],[enable handl
 AC_ARG_ENABLE([packet-queue], AS_HELP_STRING([--enable-packet-queue],[enable queueuing of packets while connecting setup]),
    AC_DEFINE([PACKET_QUEUE], [], [enable packet queue]))
 
-AC_ARG_ENABLE([check-ipsrc], AS_HELP_STRING([--disable-check-ipsrc],[disable source ip checking before forwarding]),
-   AC_DEFINE([CHECK_IPSRC], [1], [disable source ip checking]))
-
 AC_ARG_ENABLE([rtt], AS_HELP_STRING([--enable-rtt],[enable inband RTT measurement]), 
    AC_DEFINE([MEASURE_RTT], [1], [enable RTT measurement]))
 
