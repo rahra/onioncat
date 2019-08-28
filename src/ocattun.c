@@ -113,15 +113,11 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
       return -1;
 
       // set IPv6 address
-      // 181    // % netsh interface ipv6 add address "LAN-Verbindung 2" fd87:d87e:eb43:0:84:2100:0:8421
-      // 182    // add route
-      // 183    // % netsh interface ipv6 add route  fd87:d87e:eb43::/48 "LAN-Verbindung 2"
+      // 181    // % netsh interface ipv6 add address "LAN-Verbindung 2" fd87:d87e:eb43:0:84:2100:0:8421/48
 
-   snprintf(buf, sizeof(buf), "netsh interface ipv6 add address \"%s\" %s", dev, astr);
+   snprintf(buf, sizeof(buf), "netsh interface ipv6 add address \"%s\" %s/48", dev, astr);
    system_w(buf);
 
-   snprintf(buf, sizeof(buf), "netsh interface ipv6 add route %s/%d \"%s\"", astr, NDESC(prefix_len), dev);
-   system_w(buf);
 
    return 0;
 #endif
