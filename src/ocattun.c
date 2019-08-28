@@ -90,10 +90,10 @@ int run_tun_ifup(const char *ifname, const char *astr, int prefix_len)
 
 int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 {
-#ifdef __linux__
+#if defined(__linux__) || defined(__OpenBSD__)
    struct ifreq ifr;
+   int sockfd;
    struct in6_ifreq ifr6;
-   int sockfd;                     
 #endif
 #ifdef __sun__
    int ppa = -1;
@@ -258,13 +258,55 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
    if (!CNF(use_tap) && (CNF(ifup) == NULL))
    {
 #ifdef __OpenBSD__
+#if 1
       snprintf(buf, sizeof(buf), "ifconfig %s inet6 %s prefixlen %d up", dev, astr, NDESC(prefix_len));
-#elif __sun__
+#else
+      log_msg(LOG_INFO, "setting interface IPv6 address %s/%d", astr, NDESC(prefix_len));
+      if ((sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_IP)) == -1)
+      {
+         log_msg(LOG_ERR, "failed to create temp socket: %s", strerror(errno));
+      }
+      else
+      {
+         memset(&ifr6, 0, sizeof(ifr6));
+         strlcpy(ifr6.ifr_name, dev, IFNAMSIZ);
+         ifr6.ifr_addr.sin6_len = sizeof(struct sockaddr_in6);
+         ifr6.ifr_addr.sin6_family = AF_INET6;
+         memcpy(&ifr6.ifr_addr.sin6_addr, &CNF(ocat_addr), sizeof(struct in6_addr));
+         if (ioctl(sockfd, SIOCDIFADDR_IN6, &ifr6) == -1)
+         {
+            log_msg(LOG_ERR, "SIOCDIFADDR_IN6: %s", strerror(errno));
+         }
+         if (ioctl(sockfd, SIOCAIFADDR_IN6, &ifr6) == -1)
+         {
+            log_msg(LOG_ERR, "SIOCAIFADDR_IN6: %s", strerror(errno));
+         }
+
+         memset(&ifr, 0, sizeof(ifr));
+         strlcpy(ifr6.ifr_name, dev, IFNAMSIZ);
+         if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1)
+         {
+            log_msg(LOG_ERR, "SIOCGIFFLAGS: %s", strerror(errno));
+            ifr.ifr_flags = 0;
+         }
+
+         ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
+         if (ioctl(sockfd, SIOCSIFFLAGS, &ifr) == -1)
+         {
+            log_msg(LOG_ERR, "SIOCSIFFLAGS: %s", strerror(errno));
+         }
+
+         close(sockfd);
+      }
+#else /* __OpenBSD__ */
+
+#if __sun__
       snprintf(buf, sizeof(buf), "ifconfig %s inet6 plumb %s/%d %s up", dev, astr, NDESC(prefix_len), astr);
 #else
       snprintf(buf, sizeof(buf), "ifconfig %s inet6 %s/%d up", dev, astr, NDESC(prefix_len));
 #endif
       system_w(buf);
+#endif
 
       // some OSes require routes to be set manually
 #ifdef __APPLE__

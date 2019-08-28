@@ -65,6 +65,9 @@
 #ifdef HAVE_NETINET_IN_SYSTM_H
 #include <netinet/in_systm.h>
 #endif
+#ifdef HAVE_NETINET6_IP6_VAR_H
+#include <netinet6/ip6_var.h>
+#endif
 #include <arpa/inet.h>
 #ifdef HAVE_NET_IF_H
 #include <net/if.h>
@@ -81,7 +84,7 @@
 #ifdef HAVE_NETINET_IF_ETHER_H
 #include <netinet/if_ether.h>
 #endif
-#ifdef HAVE_NETINET_IP6_H
+#ifdef HAVE_NETINET_IP6_VAR_H
 #include <netinet/ip6.h>
 #endif
 #ifdef HAVE_NETINET_UDP_H
