@@ -6,6 +6,7 @@ AM_INIT_AUTOMAKE([-Wall -Werror])
 AC_CONFIG_HEADERS([config.h])
 
 AC_DEFINE(SVN_REVISION, "svnversion", [SVN Revision])
+AC_DEFINE([WITH_LOOPBACK_RESPONDER], [], [Enable loopback_responder().])
 
 
 AC_ARG_ENABLE([debug], AS_HELP_STRING([--enable-debug],[enable debugging]), 

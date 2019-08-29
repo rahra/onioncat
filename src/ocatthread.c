@@ -29,8 +29,9 @@
 
 // global thread id var and mutex for thread initializiation
 static int thread_id_ = 0;
-pthread_mutex_t thread_mutex_ = PTHREAD_MUTEX_INITIALIZER;
-OcatThread_t *octh_ = NULL;
+static pthread_mutex_t thread_mutex_ = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t thread_cond_ = PTHREAD_COND_INITIALIZER;
+static OcatThread_t *octh_ = NULL;
 
 
 void init_ocat_thread_struct(OcatThread_t *th)
@@ -185,6 +186,49 @@ int set_thread_name(const char *n)
       if (th->handle == thread)
       {
          strlcpy(th->name, n, THREAD_NAME_LEN);
+         e = 0;
+         break;
+      }
+   pthread_mutex_unlock(&thread_mutex_);
+
+   return e;
+}
+
+
+int wait_thread_by_name_ready(const char *s)
+{
+   OcatThread_t *th;
+   int e = -1;
+
+   log_debug("waiting for %s to become ready", s);
+   pthread_mutex_lock(&thread_mutex_);
+   for (th = octh_; th; th = th->next)
+      if (!strcmp(th->name, s))
+      {
+         while (!th->ready)
+            pthread_cond_wait(&thread_cond_, &thread_mutex_);
+         e = 0;
+         break;
+      }
+   pthread_mutex_unlock(&thread_mutex_);
+
+   return e;
+}
+
+
+int set_thread_ready(void)
+{
+   int e = -1;
+   OcatThread_t *th;
+   pthread_t thread = pthread_self();
+
+   log_debug("set_thread_ready()");
+   pthread_mutex_lock(&thread_mutex_);
+   for (th = octh_; th; th = th->next)
+      if (th->handle == thread)
+      {
+         th->ready = 1;
+         pthread_cond_broadcast(&thread_cond_);
          e = 0;
          break;
       }
