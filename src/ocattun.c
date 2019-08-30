@@ -296,7 +296,9 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 
    if (!CNF(use_tap) && (CNF(ifup) == NULL))
    {
-#if defined __OpenBSD__ || defined __FreeBSD__
+// #if defined __OpenBSD__ || defined __FreeBSD__
+// I guess this works for all *BSD flavors
+#ifdef SIOCAIFADDR_IN6
       int sockfd;
       struct in6_aliasreq ifr6a;
       struct in6_addr ifmask;
@@ -308,7 +310,7 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
       }
       else
       {
-#ifdef HAVE_STRUCT_IF_AFREQ
+/*#ifdef HAVE_STRUCT_IF_AFREQ
          struct if_afreq ifar;
 
          strlcpy(ifar.ifar_name, dev, sizeof(ifar.ifar_name));
@@ -316,7 +318,7 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
          if (ioctl(sockfd, SIOCIFAFDETACH, &ifar) == -1)
             log_msg(LOG_ERR, "ioctl(SIOCIFAFDETACH) failed: %s", strerror(errno));
 #endif
-
+*/
          memset(&ifr6a, 0, sizeof(ifr6a));
          strlcpy(ifr6a.ifra_name, dev, sizeof(ifr6a.ifra_name));
 
