@@ -110,6 +110,24 @@ int mk_in6_mask(struct in6_addr *msk, int prefixlen)
 }
 
 
+int sin_set_addr(struct sockaddr_in *sin, const struct in_addr *addr)
+{
+   if (sin == NULL || addr == NULL)
+   {
+      log_msg(LOG_EMERG, "NULL pointer caught in sin_set_addr()");
+      return -1;
+   }
+#ifdef HAVE_SIN_LEN
+   sin->sin_len = sizeof(struct sockaddr_in);
+#endif
+   sin->sin_family = AF_INET;
+   sin->sin_addr = *addr;
+   //memcpy(&sin6->sin6_addr, addr, sizeof(struct in6_addr));
+
+   return 0;
+}
+
+
 int sin6_set_addr(struct sockaddr_in6 *sin6, const struct in6_addr *addr)
 {
    if (sin6 == NULL || addr == NULL)
@@ -121,7 +139,8 @@ int sin6_set_addr(struct sockaddr_in6 *sin6, const struct in6_addr *addr)
    sin6->sin6_len = sizeof(struct sockaddr_in6);
 #endif
    sin6->sin6_family = AF_INET6;
-   memcpy(&sin6->sin6_addr, addr, sizeof(struct in6_addr));
+   sin6->sin6_addr = *addr;
+   //memcpy(&sin6->sin6_addr, addr, sizeof(struct in6_addr));
 
    return 0;
 }
@@ -129,15 +148,14 @@ int sin6_set_addr(struct sockaddr_in6 *sin6, const struct in6_addr *addr)
 
 int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 {
-#ifdef __linux__
    struct ifreq ifr;
-   int sockfd;
+   struct ifaliasreq ifra;
    struct in6_ifreq ifr6;
-#endif
 #ifdef __sun__
    int ppa = -1;
 #endif
    int fd;
+   int sockfd;
    char astr[INET6_ADDRSTRLEN];
    char pfx[INET6_ADDRSTRLEN];
    char astr4[INET_ADDRSTRLEN];
@@ -299,7 +317,6 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 // #if defined __OpenBSD__ || defined __FreeBSD__
 // I guess this works for all *BSD flavors
 #ifdef SIOCAIFADDR_IN6
-      int sockfd;
       struct in6_aliasreq ifr6a;
       struct in6_addr ifmask;
 
@@ -330,6 +347,7 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
          ifr6a.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
          ifr6a.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
 
+         log_debug("calling ioctl(SIOCAIFADDR_IN6)");
          if (ioctl(sockfd, SIOCAIFADDR_IN6, &ifr6a) == -1)
          {
             log_msg(LOG_ERR, "SIOCAIFADDR_IN6: %s", strerror(errno));
@@ -370,7 +388,6 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
    // setting up IPv4 address
    if (CNF(ipv4_enable) && !CNF(use_tap))
    {
-#ifdef __linux__
       log_msg(LOG_INFO, "setting interface IPv4 address %s/%s", astr4, inet_ntoa(netmask));
       if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP)) == -1)
       {
@@ -378,30 +395,46 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
       }
       else
       {
+#ifdef __linux__
+         memset(&ifr, 0, sizeof(ifr));
+         strlcpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
          ifr.ifr_addr.sa_family = AF_INET;
          memcpy(&((struct sockaddr_in*) &ifr.ifr_addr)->sin_addr, &CNF(ocat_addr4), sizeof(struct in_addr));
+         log_debug("calling ioctl(SIOCSIFADDR)");
          if (ioctl(sockfd, SIOCSIFADDR, &ifr) == -1)
          {
             log_msg(LOG_ERR, "SIOCSIFADDR: %s", strerror(errno));
          }
-         ifr.ifr_addr.sa_family = AF_INET;
          memcpy(&((struct sockaddr_in*) &ifr.ifr_netmask)->sin_addr, &netmask, sizeof(struct in_addr));
+         log_debug("calling ioctl(SIOCSIFNETMASK)");
          if (ioctl(sockfd, SIOCSIFNETMASK, &ifr) == -1)
          {
             log_msg(LOG_ERR, "SIOCSIFNETMASK: %s", strerror(errno));
          }
+#elif defined SIOCAIFADDR
+         memset(&ifra, 0, sizeof(ifra));
+         strlcpy(ifra.ifra_name, dev, sizeof(ifra.ifra_name));
+         sin_set_addr((struct sockaddr_in*) &ifra.ifra_addr, &CNF(ocat_addr4));
+         sin_set_addr((struct sockaddr_in*) &ifra.ifra_mask, &netmask);
+         log_debug("calling ioctl(SIOCAIFADDR)");
+         if (ioctl(sockfd, SIOCAIFADDR, &ifra) == -1)
+         {
+            log_msg(LOG_ERR, "SIOCAIFADDR: %s", strerror(errno));
+         }
+#else
+         snprintf(buf, sizeof(buf), "ifconfig %s %s netmask %s", dev, astr4, inet_ntoa(netmask));
+         system_w(buf);
+#endif
          close(sockfd);
       }
-#else
-      snprintf(buf, sizeof(buf), "ifconfig %s %s netmask %s", dev, astr4, inet_ntoa(netmask));
-      system_w(buf);
-#endif
+
    }
 
    // bring up tap device
    if (CNF(use_tap))
    {
-#ifdef __linux__
+//#ifdef __linux__
+#ifdef SIOCSIFFLAGS
       log_msg(LOG_INFO, "bringing up TAP interface");
       if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP)) == -1)
       {
@@ -409,6 +442,8 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
       }
       else
       {
+         memset(&ifr, 0, sizeof(ifr));
+         strlcpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
          if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1)
          {
             log_msg(LOG_ERR, "SIOCGIFFLAGS: %s", strerror(errno));

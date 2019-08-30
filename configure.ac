@@ -136,6 +136,22 @@ AC_CHECK_TYPES([struct ip], , ,
 #endif
 ])
 
+AC_CHECK_TYPES([struct ifreq, struct ifaliasreq, struct in6_ifreq, struct in6_aliasreq], , ,
+[
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#ifdef HAVE_NET_IF_H
+#include <net/if.h>
+#endif
+#ifdef HAVE_NETINET6_IN6_VAR_H
+#include <netinet6/in6_var.h>
+#endif
+])
+
 AC_CHECK_MEMBER([struct sockaddr_in.sin_len],
       [ AC_DEFINE(HAVE_SIN_LEN, 1, [Do we have sockaddr_in.sin_len?]) ],
       [],
