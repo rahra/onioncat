@@ -659,6 +659,7 @@ void socks_queue(struct in6_addr, int);
 void print_socks_queue(FILE *);
 void sig_socks_connector(void);
 void *socks_connector_sel(void *);
+int test_socks_server(void);
 
 /* ocatlibe.c */
 void oe_close(int);

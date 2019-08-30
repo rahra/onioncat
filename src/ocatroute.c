@@ -1113,7 +1113,7 @@ void *loopback_responder(void *ptr)
 
       if (peer == NULL)
       {
-         log_msg(LOG_ERR, "peer not found, waiting...");
+         log_debug("peer not found, waiting...");
          usleep(100000);
       }
    }

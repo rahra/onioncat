@@ -708,6 +708,9 @@ int main(int argc, char *argv[])
    run_ocat_thread("loopback", loopback_responder, NULL);
 #endif
 
+   // try to connect to Tor, to test if setup is correct
+   test_socks_server();
+
 #ifdef CONNECT_ROOT_PEERS
    // initiate connections to permanent root peers
    log_debug("connecting root peers");

@@ -699,3 +699,26 @@ void *socks_connector_sel(void *p)
    }
 }
 
+
+int test_socks_server(void)
+{
+   int fd, err = -1;
+
+   if ((fd = socket(CNF(socks_dst)->sin_family == AF_INET ? PF_INET : PF_INET6, SOCK_STREAM, 0)) == -1)
+   {
+      log_msg(LOG_ERR, "Failed to create socket for SOCKS test request: \"%s\"", strerror(errno));
+      return -1;
+   }
+
+   if (!socks_tcp_connect(fd, (struct sockaddr*) CNF(socks_dst), SOCKADDR_SIZE(CNF(socks_dst))))
+   {
+      log_msg(LOG_INFO, "SOCKS server tested successfully");
+      err = 0;
+   }
+   else
+      log_msg(LOG_ERR, "Could not connect to SOCKS server (i.e. Tor/I2P). Please check!");
+
+   oe_close(fd);
+   return err;
+}
+
