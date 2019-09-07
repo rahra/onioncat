@@ -322,7 +322,11 @@ struct OcatSetup
    char tunname[SIZE_256];
    int ipv4_enable;
    struct in_addr ocat_addr4;
-   int ocat_addr4_mask;
+   union
+   {
+      int ocat_addr4_mask;
+      struct in_addr ocat_addr4_netmask;
+   };
    char *config_file;
    int config_read;
    int config_failed;

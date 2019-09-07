@@ -122,7 +122,6 @@ int sin_set_addr(struct sockaddr_in *sin, const struct in_addr *addr)
 #endif
    sin->sin_family = AF_INET;
    sin->sin_addr = *addr;
-   //memcpy(&sin6->sin6_addr, addr, sizeof(struct in6_addr));
 
    return 0;
 }
@@ -140,331 +139,367 @@ int sin6_set_addr(struct sockaddr_in6 *sin6, const struct in6_addr *addr)
 #endif
    sin6->sin6_family = AF_INET6;
    sin6->sin6_addr = *addr;
-   //memcpy(&sin6->sin6_addr, addr, sizeof(struct in6_addr));
 
    return 0;
 }
 
 
-int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
+/*! This function tries to find the network interface name (e.g. tun0).
+ * Typically this is the basename of the character device which is opened. On
+ * Linux and Solaris these are clone devices, thus the name is found by an
+ * ioctl().
+ * @param dev Char pointer which will receive the name. It must point to a
+ * '\0', i.e. strlen must be 0, otherwise the function immediately returns.
+ * @param devlen Number of bytes available in dev.
+ * @return Returns 0 if string was copied, -1 if the string was not empty or a
+ * NULL pointer was passed.
+ */
+int tun_guess_ifname(char *dev, int devlen)
 {
-   struct ifreq ifr;
-   struct ifaliasreq ifra;
-   struct in6_ifreq ifr6;
-#ifdef __sun__
-   int ppa = -1;
-#endif
-   int fd;
-   int sockfd;
-   char astr[INET6_ADDRSTRLEN];
-   char pfx[INET6_ADDRSTRLEN];
-   char astr4[INET_ADDRSTRLEN];
-   char buf[IFCBUF];
-   struct in_addr netmask;// = {CNF(ocat_addr4_mask)};
+   char *s = CNF(use_tap) ? "tap" : "tun";
 
-   memcpy(&netmask, &CNF(ocat_addr4_mask), sizeof(netmask));
-   inet_ntop(AF_INET6, &addr, astr, INET6_ADDRSTRLEN);
-   inet_ntop(AF_INET6, &NDESC(prefix), pfx, INET6_ADDRSTRLEN);
-   inet_ntop(AF_INET, &CNF(ocat_addr4), astr4, INET_ADDRSTRLEN);
-
-#ifdef __CYGWIN__
-   if ((fd = win_open_tun(dev, dev_s)) == -1)
-      return -1;
-
-      // set IPv6 address
-      // 181    // % netsh interface ipv6 add address "LAN-Verbindung 2" fd87:d87e:eb43:0:84:2100:0:8421
-      // 182    // add route
-      // 183    // % netsh interface ipv6 add route  fd87:d87e:eb43::/48 "LAN-Verbindung 2"
-
-   snprintf(buf, sizeof(buf), "netsh interface ipv6 add address \"%s\" %s", dev, astr);
-   system_w(buf);
-
-   snprintf(buf, sizeof(buf), "netsh interface ipv6 add route %s/%d \"%s\"", astr, NDESC(prefix_len), dev);
-   system_w(buf);
-
-   return 0;
-#endif
-
-	log_debug("opening tun \"%s\"", tun_dev_);
-   if ((fd = open(tun_dev_, O_RDWR)) < 0)
+   // safety check
+   if (dev == NULL)
    {
-      log_msg(LOG_EMERG, "could not open tundev %s: %s", tun_dev_, strerror(errno));
+      log_msg(LOG_EMERG, "NULL pointer caught in tun_guess_ifname()");
       return -1;
    }
 
+   // check if name already set
+   if (*dev)
+   {
+      log_debug("ifname already set: \"%s\"", dev);
+      return -1;
+   }
+
+   if (strstr(tun_dev_, s))
+      strlcpy(dev, strstr(tun_dev_, s), devlen);
+   else // default faulback
+      snprintf(dev, devlen, "%s0", s);
+
+   log_debug("ifname = \"%s\"", dev);
+   return 0;
+}
+
+
+/*! tun_config() does some basic initialization on the newly opened tun device.
+ * This is highly OS-specific.
+ * @param fd File descriptor of tunnel device.
+ * @param dev Pointer to string which may contain interface name.
+ * @param devlen Number of bytes available in dev.
+ * @return Returns 0 on success.
+ */
+int tun_config(int fd, char *dev, int devlen)
+{
 #ifdef __linux__
+   struct ifreq ifr;
 
    memset(&ifr, 0, sizeof(ifr));
+
    if (CNF(use_tap))
       ifr.ifr_flags = IFF_TAP;
    else
       ifr.ifr_flags = IFF_TUN;
-   //ifr.ifr_flags |= IFF_NO_PI;
-   if (*dev)
-      strncpy(ifr.ifr_name, dev, IFNAMSIZ);
+
+   // safety checks
+   if (dev != NULL && *dev)
+      strlcpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
 
    if (ioctl(fd, TUNSETIFF, (void *) &ifr) < 0)
       log_msg(LOG_EMERG, "could not set TUNSETIFF: %s", strerror(errno)), exit(1);
-   strlcpy(dev, ifr.ifr_name, IFNAMSIZ);
 
-   if (!CNF(use_tap) && (CNF(ifup) == NULL))
-   {
-      log_msg(LOG_INFO, "setting interface IPv6 address %s/%d", astr, NDESC(prefix_len));
-      if ((sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_IP)) == -1)
-      {
-         log_msg(LOG_ERR, "failed to create temp socket: %s", strerror(errno));
-      }
-      else
-      {
-         if (ioctl(sockfd, SIOCGIFINDEX, &ifr) < 0)
-         {
-            log_msg(LOG_ERR, "SIOCGIFINDEX: %s", strerror(errno));
-         }
-
-         memcpy(&ifr6.ifr6_addr, &addr, sizeof(struct in6_addr));
-         ifr6.ifr6_ifindex = ifr.ifr_ifindex;
-         ifr6.ifr6_prefixlen = NDESC(prefix_len);
-         if (ioctl(sockfd, SIOCSIFADDR, &ifr6) == -1)
-         {
-            log_msg(LOG_ERR, "SIOCSIFADDR: %s", strerror(errno));
-         }
-
-         if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1)
-         {
-            log_msg(LOG_ERR, "SIOCGIFFLAGS: %s", strerror(errno));
-            ifr.ifr_flags = 0;
-         }
-
-         ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
-         if (ioctl(sockfd, SIOCSIFFLAGS, &ifr) == -1)
-         {
-            log_msg(LOG_ERR, "SIOCSIFFLAGS: %s", strerror(errno));
-         }
-
-         close(sockfd);
-      }
-   }
-
-   // according to drivers/net/tun.c only IFF_MULTICAST and IFF_PROMISC are supported.
-/*   ifr.ifr_flags = IFF_UP | IFF_RUNNING | IFF_MULTICAST | IFF_NOARP;
-   if (ioctl(fd, SIOCSIFFLAGS, (void*) &ifr) < 0)
-      log_msg(LOG_ERR, "could not set interface flags: \"%s\"", strerror(errno));
-      */
-
-#else
-
-   // get interface name
-   if (!CNF(use_tap))
-   {
-      if (strstr(tun_dev_, "tun"))
-         strlcpy(dev, strstr(tun_dev_, "tun"), IFNAMSIZ);
-      else
-         strlcpy(dev, "tun0", IFNAMSIZ);
-   }
-   else
-   {
-       if (strstr(tun_dev_, "tap"))
-         strlcpy(dev, strstr(tun_dev_, "tap"), IFNAMSIZ);
-      else
-         strlcpy(dev, "tap0", IFNAMSIZ);
-   }
-   /*
-   if (ioctl(fd, SIOCGIFADDR, &ifr) == -1)
-   {
-      log_msg(LOG_ERR, "could not SIOCGIFADDR to get interface name: \"%s\"", strerror(errno));
-      strlcpy(dev, "tun0", IFNAMSIZ);
-   }
-   else
-   {
-      strlcpy(dev, ifr.ifr_name, IFNAMSIZ);
-   }
-   */
+   if (dev != NULL)
+      strlcpy(dev, ifr.ifr_name, devlen);
+#endif
 
 #if defined __FreeBSD__ || defined __DragonFly__
-
    int prm = 1;
    if (ioctl(fd, TUNSIFHEAD, &prm) == -1)
       log_msg(LOG_EMERG, "could not ioctl:TUNSIFHEAD: %s", strerror(errno)), exit(1);
    prm = IFF_POINTOPOINT;
    if (ioctl(fd, TUNSIFMODE, &prm) == -1)
       log_msg(LOG_EMERG, "could not ioctl:TUNSIFMODE: %s", strerror(errno)), exit(1);
-
 #endif
 
 #ifdef __APPLE__
-
+#ifndef TUNSIFHEAD
 // see http://svn.deepdarc.com/code/miredo-osx/trunk/tuntap/README
 // FIXME: this should be included by the right header file
 //        but I couldn't find it
+#warning Using hardcoded value for TUNSIFHEAD
 #define TUNSIFHEAD  _IOW('t', 96, int)
-
+#endif
    int prm = 1;
    if (ioctl(fd, TUNSIFHEAD, &prm) == -1)
       log_msg(LOG_EMERG, "could not ioctl:TUNSIFHEAD: %s", strerror(errno)), exit(1);
-
 #endif
 
 #ifdef __sun__
+#ifndef TUNNEWPPA
+#warning Missing net/if_tun.h, using hardcoded value for TUNNEWPPA
+#define TUNNEWPPA       (('T'<<16) | 0x0001)
+#endif
+   int ppa = -1;
    if( (ppa = ioctl(fd, TUNNEWPPA, ppa)) == -1)
-      log_msg(LOG_ERR, "Can't assign new interface");
+      log_msg(LOG_ERR, "Can't assign new interface: %s", strerror(errno));
    else
-      snprintf(dev, dev_s, "%s%d", dev, ppa);
-
+      snprintf(dev + strlen(dev), devlen - strlen(dev), "%d", ppa);
 #endif
 
-   if (!CNF(use_tap) && (CNF(ifup) == NULL))
-   {
-// #if defined __OpenBSD__ || defined __FreeBSD__
-// I guess this works for all *BSD flavors
-#ifdef SIOCAIFADDR_IN6
-      struct in6_aliasreq ifr6a;
-      struct in6_addr ifmask;
+   return 0;
+}
 
-      log_msg(LOG_INFO, "setting interface IPv6 address %s/%d", astr, NDESC(prefix_len));
-      if ((sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_IP)) == -1)
-      {
-         log_msg(LOG_ERR, "failed to create temp socket: %s", strerror(errno));
-      }
-      else
-      {
-/*#ifdef HAVE_STRUCT_IF_AFREQ
-         struct if_afreq ifar;
 
-         strlcpy(ifar.ifar_name, dev, sizeof(ifar.ifar_name));
-         ifar.ifar_af = AF_INET6;
-         if (ioctl(sockfd, SIOCIFAFDETACH, &ifar) == -1)
-            log_msg(LOG_ERR, "ioctl(SIOCIFAFDETACH) failed: %s", strerror(errno));
-#endif
-*/
-         memset(&ifr6a, 0, sizeof(ifr6a));
-         strlcpy(ifr6a.ifra_name, dev, sizeof(ifr6a.ifra_name));
+/*! This function configures an IPv6 address to the network device (TUN).
+ *  @param dev Char pointer to device name.
+ *  @param addr Pointer to IPv6 address.
+ *  @param prefix_len Prefix length.
+ *  @return Returns 0 on success, otherwise -1 is returned.
+ */
+int tun_ipv6_config(const char *dev, const struct in6_addr *addr, int prefix_len)
+{
+   char astr[INET6_ADDRSTRLEN];
+   inet_ntop(AF_INET6, addr, astr, INET6_ADDRSTRLEN);
 
-         sin6_set_addr(&ifr6a.ifra_addr, &addr);
+#ifdef __CYGWIN__
+   char buf[IFCBUF];
 
-         mk_in6_mask(&ifmask, NDESC(prefix_len));
-         sin6_set_addr(&ifr6a.ifra_prefixmask, &ifmask);
+   snprintf(buf, sizeof(buf), "netsh interface ipv6 add address \"%s\" %s/%d", dev, astr, prefix_len);
+   system_w(buf);
 
-         ifr6a.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
-         ifr6a.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
-
-         log_debug("calling ioctl(SIOCAIFADDR_IN6)");
-         if (ioctl(sockfd, SIOCAIFADDR_IN6, &ifr6a) == -1)
-         {
-            log_msg(LOG_ERR, "SIOCAIFADDR_IN6: %s", strerror(errno));
-         }
-         close(sockfd);
-      }
-#else /* __OpenBSD__ */
-
-#if __sun__
-      snprintf(buf, sizeof(buf), "ifconfig %s inet6 plumb %s/%d %s up", dev, astr, NDESC(prefix_len), astr);
 #else
-      snprintf(buf, sizeof(buf), "ifconfig %s inet6 %s/%d up", dev, astr, NDESC(prefix_len));
-#endif
-      system_w(buf);
-#endif
+   int sockfd;
 
-      // some OSes require routes to be set manually
-#ifdef __APPLE__
-      // MacOSX requires the route to be set up manually
-      snprintf(buf, sizeof(buf), "route add -inet6 -net %s -prefixlen %d -gateway %s", pfx, NDESC(prefix_len), astr);
-      system_w(buf);
-#elif __sun__
-      // Solaris requires the route to be set up manually
-      snprintf(buf, sizeof(buf), "route add -inet6 %s/%d %s -iface", pfx, NDESC(prefix_len), astr);
-      system_w(buf);
-#endif
-
+   log_msg(LOG_INFO, "setting interface IPv6 address %s/%d", astr, prefix_len);
+   if ((sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_IP)) == -1)
+   {
+      log_msg(LOG_ERR, "failed to create temp socket: %s", strerror(errno));
+      return -1;
    }
 
-#endif /* __linux__ */
+#ifdef __linux__
+   struct in6_ifreq ifr6;
+   struct ifreq ifr;
+   if (ioctl(sockfd, SIOCGIFINDEX, &ifr) < 0)
+   {
+      log_msg(LOG_ERR, "SIOCGIFINDEX: %s", strerror(errno));
+   }
+
+   memcpy(&ifr6.ifr6_addr, addr, sizeof(struct in6_addr));
+   ifr6.ifr6_ifindex = ifr.ifr_ifindex;
+   ifr6.ifr6_prefixlen = prefix_len;
+   if (ioctl(sockfd, SIOCSIFADDR, &ifr6) == -1)
+   {
+      log_msg(LOG_ERR, "SIOCSIFADDR: %s", strerror(errno));
+   }
+
+   if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1)
+   {
+      log_msg(LOG_ERR, "SIOCGIFFLAGS: %s", strerror(errno));
+      ifr.ifr_flags = 0;
+   }
+
+   ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
+   if (ioctl(sockfd, SIOCSIFFLAGS, &ifr) == -1)
+   {
+      log_msg(LOG_ERR, "SIOCSIFFLAGS: %s", strerror(errno));
+   }
+#elif defined SIOCAIFADDR_IN6
+// I guess this works for all *BSD flavors
+   struct in6_aliasreq ifr6a;
+   struct in6_addr ifmask;
+
+   memset(&ifr6a, 0, sizeof(ifr6a));
+   strlcpy(ifr6a.ifra_name, dev, sizeof(ifr6a.ifra_name));
+
+   sin6_set_addr(&ifr6a.ifra_addr, addr);
+
+   mk_in6_mask(&ifmask, prefix_len);
+   sin6_set_addr(&ifr6a.ifra_prefixmask, &ifmask);
+
+   ifr6a.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
+   ifr6a.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
+
+   log_debug("calling ioctl(SIOCAIFADDR_IN6)");
+   if (ioctl(sockfd, SIOCAIFADDR_IN6, &ifr6a) == -1)
+   {
+      log_msg(LOG_ERR, "SIOCAIFADDR_IN6: %s", strerror(errno));
+   }
+#endif
+   close(sockfd);
+#endif
+
+   return 0;
+}
+
+
+/*! This function configures an IPv4 address to the network device (TUN).
+ *  @param dev Char pointer to device name.
+ *  @param addr Pointer to IPv6 address.
+ *  @param prefix_len Prefix length.
+ *  @return Returns 0 on success, otherwise -1 is returned.
+ */
+int tun_ipv4_config(const char *dev, const struct in_addr *addr, const struct in_addr *netmask)
+{
+#ifdef __CYGWIN__
+   log_msg(LOG_NOTICE, "IPv4 IP config not implemented for Cygwin, use if-up script!");
+   return -1;
+
+#else
+   int sockfd;
+
+   log_msg(LOG_INFO, "setting interface IPv4 address %s/%s", inet_ntoa(*addr), inet_ntoa(*netmask));
+   if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP)) == -1)
+   {
+      log_msg(LOG_ERR, "failed to create temp socket: %s", strerror(errno));
+      return -1;
+   }
+
+#ifdef __linux__
+   struct ifreq ifr;
+
+   memset(&ifr, 0, sizeof(ifr));
+   strlcpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
+
+   sin_set_addr((struct sockaddr_in*) &ifr.ifr_addr, addr);
+   log_debug("calling ioctl(SIOCSIFADDR)");
+   if (ioctl(sockfd, SIOCSIFADDR, &ifr) == -1)
+   {
+      log_msg(LOG_ERR, "SIOCSIFADDR: %s", strerror(errno));
+   }
+
+   sin_set_addr((struct sockaddr_in*) &ifr.ifr_netmask, netmask);
+   log_debug("calling ioctl(SIOCSIFNETMASK)");
+   if (ioctl(sockfd, SIOCSIFNETMASK, &ifr) == -1)
+   {
+      log_msg(LOG_ERR, "SIOCSIFNETMASK: %s", strerror(errno));
+   }
+#elif defined SIOCAIFADDR
+   struct ifaliasreq ifra;
+
+   memset(&ifra, 0, sizeof(ifra));
+   strlcpy(ifra.ifra_name, dev, sizeof(ifra.ifra_name));
+
+   sin_set_addr((struct sockaddr_in*) &ifra.ifra_addr, addr);
+   sin_set_addr((struct sockaddr_in*) &ifra.ifra_mask, netmask);
+
+   log_debug("calling ioctl(SIOCAIFADDR)");
+   if (ioctl(sockfd, SIOCAIFADDR, &ifra) == -1)
+   {
+      log_msg(LOG_ERR, "SIOCAIFADDR: %s", strerror(errno));
+   }
+#else
+   snprintf(buf, sizeof(buf), "ifconfig %s %s netmask %s", dev, inet_ntoa(*addr), inet_ntoa(*netmask));
+   system_w(buf);
+#endif
+   close(sockfd);
+#endif
+
+   return 0;
+}
+
+
+/*! This function simply set the interface link up.
+ *  @param dev Char pointer to device name.
+ *  @return Returns 0 on success, otherwise -1 is returned.
+ */
+int tun_ifup(const char *dev)
+{
+#ifdef SIOCSIFFLAGS
+   struct ifreq ifr;
+   int sockfd;
+
+   log_msg(LOG_INFO, "bringing up TAP interface");
+   if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP)) == -1)
+   {
+      log_msg(LOG_ERR, "failed to create temp socket: %s", strerror(errno));
+      return -1;
+   }
+
+   memset(&ifr, 0, sizeof(ifr));
+   strlcpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
+
+   if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1)
+   {
+      log_msg(LOG_ERR, "SIOCGIFFLAGS: %s", strerror(errno));
+      ifr.ifr_flags = 0;
+   }
+
+   ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
+   if (ioctl(sockfd, SIOCSIFFLAGS, &ifr) == -1)
+   {
+      log_msg(LOG_ERR, "SIOCSIFFLAGS: %s", strerror(errno));
+   }
+
+   close(sockfd);
+#else
+   snprintf(buf, sizeof(buf), "ifconfig %s up", dev);
+   system_w(buf);
+#endif
+
+   return 0;
+}
+
+
+/*! Completely set up tun device for Onioncat.
+ * @param dev Char pointer to ifname if the name should be customized (only
+ * supported for Linux yet), must point otherwise to a string with length 0
+ * (i.e. it points to a \0-char). The string will be initialized by this
+ * function.
+ * @param dev_s Number of bytes available in dev.
+ * @param in6_addr DEPRECATED.
+ * @return On success it returns a filedescriptor >= 0, otherwise -1 is returned.
+ */
+int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
+{
+   int fd;
+
+	log_debug("opening tun \"%s\"", tun_dev_);
+#ifdef __CYGWIN__
+   // FIXME: win_open_tun() does not set errno
+   if ((fd = win_open_tun(dev, dev_s)) == -1)
+#else
+   if ((fd = open(tun_dev_, O_RDWR)) == -1)
+#endif
+   {
+      log_msg(LOG_EMERG, "could not open tundev %s: %s", tun_dev_, strerror(errno));
+      return -1;
+   }
+
+   log_debug("trying to find ifname");
+   tun_guess_ifname(dev, dev_s);
+
+   log_debug("tun base config");
+   tun_config(fd, dev, dev_s);
 
    if (CNF(ifup) != NULL)
    {
+      char astr[INET6_ADDRSTRLEN];
+      inet_ntop(AF_INET6, &CNF(ocat_addr), astr, INET6_ADDRSTRLEN);
+      log_debug("running ifup script");
       run_tun_ifup(dev, astr, NDESC(prefix_len));
       return fd;
    }
 
-   // setting up IPv4 address
-   if (CNF(ipv4_enable) && !CNF(use_tap))
+   if (!CNF(use_tap))
    {
-      log_msg(LOG_INFO, "setting interface IPv4 address %s/%s", astr4, inet_ntoa(netmask));
-      if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP)) == -1)
-      {
-         log_msg(LOG_ERR, "failed to create temp socket: %s", strerror(errno));
-      }
-      else
-      {
-#ifdef __linux__
-         memset(&ifr, 0, sizeof(ifr));
-         strlcpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
-         ifr.ifr_addr.sa_family = AF_INET;
-         memcpy(&((struct sockaddr_in*) &ifr.ifr_addr)->sin_addr, &CNF(ocat_addr4), sizeof(struct in_addr));
-         log_debug("calling ioctl(SIOCSIFADDR)");
-         if (ioctl(sockfd, SIOCSIFADDR, &ifr) == -1)
-         {
-            log_msg(LOG_ERR, "SIOCSIFADDR: %s", strerror(errno));
-         }
-         memcpy(&((struct sockaddr_in*) &ifr.ifr_netmask)->sin_addr, &netmask, sizeof(struct in_addr));
-         log_debug("calling ioctl(SIOCSIFNETMASK)");
-         if (ioctl(sockfd, SIOCSIFNETMASK, &ifr) == -1)
-         {
-            log_msg(LOG_ERR, "SIOCSIFNETMASK: %s", strerror(errno));
-         }
-#elif defined SIOCAIFADDR
-         memset(&ifra, 0, sizeof(ifra));
-         strlcpy(ifra.ifra_name, dev, sizeof(ifra.ifra_name));
-         sin_set_addr((struct sockaddr_in*) &ifra.ifra_addr, &CNF(ocat_addr4));
-         sin_set_addr((struct sockaddr_in*) &ifra.ifra_mask, &netmask);
-         log_debug("calling ioctl(SIOCAIFADDR)");
-         if (ioctl(sockfd, SIOCAIFADDR, &ifra) == -1)
-         {
-            log_msg(LOG_ERR, "SIOCAIFADDR: %s", strerror(errno));
-         }
-#else
-         snprintf(buf, sizeof(buf), "ifconfig %s %s netmask %s", dev, astr4, inet_ntoa(netmask));
-         system_w(buf);
-#endif
-         close(sockfd);
-      }
+      log_debug("setting up IPv6 address");
+      tun_ipv6_config(dev, &CNF(ocat_addr), NDESC(prefix_len));
 
+      // setting up IPv4 address
+      if (CNF(ipv4_enable))
+      {
+         log_debug("setting up IPv4 address");
+         tun_ipv4_config(dev, &CNF(ocat_addr4), &CNF(ocat_addr4_netmask));
+      }
    }
-
-   // bring up tap device
-   if (CNF(use_tap))
+   else
    {
-//#ifdef __linux__
-#ifdef SIOCSIFFLAGS
-      log_msg(LOG_INFO, "bringing up TAP interface");
-      if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP)) == -1)
-      {
-         log_msg(LOG_ERR, "failed to create temp socket: %s", strerror(errno));
-      }
-      else
-      {
-         memset(&ifr, 0, sizeof(ifr));
-         strlcpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
-         if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1)
-         {
-            log_msg(LOG_ERR, "SIOCGIFFLAGS: %s", strerror(errno));
-            ifr.ifr_flags = 0;
-         }
-
-         ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
-         if (ioctl(sockfd, SIOCSIFFLAGS, &ifr) == -1)
-         {
-            log_msg(LOG_ERR, "SIOCSIFFLAGS: %s", strerror(errno));
-         }
-         close(sockfd);
-      }
-#else
-      snprintf(buf, sizeof(buf), "ifconfig %s up", dev);
-      system_w(buf);
-#endif
+      // bring up tap device
+      tun_ifup(dev);
    }
 
    return fd;
 }
- 
 #endif /* WITHOUT_TUN */
 
