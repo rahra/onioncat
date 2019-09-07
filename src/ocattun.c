@@ -156,6 +156,9 @@ int sin6_set_addr(struct sockaddr_in6 *sin6, const struct in6_addr *addr)
  */
 int tun_guess_ifname(char *dev, int devlen)
 {
+#ifdef __sun__
+   char buf[devlen] = "";
+#endif
    char *s = CNF(use_tap) ? "tap" : "tun";
 
    // safety check
@@ -168,14 +171,22 @@ int tun_guess_ifname(char *dev, int devlen)
    // check if name already set
    if (*dev)
    {
+#ifdef __sun__
+      strlcpy(buf, dev, sizeof(buf));
+#else
       log_debug("ifname already set: \"%s\"", dev);
       return -1;
+#endif
    }
 
    if (strstr(tun_dev_, s))
       strlcpy(dev, strstr(tun_dev_, s), devlen);
    else // default faulback
       snprintf(dev, devlen, "%s0", s);
+
+#ifdef __sun__
+   strlcat(dev, buf, devlen);
+#endif
 
    log_debug("ifname = \"%s\"", dev);
    return 0;
@@ -243,7 +254,7 @@ int tun_config(int fd, char *dev, int devlen)
    if( (ppa = ioctl(fd, TUNNEWPPA, ppa)) == -1)
       log_msg(LOG_ERR, "Can't assign new interface: %s", strerror(errno));
    else
-      snprintf(dev + strlen(dev), devlen - strlen(dev), "%d", ppa);
+      snprintf(dev, devlen, "%d", ppa);
 #endif
 
    return 0;
@@ -280,12 +291,15 @@ int tun_ipv6_config(const char *dev, const struct in6_addr *addr, int prefix_len
 #ifdef __linux__
    struct in6_ifreq ifr6;
    struct ifreq ifr;
+
+   memset(&ifr, 0, sizeof(ifr));
+   strlcpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
    if (ioctl(sockfd, SIOCGIFINDEX, &ifr) < 0)
    {
       log_msg(LOG_ERR, "SIOCGIFINDEX: %s", strerror(errno));
    }
 
-   memcpy(&ifr6.ifr6_addr, addr, sizeof(struct in6_addr));
+   ifr6.ifr6_addr = *addr;
    ifr6.ifr6_ifindex = ifr.ifr_ifindex;
    ifr6.ifr6_prefixlen = prefix_len;
    if (ioctl(sockfd, SIOCSIFADDR, &ifr6) == -1)
@@ -466,11 +480,11 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
       return -1;
    }
 
-   log_debug("trying to find ifname");
-   tun_guess_ifname(dev, dev_s);
-
    log_debug("tun base config");
    tun_config(fd, dev, dev_s);
+
+   log_debug("trying to find ifname");
+   tun_guess_ifname(dev, dev_s);
 
    if (CNF(ifup) != NULL)
    {
