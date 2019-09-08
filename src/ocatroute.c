@@ -25,6 +25,7 @@
 
 
 #include "ocat.h"
+#include "ocat_netdesc.h"
 
 #ifdef HAVE_STRUCT_IPHDR
 #define IPPKTLEN(x) ntohs(((struct iphdr*) (x))->tot_len)
@@ -690,6 +691,7 @@ int run_listeners(struct sockaddr **addr, int *sockfd, int cnt, int (action_acce
          log_msg(LOG_EMERG, "exiting"), exit(1);
    }
 
+   set_thread_ready();
    for (;;)
    {
       // check for termination request
@@ -1040,4 +1042,143 @@ void *socket_cleaner(void *ptr)
    }
    return NULL;
 }
+
+
+#ifdef WITH_LOOPBACK_RESPONDER
+static void memor(void *dst, const void *src, int n)
+{
+   char *d = dst;
+   const char *s = src;
+
+   // safety check
+   if (d == NULL || s == NULL)
+   {
+      log_msg(LOG_EMERG, "NULL pointer caught in memor()");
+      return;
+   }
+
+   for (; n > 0; n--)
+      *d++ |= *s++;
+}
+
+
+void *loopback_responder(void *ptr)
+{
+   struct in6_addr addr = {{{0,0,0,0,0,0,0,0,0,0,0,0,0xde,0xad,0xbe,0xef}}};
+   int fd;
+   char buf[FRAME_SIZE];
+   struct ip6_hdr *ip6h = (struct ip6_hdr*) buf;
+   int len, wlen, uni;
+   OcatPeer_t *peer;
+
+   log_debug("initializing dead_beef_responder");
+   if ((fd = socket((*CNF(oc_listen))->sa_family, SOCK_STREAM, 0)) == -1)
+   {
+      log_msg(LOG_ERR, "failed to create socket: %s", strerror(errno));
+      goto loop_exit1;
+   }
+
+   log_debug("waiting for acceptor");
+   wait_thread_by_name_ready("acceptor");
+
+   log_debug("connecting...");
+   if (connect(fd, *CNF(oc_listen), SOCKADDR_SIZE(*CNF(oc_listen))) == -1)
+   {
+      log_msg(LOG_ERR, "could not connect(): %s", strerror(errno));
+      goto loop_exit2;
+   }
+
+   memor(&addr, &NDESC(prefix), sizeof(addr));
+
+   memset(ip6h, 0, sizeof(*ip6h));
+   ip6h->ip6_src = addr;
+   ip6h->ip6_dst = CNF(ocat_addr);
+   ip6h->ip6_vfc = 0x60;
+   ip6h->ip6_nxt = IPPROTO_NONE;
+   ip6h->ip6_hops = 1;
+   wlen = sizeof(*ip6h);
+
+   log_debug("clearing unidirectional mode and sending packet");
+   uni = CNF(unidirectional);
+   CNF(unidirectional) = 0;
+   len = write(fd, ip6h, wlen);
+   log_debug("sent %d of %d bytes to fd %d", len, wlen, fd);
+
+   for (peer = NULL; peer == NULL; )
+   {
+      lock_peers();
+      if ((peer = search_peer(&addr)))
+         lock_peer(peer);
+      unlock_peers();
+
+      if (peer == NULL)
+      {
+         log_debug("peer not found, waiting...");
+         usleep(100000);
+      }
+   }
+
+   // reset unidirectional mode
+   log_debug("resetting unidirectional mode to %d and setting peer parameters", uni);
+   CNF(unidirectional) = uni;
+   //peer->addr = addr;
+   peer->perm = 1;
+   unlock_peer(peer);
+
+   set_thread_ready();
+   log_msg(LOG_INFO, "loopback_responder ready listening on %s", inet_ntop(AF_INET6, &addr, buf, INET6_ADDRSTRLEN));
+   while (!term_req())
+   {
+      // read from pipe
+      len = read(fd, buf, sizeof(buf));
+      // check for error
+      if (len == -1)
+      {
+         log_msg(LOG_ERR, "read failed: %s", strerror(errno));
+         break;
+      }
+      if (len == 0)
+      {
+         log_msg(LOG_INFO, "socket was closed");
+         break;
+      }
+      log_debug("read %d bytes", len);
+      // check for minimum length of packet
+      if (len < IP6HLEN)
+      {
+         log_msg(LOG_ERR, "packet too small (%d bytes), dropping", len);
+         continue;
+      }
+      // check for IPv6
+      if ((buf[0] & 0xf0) != 0x60)
+      {
+         log_msg(LOG_ERR, "ill packet, starts with 0x%02x, dropping", buf[0]);
+         continue;
+      }
+
+      log_debug("swapping IPs and sending back");
+      // swapping source and destination address
+      addr = ip6h->ip6_src;
+      ip6h->ip6_src = ip6h->ip6_dst;
+      ip6h->ip6_dst = addr;
+
+      wlen = write(fd, buf, len);
+      if (wlen == -1)
+      {
+         log_msg(LOG_ERR, "write failed: %s", strerror(errno));
+         break;
+      }
+      if (wlen < len)
+         log_msg(LOG_ERR, "truncated write: %d < %d", wlen, len);
+   }
+
+loop_exit2:
+   oe_close(fd);
+
+loop_exit1:
+   log_msg(LOG_INFO, "looback_responder exiting");
+
+   return NULL;
+}
+#endif
 

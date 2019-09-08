@@ -444,6 +444,7 @@ typedef struct OcatThread
    char name[THREAD_NAME_LEN];
    void *(*entry)(void*);
    void *parm;
+   int ready;              //!< thread is ready, i.e. every initialization is done
 } OcatThread_t;
 
 typedef struct SocksQueue
@@ -557,9 +558,6 @@ extern char *tun_dev_;
 #define TUN_DEV "STDIO"
 #endif
 
-extern pthread_mutex_t thread_mutex_;
-extern OcatThread_t *octh_;
-
 /* ocat.c */
 
 
@@ -608,6 +606,9 @@ void set_select_timeout(struct timeval *);
 void set_nonblock(int);
 void set_tunheader(char *, uint32_t);
 uint32_t get_tunheader(char *);
+#ifdef WITH_LOOPBACK_RESPONDER
+void *loopback_responder(void *);
+#endif
 
 /* ocatthread.c */
 const OcatThread_t *init_ocat_thread(const char *);
@@ -619,6 +620,8 @@ void detach_thread(void);
 void print_threads(FILE *);
 int term_req(void);
 void set_term_req(void);
+int wait_thread_by_name_ready(const char *);
+int set_thread_ready(void);
 
 /* ocatcompat.c */
 #ifndef HAVE_STRLCAT
@@ -672,6 +675,7 @@ void socks_queue(struct in6_addr, int);
 void print_socks_queue(FILE *);
 void sig_socks_connector(void);
 void *socks_connector_sel(void *);
+int test_socks_server(void);
 
 /* ocatlibe.c */
 void oe_close(int);

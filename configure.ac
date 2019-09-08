@@ -1,11 +1,12 @@
 
 AC_PREREQ(2.62)
 #define([svnversion], esyscmd([sh -c "echo -n $(wc -l <GitLog)"]))dnl
-AC_INIT([onioncat],[[0.2.7]],[rahra@cypherpunk.at])
+AC_INIT([onioncat],[[0.2.9a]],[rahra@cypherpunk.at])
 AM_INIT_AUTOMAKE([-Wall -Werror])
 AC_CONFIG_HEADERS([config.h])
 
 AC_DEFINE(SVN_REVISION, "svnversion", [SVN Revision])
+AC_DEFINE([WITH_LOOPBACK_RESPONDER], [], [Enable loopback_responder().])
 
 
 AC_ARG_ENABLE([debug], AS_HELP_STRING([--enable-debug],[enable debugging]), 
