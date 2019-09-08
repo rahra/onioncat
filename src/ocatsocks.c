@@ -1,4 +1,4 @@
-/* Copyright 2008 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2019 Bernhard R. Fischer, Daniel Haslinger.
  *
  * This file is part of OnionCat.
  *
@@ -15,11 +15,11 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*! ocatsocks.c
+/*! \file ocatsocks.c
  *  Contains functions for connecting to TOR via SOCKS.
  *
  *  @author Bernhard Fischer <rahra _at_ cypherpunk at>
- *  @version 2008/02/03-01
+ *  \date 2019/09/08
  */
 
 /* SOCKS5 is defined in RFC1928 */

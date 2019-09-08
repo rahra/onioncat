@@ -15,6 +15,13 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*! \file ocat.h
+ * This file is the central header file of OnionCat. It includes all other
+ * headers and contains all macros, structures, typedefs,...
+ * \author Bernhard R. Fischer
+ * \date 2019/09/08
+ */
+
 #ifndef OCAT_H
 #define OCAT_H
 

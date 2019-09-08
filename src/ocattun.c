@@ -1,4 +1,4 @@
-/* Copyright 2008-2017 Bernhard R. Fischer.
+/* Copyright 2008-2019 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -15,11 +15,11 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*! ocattun.c
+/*! \file ocattun.c
  *  These functions create the TUN device.
  *
  *  @author Bernhard R. Fischer <rahra _at_ cypherpunk at>
- *  @version 2019/08/28
+ *  \date 2019/09/08
  */
 
 

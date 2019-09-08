@@ -1,4 +1,4 @@
-/* Copyright 2008-2009 Bernhard R. Fischer.
+/* Copyright 2008-2019 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -15,12 +15,15 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*! This file contains the Windows code for accessing the OpenVPN TAP driver.
+/*! \file ocat_wintuntap.c
+ * This file contains the Windows code for accessing the OpenVPN TAP driver.
  * This driver must be installed in order to run OnionCat on Windows.
  *
  *  The source code of this file was originally written by Wolfgang Ginolas for
  *  his P2PVPN project (http://www.p2pvpn.org/) and was by his permission
  *  adapted (thanks) to the needs for OnionCat.
+ *  \author Bernhard R. Fischer, <bf@abenteuerland.at>
+ *  \date 2019/09/08
  */
  
 #ifdef __CYGWIN__

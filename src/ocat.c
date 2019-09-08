@@ -15,6 +15,12 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*! \file ocat.c
+ * This is the main file OnionCat. It initializes everything, runs all threads,
+ * and finally terminates OnionCat again.
+ * \date 2019/09/08
+ * \author Bernhard R. Fischer, <bf@abenteuerland.at>
+ */
 
 #include "ocat.h"
 #include "ocat_netdesc.h"

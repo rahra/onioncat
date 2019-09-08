@@ -1,4 +1,4 @@
-/* Copyright 2008 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2019 Bernhard R. Fischer, Daniel Haslinger.
  *
  * This file is part of OnionCat.
  *
@@ -15,12 +15,12 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*! ocatroute.c
+/*! \file ocatroute.c
  *  Contains functions for managing both kind of TCP peers.
  *  Those are active SOCKS4A and passive TCP-LISTEN.
  *
  *  @author Bernhard Fischer <rahra _at_ cypherpunk at>
- *  @version 2008/02/03-01
+ *  \date 2019/09/08
  */
 
 
