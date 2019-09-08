@@ -27,6 +27,7 @@
 #include "ocat.h"
 #include "ocat_netdesc.h"
 #include "ocathosts.h"
+#include <netdb.h>
 
 
 // SOCKS connector queue vars
@@ -36,7 +37,7 @@ static SocksQueue_t *socks_queue_ = NULL;
 #define SOCKS_BUFLEN (SOCKS_MIN_BUFLEN + NI_MAXHOST + 32)
 
 
-static void get_hostname(const SocksQueue_t *sq, char *onion, int onion_size)
+static int get_hostname(const SocksQueue_t *sq, char *onion, int onion_size)
 {
    int ret = -1;
 
@@ -56,7 +57,53 @@ static void get_hostname(const SocksQueue_t *sq, char *onion, int onion_size)
       ipv6tonion(&sq->addr, onion);
       strlcat(onion, CNF(domain), onion_size);
    }
+
+   return ret;
 }
+
+
+#define DIRECT_CONNECTIONS
+#ifdef DIRECT_CONNECTIONS
+static int hostname_addr(const char *name, struct sockaddr *addr, int *len)
+{
+   char portname[16];
+   struct addrinfo hints, *res;
+   int e;
+
+   /* safety check */
+   if (name == NULL || addr == NULL)
+   {
+      log_msg(LOG_EMERG, "name || addr == NULL");
+      return -1;
+   }
+
+   memset(&hints, 0, sizeof(struct addrinfo));
+   hints.ai_family = AF_UNSPEC;
+   hints.ai_socktype = SOCK_STREAM;
+   hints.ai_flags = 0;
+   hints.ai_protocol = IPPROTO_TCP;
+
+   snprintf(portname, sizeof(portname), "%d", CNF(ocat_dest_port));
+   if ((e = getaddrinfo(name, portname, &hints, &res)) != 0)
+   {
+      log_msg(LOG_ERR, "getaddrinfo() failed: %s", gai_strerror(e));
+      return -1;
+   }
+
+   if (res == NULL)
+   {
+      log_msg(LOG_ERR, "getaddrinfo() returned empty result structure");
+      return -1;
+   }
+
+   log_debug("family = %d", res->ai_addr->sa_family);
+   memcpy(addr, res->ai_addr, res->ai_addrlen > *len ? *len : res->ai_addrlen);
+   *len = res->ai_addrlen;
+   freeaddrinfo(res);
+
+   return 0;
+}
+#endif
 
 
 int socks_send_request(const SocksQueue_t *sq)
@@ -435,9 +482,10 @@ int socks_tcp_connect(int fd, struct sockaddr *addr, int len)
       if (errno != EINPROGRESS)
       {
          log_msg(LOG_ERR, "connect() to SOCKS port %s:%d failed: \"%s\". Sleeping for %d seconds.", 
-            inet_ntop(CNF(socks_dst)->sin_family, 
-               CNF(socks_dst)->sin_family == AF_INET ? (char*) &CNF(socks_dst)->sin_addr : (char*) &CNF(socks_dst6)->sin6_addr, astr, sizeof(astr)), 
-            ntohs(CNF(socks_dst)->sin_port), strerror(errno), TOR_SOCKS_CONN_TIMEOUT);
+            inet_ntop(addr->sa_family, 
+               addr->sa_family == AF_INET ? (char*) &((struct sockaddr_in*) addr)->sin_addr : (char*) &((struct sockaddr_in6*) addr)->sin6_addr, astr, sizeof(astr)), 
+            ntohs(addr->sa_family == AF_INET ? ((struct sockaddr_in*) addr)->sin_port : ((struct sockaddr_in6*) addr)->sin6_port),
+            strerror(errno), TOR_SOCKS_CONN_TIMEOUT);
          return -1;
       }
       log_debug("connection in progress");
@@ -470,6 +518,8 @@ void *socks_connector_sel(void *p)
    time_t t;
    struct timeval tv;
    socklen_t err_len;
+   struct sockaddr_storage ss;
+   char name[NI_MAXHOST];
 
    for (;;)
    {
@@ -508,8 +558,30 @@ void *socks_connector_sel(void *p)
                   continue;
                }
 
+#ifdef DIRECT_CONNECTIONS
+               if (CNF(socks5) == CONNTYPE_DIRECT)
+               {
+                  if (get_hostname(squeue, name, sizeof(name)))
+                  {
+                     log_msg(LOG_ERR, "no valid destination name found for DIRECT connection");
+                     continue;
+                  }
+                  err_len = sizeof(ss);
+                  if (hostname_addr(name, (struct sockaddr*) &ss, &err_len))
+                  {
+                     log_msg(LOG_ERR, "no IP for hostname \"%s\" found", name);
+                     continue;
+                  }
+               }
+               else
+#endif
+               {
+                  err_len = SOCKADDR_SIZE(CNF(socks_dst));
+                  memcpy(&ss, CNF(socks_dst), err_len);
+               }
+
                log_debug("creating socket for unconnected SOCKS request");
-               if ((squeue->fd = socket(CNF(socks_dst)->sin_family == AF_INET ? PF_INET : PF_INET6, SOCK_STREAM, 0)) == -1)
+               if ((squeue->fd = socket(ss.ss_family, SOCK_STREAM, 0)) == -1)
                {
                   log_msg(LOG_ERR, "cannot create socket for new SOCKS request: \"%s\"", strerror(errno));
                   continue;
@@ -518,7 +590,7 @@ void *socks_connector_sel(void *p)
                set_nonblock(squeue->fd);
                log_debug("queueing fd %d for connect", squeue->fd);
                squeue->connect_time = t;
-               if (socks_tcp_connect(squeue->fd, (struct sockaddr*) CNF(socks_dst), SOCKADDR_SIZE(CNF(socks_dst))) == -1)
+               if (socks_tcp_connect(squeue->fd, (struct sockaddr*) &ss, err_len) == -1)
                {
                   socks_reschedule(squeue);
                   continue;
@@ -603,7 +675,7 @@ void *socks_connector_sel(void *p)
                   continue;
                }
                // SOCKS4A
-               if (!CNF(socks5))
+               if (CNF(socks5) == CONNTYPE_SOCKS4A)
                {
                   // everything seems to be ok, now check request status
                   if (socks_send_request(squeue) == -1)
@@ -615,7 +687,7 @@ void *socks_connector_sel(void *p)
                   // request successfully sent, advance state machine
                   squeue->state = SOCKS_4AREQ_SENT;
                }
-               else
+               else if (CNF(socks5) == CONNTYPE_SOCKS5)
                {
                   // everything seems to be ok, now check request status
                   if (socks5_greet(squeue) == -1)
@@ -626,6 +698,18 @@ void *socks_connector_sel(void *p)
                   }
                   // request successfully sent, advance state machine
                   squeue->state = SOCKS_5GREET_SENT;
+               }
+               else if (CNF(socks5) == CONNTYPE_DIRECT)
+               {
+                  // no further handshake required for direct peers
+                  log_debug("activating peer fd %d", squeue->fd);
+                  socks_activate_peer(squeue);
+                  squeue->state = SOCKS_DELETE;
+               }
+               else
+               {
+                  log_msg(LOG_EMERG, "unknown connection type %d (this should never happen...)", CNF(socks5));
+                  exit(1);
                }
             }
             else

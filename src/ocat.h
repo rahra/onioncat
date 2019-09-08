@@ -217,6 +217,10 @@
 //! thread stack size (default stack size on OpenBSD is too small)
 #define THREAD_STACK_SIZE 262144
 
+#define CONNTYPE_SOCKS4A 0
+#define CONNTYPE_SOCKS5 1
+#define CONNTYPE_DIRECT 2
+
 #define SOCKS_NEW 0
 #define SOCKS_CONNECTING 1
 #define SOCKS_4AREQ_SENT 2
