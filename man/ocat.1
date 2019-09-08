@@ -65,11 +65,21 @@ information on IPv4.
 Native IPv4 forwarding is deprecated. The recommended solution for IPv4
 forwarding is to build a IPv4-through-IPv6 tunnel through OnionCat.
 .TP
-\fB\-5\fP
+\fB\-5\fP \fI'socks5'|'direct'\fP
+This option has a mandatory argument which is literally either \fIsocks5\fP or
+\fIdirect\fP.
+.br
 By default OnionCat uses SOCKS4A (version 4a) to connect to the anonymization
-network proxy (e.g. Tor). With this option OnionCat uses SOCKS5 (version 5 as
-specified in RFC1928), currently with no authentication mechanism. As of today
-it actually makes no difference but it might be desireable in future.
+network proxy (e.g. Tor). With this option set to \fIsocks5\fP, OnionCat uses
+SOCKS5 (version 5 as specified in RFC1928), currently with no authentication
+mechanism. As of today it actually makes no difference but it might be
+desireable in future.
+.br
+If \fIdirect\fP is used, OnionCat does not connect through to SOCKS server but
+instead it connects directly to the remote peers using the hosts lookup
+mechanism (see option \fB\-H\fP). This feature is experimental and turns
+OnionCat into a virtual switch based on regular Internet transport instead of
+Tor.
 .TP
 \fB\-a\fP
 OnionCat creates a log file at $HOME/.ocat/connect_log. All incoming connects are
