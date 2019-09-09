@@ -16,7 +16,7 @@
  */
 
 /*! \file ocattun.c
- *  These functions create the TUN device.
+ *  These functions create and initialized the TUN/TAP device.
  *
  *  @author Bernhard R. Fischer <rahra _at_ cypherpunk at>
  *  \date 2019/09/08
@@ -34,6 +34,11 @@ char *tun_dev_ = TUN_DEV;
 #define IFCBUF 1024
 
 
+/*! system_w() is a wrapper function for system(3). It checks return codes and
+ * outputs some logging messages.
+ * @param s Parameter directly passed to system(3).
+ * @return Returns return value of system(3).
+ */
 int system_w(const char *s)
 {
    int e;
@@ -53,11 +58,28 @@ int system_w(const char *s)
 extern char **environ;
 
 
+/*! This function executes the ifup script (see option -e). The function forks
+ * a child, sets the environment variables OCAT_IFNAME, OCAT_ADDRESS,
+ * OCAT_PREFIX, and OCAT_PREFIXLEN and finally executes the ifup shell script
+ * by calling execlp(3).
+ * The parent does not wait for the child to exit.
+ * @param ifname Pointer to interface name string.
+ * @param astr Pointer to literal IPv6 address string.
+ * @param prefix_len Prefix length.
+ * @return On success (if the child could be forked) 0 is returned, otherwise
+ * -1 is returned.
+ */
 int run_tun_ifup(const char *ifname, const char *astr, int prefix_len)
 {
    char env_ifname[ENVLEN], env_address[ENVLEN], env_prefix[ENVLEN], env_prefix_len[ENVLEN];
    char *env[] = {env_ifname, env_address, env_prefix, env_prefix_len, NULL};
    pid_t pid;
+
+   if (ifname == NULL || astr == NULL)
+   {
+      log_msg(LOG_EMERG, "NULL pointer caught in run_tun_ifup()");
+      return -1;
+   }
 
    log_msg(LOG_INFO, "running ifup script \"%s\"", CNF(ifup));
    switch (pid = fork())
@@ -88,6 +110,12 @@ int run_tun_ifup(const char *ifname, const char *astr, int prefix_len)
 }
 
 
+/*! mk_in6_mask() creates an IPv6 network mask according to the number
+ * specified in prefixlen.
+ * @param msk Pointer to in6_addr which will receive the result.
+ * @param prefixlen Prefix length.
+ * @return On success 0 is returned, otherwise -1.
+ */
 int mk_in6_mask(struct in6_addr *msk, int prefixlen)
 {
    char *buf;
@@ -110,6 +138,13 @@ int mk_in6_mask(struct in6_addr *msk, int prefixlen)
 }
 
 
+/*! sin_set_addr() fills in a sockaddr_in structure appropriately.
+ * @param sin Pointer to a sockaddr_in structure which will be filled in.
+ * @param addr Network address which will be copied into sin.
+ * @return On success 0 is return, otherwise -1. The function may only fail of
+ * NULL pointers are passed.
+ * FIXME: This function should be moved to ocatlibe.c.
+ */
 int sin_set_addr(struct sockaddr_in *sin, const struct in_addr *addr)
 {
    if (sin == NULL || addr == NULL)
@@ -127,6 +162,13 @@ int sin_set_addr(struct sockaddr_in *sin, const struct in_addr *addr)
 }
 
 
+/*! sin6_set_addr() fills in a sockaddr_in6 structure appropriately.
+ * @param sin Pointer to a sockaddr_in6 structure which will be filled in.
+ * @param addr Network address which will be copied into sin.
+ * @return On success 0 is return, otherwise -1. The function may only fail of
+ * NULL pointers are passed.
+ * FIXME: This function should be moved to ocatlibe.c.
+ */
 int sin6_set_addr(struct sockaddr_in6 *sin6, const struct in6_addr *addr)
 {
    if (sin6 == NULL || addr == NULL)
