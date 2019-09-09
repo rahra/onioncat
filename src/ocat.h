@@ -130,9 +130,11 @@
 #endif
 
 #ifndef ETHERTYPE_IP
+//! Ether type for IPv4.
 #define ETHERTYPE_IP 0x0800
 #endif
 #ifndef ETHERTYPE_IPV6
+//! Ether type for IPv6.
 #define ETHERTYPE_IPV6 0x86dd
 #endif
 
@@ -157,6 +159,7 @@
 //! Length of an .onion-URL (without ".onion" and '\0')
 #define ONION_URL_LEN 16
 
+//! Maximum number of peers allowed.
 #define MAXPEERS 1024
 #ifdef __OpenBSD__
 #define OCAT_UNAME "_tor"
@@ -165,12 +168,18 @@
 #else
 #define OCAT_UNAME "tor"
 #endif
+//! Uid of unprivileged user.
 #define OCAT_UNPRIV_UID 65534
+//! Name of unprivileged user (if system offers no name).
 #define OCAT_UNPRIV_UNAME "(unknown)"
+//! Project URL of OnionCat.
 #define OCAT_URL "https://www.onioncat.org/"
+//! Path to OnionCat logging directory (see option -a).
 #define OCAT_DIR ".ocat"
 //#define OCAT_CONNECT_LOG "connect_log"
+//! Default path to PID file (option -P).
 #define PID_FILE "/var/run/ocat.pid"
+//! Name of the author of OnionCat.
 #define OCAT_AUTHOR "Bernhard R. Fischer"
 
 //! Maximum frame (packet) size, should be able to keep one maximum size ipv6-packet: 2^16 + 40 + 4
@@ -178,6 +187,7 @@
 
 //! Standard buffer size 1024 bytes
 #define SIZE_1K 1024
+//! Standard buffer size 256 bytes
 #define SIZE_256 256
 
 #define DEQUEUER_WAKEUP 3
@@ -186,9 +196,9 @@
 
 //! Maximum idle time for a peer, after that time the peer is closed.
 #define MAX_IDLE_TIME 180
-//! # of secs after a cleaner wakeup occurs
+//! \# of secs after a cleaner wakeup occurs
 #define CLEANER_WAKEUP 10
-//! # of secs after stats output is generated
+//! \# of secs after stats output is generated
 #define STAT_WAKEUP 600
 //! keepalive time
 #define KEEPALIVE_TIME 60
@@ -210,25 +220,39 @@
 //#define PEER_CONNECT 0
 #define PEER_ACTIVE 1
 
+//! Outgoing peer => connect().
 #define PEER_INCOMING 0
+//! Incoming peer => accept().
 #define PEER_OUTGOING 1
 
+//! Maximum length of thread names.
 #define THREAD_NAME_LEN 11
 //! thread stack size (default stack size on OpenBSD is too small)
 #define THREAD_STACK_SIZE 262144
 
+//! Connection type SOCKS4A (option -5).
 #define CONNTYPE_SOCKS4A 0
+//! Connection type SOCKS5 (option -5).
 #define CONNTYPE_SOCKS5 1
+//! Connection type direct, i.e. no SOCKS (option -5).
 #define CONNTYPE_DIRECT 2
 
+//! SOCKS state machine: new connection
 #define SOCKS_NEW 0
+//! SOCKS state machine: connect() in progress
 #define SOCKS_CONNECTING 1
+//! SOCKS state machine: SOCKS4A request sent
 #define SOCKS_4AREQ_SENT 2
+//! SOCKS state machine: this state is NOT used!
 #define SOCKS_4ARESPONSE 3
+//! SOCKS state machine: SOCKS5 greeting sent
 #define SOCKS_5GREET_SENT 4
+//! SOCKS state machine: SOCK5 request sent
 #define SOCKS_5REQ_SENT 5
+//! SOCKS state machine: request ready for deletion
 #define SOCKS_DELETE 127
 
+//! maximum number of SOCKS retries before becoming deleted
 #define SOCKS_MAX_RETRY 3
 
 #define E_RT_NOMEM -1
@@ -266,9 +290,11 @@
 //! copy an IPv6 address from b to a
 #define IN6_ADDR_COPY(a,b) *((struct in6_addr*)a)=*(struct in6_addr*)b
 
+//! Index to OcatSetup.fhd_key for IPv4.
 #define IPV4_KEY 0
+//! Index to OcatSetup.fhd_key for IPv6.
 #define IPV6_KEY 1
-
+//! Macro to return size of anonymous sockaddr structure (only AF_INET and AF_INET6).
 #define SOCKADDR_SIZE(x) (((struct sockaddr*) x)->sa_family == AF_INET ? sizeof(struct sockaddr_in) : ((struct sockaddr*) x)->sa_family == AF_INET6 ? sizeof(struct sockaddr_in6) : 0)
 
 #define VERSION_STRING_LEN 256
@@ -294,48 +320,61 @@
 #endif
 
 
+//! General configuration data
+/*! OcatSetup is used as a global structure holding general configuration
+ * parameters for OnionCat.
+ */
 struct OcatSetup
 {
    //! frame header of local OS in network byte order
-   //! it is initialized in ocattun.c
+   /*! for IPV4 (IPV4_KEY => 0) and IPv6 (IPV6_KEY => 1), it is initialized in ocattun.c */
    uint32_t fhd_key[2];
+   //! size of the frame header, actually this is sizeof(uint32_t) which is 4
    int fhd_key_len;
-   //! TCP port of SOCKS port of local Tor proxy
-   //uint16_t tor_socks_port;
-   //! reload port of OnionCat listening for connections
-   //uint16_t ocat_listen_port;
    //! virtual port of OnionCat hidden service
    uint16_t ocat_dest_port;
    //! local port of controller interface
    uint16_t ocat_ctrl_port;
    //! file descriptors of TUN device (usually tunfd[0] == tunfd[1])
    int tunfd[2];
+   //! debug level
    int debug_level;
    //! user name to change uid to
    char *usrname;
+   //! onion URL which corresponds to the IPv6 address
    char onion_url[SIZE_256];
    //! long hs v3 onion name
    char onion3_url[SIZE_256];
+   //! IPv6 address of OnionCat
    struct in6_addr ocat_addr;
    //! flag to create connection log
    int create_clog;
    //! flag to not change uid to unprivileged user
    int runasroot;
+   //! controller interface enabled/disabled (option -C)
    int controller;
+   //! directory where OnionCat puts the connect log
    char *ocat_dir;
-   //! name of tunnel charcter device
+   //! name of tunnel charcter device FIXME: seems to be unnused, uses tun_dev_ instead -> needs fix
    char *tun_dev;
-   //! use SOCKS5 instead of SOCKS4A
+   //! Connection type (SOCKS4a, 5, or direct).
+   /*! use SOCKS5 (CONNTYPE_SOCKS5 => 1) or direct connects (CONNTYPE_DIRECT =>
+    * 2) instead of SOCKS4A (CONNTYPE_SOCKS4A => 0), option -5 */
    int socks5;
    //! length of long HS names
    int l_hs_namelen;
    //! tunnel interface name
    char tunname[SIZE_256];
+   //! transport of IPv4 enabled (option -4)
    int ipv4_enable;
+   //! IPv4 address of OnionCat
    struct in_addr ocat_addr4;
+   //! IPv4 netmask
    union
    {
+      //! netmask as int type
       int ocat_addr4_mask;
+      //! netmask is struct in_addr type
       struct in_addr ocat_addr4_netmask;
    };
    char *config_file;
@@ -405,6 +444,7 @@ typedef struct PacketQueue
 } PacketQueue_t;
 #endif
 
+//! This structure holds the SOCKS4A header.
 typedef struct SocksHdr
 {
    char ver;
@@ -413,6 +453,7 @@ typedef struct SocksHdr
    struct in_addr addr;
 } __attribute__((packed)) SocksHdr_t;
 
+//! Structure to hold the SOCKS5 header.
 typedef struct Socks5Hdr
 {
    char ver;
@@ -422,6 +463,7 @@ typedef struct Socks5Hdr
    char addr;
 } __attribute__((packed)) Socks5Hdr_t;
 
+//! This structure holds all data associated with a peer (a remote OnionCat).
 typedef struct OcatPeer
 {
    struct OcatPeer *next;  //!< pointer to next peer in list
@@ -445,6 +487,7 @@ typedef struct OcatPeer
    unsigned outm;
 } OcatPeer_t;
 
+//! OcatThread is a control structure to manage each thread of OnionCat.
 typedef struct OcatThread
 {
    struct OcatThread *next;
@@ -458,6 +501,10 @@ typedef struct OcatThread
    int ready;              //!< thread is ready, i.e. every initialization is done
 } OcatThread_t;
 
+//! Data structure for SOCKS connections in progress.
+/*! This structure holds all data associate with SOCKS connections which are
+ * currently in opening state, i.e. not connected but trying to connect.
+ */
 typedef struct SocksQueue
 {
    struct SocksQueue *next;
@@ -497,6 +544,7 @@ struct ip6_psh
    uint8_t nxt;
 } __attribute__((packed));
 
+//! MAC table entry for TAP mode.
 typedef struct MACTable
 {
    uint16_t family;
@@ -509,6 +557,7 @@ typedef struct MACTable
    time_t age;
 } MACTable_t;
 
+//! NDP protocol header.
 typedef struct ndp6
 {
    struct ether_header eth;
@@ -522,6 +571,7 @@ typedef struct ndp6
    //struct nd_opt_hdr ndp_opt;
 } __attribute__((packed)) ndp6_t;
 
+//! Structure to hold socket address as a literal string.
 struct sockaddr_str
 {
    sa_family_t sstr_family;
