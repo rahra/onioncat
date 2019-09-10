@@ -489,6 +489,7 @@ int tun_ifup(const char *dev)
 
    close(sockfd);
 #else
+   char buf[SIZE_256];
    snprintf(buf, sizeof(buf), "ifconfig %s up", dev);
    system_w(buf);
 #endif
