@@ -209,7 +209,7 @@ int wait_thread_by_name_ready(const char *s)
    OcatThread_t *th;
    int e;
 
-   log_debug("waiting for %s to become ready", s);
+   log_debug("waiting for [%s] to become ready", s);
    pthread_mutex_lock(&thread_mutex_);
    for (e = 0; !e; )
    {
@@ -232,11 +232,11 @@ int wait_thread_by_name_ready(const char *s)
       // check if ready flag still not set, meaning thread was not found by name
       if (!e)
       {
-         log_debug("thread \"%s\" seems not to exist yet, waiting...", s);
          pthread_cond_wait(&thread_cond_, &thread_mutex_);
       }
    }
    pthread_mutex_unlock(&thread_mutex_);
+   log_debug("[%s] ready", s);
 
    return e;
 }
