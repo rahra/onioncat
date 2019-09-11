@@ -337,6 +337,8 @@ struct OcatSetup
    uint16_t ocat_ctrl_port;
    //! file descriptors of TUN device (usually tunfd[0] == tunfd[1])
    int tunfd[2];
+   //! configure IP addresses on startup
+   int ipconfig;
    //! debug level
    int debug_level;
    //! user name to change uid to

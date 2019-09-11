@@ -434,6 +434,7 @@ int parse_opt(int argc, char *argv[])
 
          case 'p':
             CNF(use_tap) = 1;
+            CNF(ipconfig) = 0;
             break;
 
          case 'P':

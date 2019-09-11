@@ -51,6 +51,7 @@ struct OcatSetup setup_ =
    0, 0,
    //! default tunfd is stdin/stdout
    {0, 1},
+   1, // ipconfig
    //! default debug level
    LOG_DEBUG,
    OCAT_UNAME, {0}, {0}, {{{0}}}, 0, 0, 1, OCAT_DIR, TUN_DEV,
@@ -256,6 +257,7 @@ void print_setup_struct(FILE *f)
          "ocat_ctrl_port         = %d\n"
          "tunfd[0]               = %d\n"
          "tunfd[1]               = %d\n"
+         "ipconfig               = %d\n"
          "debug_level            = %d\n"
          "usrname                = \"%s\"\n"
          "onion_url              = \"%s\"\n"
@@ -303,6 +305,7 @@ void print_setup_struct(FILE *f)
          setup_.ocat_dest_port,
          setup_.ocat_ctrl_port,
          setup_.tunfd[0], setup_.tunfd[1],
+         setup_.ipconfig,
          setup_.debug_level,
          setup_.usrname,
          setup_.onion_url,

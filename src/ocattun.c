@@ -348,18 +348,6 @@ int tun_ipv6_config(const char *dev, const struct in6_addr *addr, int prefix_len
    {
       log_msg(LOG_ERR, "SIOCSIFADDR: %s", strerror(errno));
    }
-
-   if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1)
-   {
-      log_msg(LOG_ERR, "SIOCGIFFLAGS: %s", strerror(errno));
-      ifr.ifr_flags = 0;
-   }
-
-   ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
-   if (ioctl(sockfd, SIOCSIFFLAGS, &ifr) == -1)
-   {
-      log_msg(LOG_ERR, "SIOCSIFFLAGS: %s", strerror(errno));
-   }
 #elif defined SIOCAIFADDR_IN6
 // I guess this works for all *BSD flavors
    struct in6_aliasreq ifr6a;
@@ -465,7 +453,7 @@ int tun_ifup(const char *dev)
    struct ifreq ifr;
    int sockfd;
 
-   log_msg(LOG_INFO, "bringing up TAP interface");
+   log_msg(LOG_INFO, "bringing up interface");
    if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP)) == -1)
    {
       log_msg(LOG_ERR, "failed to create temp socket: %s", strerror(errno));
@@ -489,9 +477,12 @@ int tun_ifup(const char *dev)
 
    close(sockfd);
 #else
+#ifndef __CYGWIN__
    char buf[SIZE_256];
+   // try generic interface up command
    snprintf(buf, sizeof(buf), "ifconfig %s up", dev);
    system_w(buf);
+#endif
 #endif
 
    return 0;
@@ -538,7 +529,7 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
       return fd;
    }
 
-   if (!CNF(use_tap))
+   if (CNF(ipconfig))
    {
       log_debug("setting up IPv6 address");
       tun_ipv6_config(dev, &CNF(ocat_addr), NDESC(prefix_len));
@@ -550,11 +541,9 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
          tun_ipv4_config(dev, &CNF(ocat_addr4), &CNF(ocat_addr4_netmask));
       }
    }
-   else
-   {
-      // bring up tap device
-      tun_ifup(dev);
-   }
+
+   // bring up device
+   tun_ifup(dev);
 
    return fd;
 }
