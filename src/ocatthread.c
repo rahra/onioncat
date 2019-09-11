@@ -195,21 +195,47 @@ int set_thread_name(const char *n)
 }
 
 
+/*! This function waits for a thread identified by name to become ready,
+ * meaning it set its ready flag with set_thread_ready(). If the thread is not
+ * found in the thread list, the function blocks. It wakes up again if any
+ * thread calls set_thread_ready() which reinitiates the reevaluation of the
+ * thread list. A thread my not appear in the thread list because it was not
+ * created, yet.
+ * @param s Pointer to thread name.
+ * @return The function always returns 1.
+ */
 int wait_thread_by_name_ready(const char *s)
 {
    OcatThread_t *th;
-   int e = -1;
+   int e;
 
    log_debug("waiting for %s to become ready", s);
    pthread_mutex_lock(&thread_mutex_);
-   for (th = octh_; th; th = th->next)
-      if (!strcmp(th->name, s))
+   for (e = 0; !e; )
+   {
+      // loop over all threads
+      for (th = octh_; th; th = th->next)
       {
-         while (!th->ready)
-            pthread_cond_wait(&thread_cond_, &thread_mutex_);
-         e = 0;
-         break;
+         // match thread name
+         if (!strcmp(th->name, s))
+         {
+            // check if it is ready
+            while (!th->ready)
+               // and wait if not
+               pthread_cond_wait(&thread_cond_, &thread_mutex_);
+            // set ready flag and break loop
+            e = 1;
+            break;
+         }
       }
+
+      // check if ready flag still not set, meaning thread was not found by name
+      if (!e)
+      {
+         log_debug("thread \"%s\" seems not to exist yet, waiting...", s);
+         pthread_cond_wait(&thread_cond_, &thread_mutex_);
+      }
+   }
    pthread_mutex_unlock(&thread_mutex_);
 
    return e;
