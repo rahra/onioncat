@@ -1062,36 +1062,17 @@ static void memor(void *dst, const void *src, int n)
 }
 
 
-void *loopback_responder(void *ptr)
+int loopback_handler(int fd, const struct in6_addr *laddr)
 {
-   struct in6_addr addr = {{{0,0,0,0,0,0,0,0,0,0,0,0,0xde,0xad,0xbe,0xef}}};
-   int fd;
    char buf[FRAME_SIZE];
+   struct in6_addr addr;
    struct ip6_hdr *ip6h = (struct ip6_hdr*) buf;
    int len, wlen, uni;
    OcatPeer_t *peer;
 
-   log_debug("initializing dead_beef_responder");
-   if ((fd = socket((*CNF(oc_listen))->sa_family, SOCK_STREAM, 0)) == -1)
-   {
-      log_msg(LOG_ERR, "failed to create socket: %s", strerror(errno));
-      goto loop_exit1;
-   }
-
-   log_debug("waiting for acceptor");
-   wait_thread_by_name_ready("acceptor");
-
-   log_debug("connecting...");
-   if (connect(fd, *CNF(oc_listen), SOCKADDR_SIZE(*CNF(oc_listen))) == -1)
-   {
-      log_msg(LOG_ERR, "could not connect(): %s", strerror(errno));
-      goto loop_exit2;
-   }
-
-   memor(&addr, &NDESC(prefix), sizeof(addr));
-
+   log_debug("starting loopback_handler");
    memset(ip6h, 0, sizeof(*ip6h));
-   ip6h->ip6_src = addr;
+   ip6h->ip6_src = *laddr;
    ip6h->ip6_dst = CNF(ocat_addr);
    ip6h->ip6_vfc = 0x60;
    ip6h->ip6_nxt = IPPROTO_NONE;
@@ -1107,7 +1088,7 @@ void *loopback_responder(void *ptr)
    for (peer = NULL; peer == NULL; )
    {
       lock_peers();
-      if ((peer = search_peer(&addr)))
+      if ((peer = search_peer(laddr)))
          lock_peer(peer);
       unlock_peers();
 
@@ -1126,7 +1107,7 @@ void *loopback_responder(void *ptr)
    unlock_peer(peer);
 
    set_thread_ready();
-   log_msg(LOG_INFO, "loopback_responder ready listening on %s", inet_ntop(AF_INET6, &addr, buf, INET6_ADDRSTRLEN));
+   log_msg(LOG_INFO, "loopback_handler ready listening on %s", inet_ntop(AF_INET6, laddr, buf, INET6_ADDRSTRLEN));
    while (!term_req())
    {
       // read from pipe
@@ -1172,11 +1153,79 @@ void *loopback_responder(void *ptr)
          log_msg(LOG_ERR, "truncated write: %d < %d", wlen, len);
    }
 
+   return 0;
+}
+
+
+void *local_loopback_responder(void *ptr)
+{
+   struct in6_addr addr = {{{0,0,0,0,0,0,0,0,0,0,0,0,0xde,0xad,0xbe,0xef}}};
+   int fd;
+
+   log_debug("initializing dead_beef_responder");
+   if ((fd = socket((*CNF(oc_listen))->sa_family, SOCK_STREAM, 0)) == -1)
+   {
+      log_msg(LOG_ERR, "failed to create socket: %s", strerror(errno));
+      goto loop_exit1;
+   }
+
+   wait_thread_by_name_ready("acceptor");
+
+   log_debug("connecting...");
+   if (connect(fd, *CNF(oc_listen), SOCKADDR_SIZE(*CNF(oc_listen))) == -1)
+   {
+      log_msg(LOG_ERR, "could not connect(): %s", strerror(errno));
+      goto loop_exit2;
+   }
+
+   memor(&addr, &NDESC(prefix), sizeof(addr));
+   loopback_handler(fd, &addr);
+
 loop_exit2:
    oe_close(fd);
 
 loop_exit1:
-   log_msg(LOG_INFO, "looback_responder exiting");
+   log_msg(LOG_INFO, "local_looback_responder exiting");
+
+   return NULL;
+}
+
+
+void *remote_loopback_responder(void *ptr)
+{
+   struct in6_addr addr = {{{0,0,0,0,0,0,0,0,0,0,0,0,0xfe,0xed,0xbe,0xef}}};
+   int fd;
+
+   log_debug("initializing feed_beef_responder");
+   // dont queue if SOCKS is disabled (-t none)
+   if (!CNF(socks_dst)->sin_family)
+   {
+      log_msg(LOG_INFO, "Not testing SOCKS, outgoing connections disabled (-t)");
+      goto rlr_exit;
+   }
+
+   if (CNF(socks5) == CONNTYPE_DIRECT)
+   {
+      log_msg(LOG_INFO, "No SOCKS to test (-5)");
+      goto rlr_exit;
+   }
+
+   wait_thread_by_name_ready("lloopback");
+
+   log_debug("self-connecting through SOCKS");
+   if ((fd = synchron_socks_connect(&CNF(ocat_addr))) == -1)
+   {
+      log_msg(LOG_ERR, "SOCKS connection failed");
+      goto rlr_exit;
+   }
+
+   memor(&addr, &NDESC(prefix), sizeof(addr));
+   loopback_handler(fd, &addr);
+
+   oe_close(fd);
+
+rlr_exit:
+   log_msg(LOG_INFO, "remote_looback_responder exiting");
 
    return NULL;
 }

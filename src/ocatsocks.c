@@ -784,25 +784,138 @@ void *socks_connector_sel(void *p)
 }
 
 
-int test_socks_server(void)
+int synchron_socks_connect(const struct in6_addr *addr)
 {
-   int fd, err = -1;
+   struct timeval tv;
+   SocksQueue_t sq;
 
-   if ((fd = socket(CNF(socks_dst)->sin_family == AF_INET ? PF_INET : PF_INET6, SOCK_STREAM, 0)) == -1)
+   memset(&sq, 0, sizeof(sq));
+   sq.addr = *addr;
+   sq.state = SOCKS_NEW;
+   sq.fd = -1;
+
+   while (sq.state != SOCKS_READY)
    {
-      log_msg(LOG_ERR, "Failed to create socket for SOCKS test request: \"%s\"", strerror(errno));
-      return -1;
+      if (term_req())
+      {
+         log_debug("termination request");
+         goto rlr_exit;
+      }
+
+      switch (sq.state)
+      {
+         case SOCKS_NEW:
+            log_debug("creating socket");
+            if ((sq.fd = socket(CNF(socks_dst)->sin_family == AF_INET ? PF_INET : PF_INET6, SOCK_STREAM, 0)) == -1)
+            {
+               log_msg(LOG_ERR, "Failed to create socket for SOCKS test request: \"%s\"", strerror(errno));
+               goto rlr_exit;
+            }
+
+            log_debug("connecting fd %d", sq.fd);
+            if (!socks_tcp_connect(sq.fd, (struct sockaddr*) CNF(socks_dst), SOCKADDR_SIZE(CNF(socks_dst))))
+            {
+               log_msg(LOG_INFO, "Successfully connected to SOCKS!");
+               if (CNF(rand_addr))
+               {
+                  log_msg(LOG_INFO, "Remote loopback not possible with random address (-R)");
+                  goto rlr_exit;
+               }
+
+               sq.state = SOCKS_CONNECTING;
+               continue;
+            }
+
+            log_msg(LOG_ERR, "Could not connect to SOCKS server (i.e. Tor/I2P). Please check!");
+            break;
+
+         case SOCKS_CONNECTING:
+            // SOCKS4A
+            if (CNF(socks5) == CONNTYPE_SOCKS4A)
+            {
+               // everything seems to be ok, now check request status
+               if (socks_send_request(&sq) == -1)
+               {
+                  log_msg(LOG_ERR, "SOCKS request failed");
+                  sq.state = SOCKS_DELETE;
+                  continue;
+               }
+               // request successfully sent, advance state machine
+               sq.state = SOCKS_4AREQ_SENT;
+            }
+            else if (CNF(socks5) == CONNTYPE_SOCKS5)
+            {
+               // everything seems to be ok, now check request status
+               if (socks5_greet(&sq) == -1)
+               {
+                  log_msg(LOG_ERR, "SOCKS5 request failed");
+                  sq.state = SOCKS_DELETE;
+                  continue;
+               }
+               // request successfully sent, advance state machine
+               sq.state = SOCKS_5GREET_SENT;
+            }
+            continue;
+
+         case SOCKS_4AREQ_SENT:
+            if (socks_rec_response(&sq) == -1)
+            {
+               sq.state = SOCKS_DELETE;
+               continue;
+            }
+            // success
+            log_debug("activating peer fd %d", sq.fd);
+            sq.state = SOCKS_READY;
+            continue;
+
+         case SOCKS_5GREET_SENT:
+            // check greet response
+            if (socks5_greet_response(&sq) == -1)
+            {
+               sq.state = SOCKS_DELETE;
+               continue;
+            }
+            // greeting was successful, send request
+            if (socks5_send_request(&sq) == -1)
+            {
+               log_msg(LOG_ERR, "sending SOCKS5 request failed");
+               sq.state = SOCKS_DELETE;
+               continue;
+            }
+            // request successfully sent, advance state machine
+            sq.state = SOCKS_5REQ_SENT;
+            continue;
+
+         case SOCKS_5REQ_SENT:
+            if (socks5_rec_response(&sq) == -1)
+            {
+               sq.state = SOCKS_DELETE;
+               continue;
+            }
+            // success
+            log_debug("activating peer fd %d", sq.fd);
+            sq.state = SOCKS_READY;
+            continue;
+
+         case SOCKS_DELETE:
+            oe_close(sq.fd);
+            sq.fd = -1;
+            sq.state = SOCKS_NEW;
+            break;
+
+         default:
+            log_msg(LOG_EMERG, "unhandled state %d", sq.state);
+            sq.state = SOCKS_DELETE;
+            continue;
+      }
+
+      log_msg(LOG_INFO, "Restarting in a moment...");
+      set_select_timeout(&tv);
+      if (select(0, NULL, NULL, NULL, &tv) == -1)
+         log_msg(LOG_ERR, "select() failed: %s", strerror(errno));
    }
 
-   if (!socks_tcp_connect(fd, (struct sockaddr*) CNF(socks_dst), SOCKADDR_SIZE(CNF(socks_dst))))
-   {
-      log_msg(LOG_INFO, "SOCKS server tested successfully");
-      err = 0;
-   }
-   else
-      log_msg(LOG_ERR, "Could not connect to SOCKS server (i.e. Tor/I2P). Please check!");
-
-   oe_close(fd);
-   return err;
+rlr_exit:
+   return sq.fd;
 }
 

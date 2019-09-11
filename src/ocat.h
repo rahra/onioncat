@@ -249,6 +249,8 @@
 #define SOCKS_5GREET_SENT 4
 //! SOCKS state machine: SOCK5 request sent
 #define SOCKS_5REQ_SENT 5
+//! SOCKS state machine: successfully opened, ready for data transfer
+#define SOCKS_READY 126
 //! SOCKS state machine: request ready for deletion
 #define SOCKS_DELETE 127
 
@@ -670,7 +672,8 @@ void set_nonblock(int);
 void set_tunheader(char *, uint32_t);
 uint32_t get_tunheader(char *);
 #ifdef WITH_LOOPBACK_RESPONDER
-void *loopback_responder(void *);
+void *local_loopback_responder(void *);
+void *remote_loopback_responder(void *);
 #endif
 
 /* ocatthread.c */
@@ -739,6 +742,7 @@ void print_socks_queue(FILE *);
 void sig_socks_connector(void);
 void *socks_connector_sel(void *);
 int test_socks_server(void);
+int synchron_socks_connect(const struct in6_addr *);
 
 /* ocatlibe.c */
 void oe_close(int);

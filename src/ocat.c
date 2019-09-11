@@ -721,11 +721,9 @@ int main(int argc, char *argv[])
 
 #ifdef WITH_LOOPBACK_RESPONDER
    // starting loopback responder
-   run_ocat_thread("loopback", loopback_responder, NULL);
+   run_ocat_thread("lloopback", local_loopback_responder, NULL);
+   run_ocat_thread("rloopback", remote_loopback_responder, NULL);
 #endif
-
-   // try to connect to Tor, to test if setup is correct
-   test_socks_server();
 
 #ifdef CONNECT_ROOT_PEERS
    // initiate connections to permanent root peers
