@@ -491,6 +491,44 @@ int tun_ifup(const char *dev)
 }
 
 
+/*! Some operating systems do not automatically install a route into the
+ * routing table if an IP address/netmask is assigned to an interface. This
+ * function add the routes appropriately by calling external shell commands.
+ * @param dev Pointer to interface name.
+ * @param dev Pointer to IPv6 prefix.
+ * @param prefix_len Prefix length.
+ * @param addr Pointer to OnionCat address (i.e. the nexthop).
+ * @return The function always returns the return value of system(3) which is 0
+ * on success.
+ */
+int tun_add_route(const char *dev, const struct in6_addr *prefix, int prefix_len, const struct in6_addr *addr)
+{
+   char pfx[INET6_ADDRSTRLEN];
+   char astr[INET6_ADDRSTRLEN];
+   char buf[SIZE_256] = "";
+   int e = 0;
+
+   inet_ntop(AF_INET6, prefix, pfx, INET6_ADDRSTRLEN);
+   inet_ntop(AF_INET6, addr, astr, INET6_ADDRSTRLEN);
+
+   // some OSes require routes to be set manually
+#ifdef __APPLE__
+   // MacOSX requires the route to be set up manually
+   snprintf(buf, sizeof(buf), "route add -inet6 -net %s -prefixlen %d -gateway %s", pfx, prefix_len, astr);
+#elif __sun__
+   // Solaris requires the route to be set up manually
+   snprintf(buf, sizeof(buf), "route add -inet6 %s/%d %s -iface", pfx, prefix_len, astr);
+#elif __ANDROID__
+   snprintf(buf, sizeof(buf), "ip route add table local %s/%d dev %s", pfx, prefix_len, dev);
+#endif
+
+   if (buf[0] != '\0')
+      e = system_w(buf);
+
+   return e;
+}
+
+
 /*! Completely set up tun device for Onioncat.
  * @param dev Char pointer to ifname if the name should be customized (only
  * supported for Linux yet), must point otherwise to a string with length 0
@@ -546,6 +584,10 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 
    // bring up device
    tun_ifup(dev);
+
+   // set route if necessary
+   if (CNF(ipconfig))
+      tun_add_route(dev, &NDESC(prefix), NDESC(prefix_len), &CNF(ocat_addr));
 
    return fd;
 }
