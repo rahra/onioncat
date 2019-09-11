@@ -54,7 +54,15 @@ struct OcatSetup setup_ =
    1, // ipconfig
    //! default debug level
    LOG_DEBUG,
-   OCAT_UNAME, {0}, {0}, {{{0}}}, 0, 0, 1, OCAT_DIR, TUN_DEV,
+   OCAT_UNAME, {0}, {0}, {{{0}}}, 0,
+#ifndef __ANDROID__
+   0,                                     // run as root (dont drop privs)
+#else
+   1,                                     // currently require for Android (cause theres now APK...)
+#endif
+   1,                                     // enable controller interface
+   OCAT_DIR,
+   TUN_DEV,
    0,                                     // enable SOCKS5
    16,                                    // l_hs_namelen
    {'\0'},                                // tunname
