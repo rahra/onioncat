@@ -344,6 +344,8 @@ int tun_ipv6_config(const char *dev, const struct in6_addr *addr, int prefix_len
    ifr6.ifr6_addr = *addr;
    ifr6.ifr6_ifindex = ifr.ifr_ifindex;
    ifr6.ifr6_prefixlen = prefix_len;
+
+   log_debug("calling ioctl(SIOCSIFADDR)");
    if (ioctl(sockfd, SIOCSIFADDR, &ifr6) == -1)
    {
       log_msg(LOG_ERR, "SIOCSIFADDR: %s", strerror(errno));
