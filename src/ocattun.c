@@ -199,7 +199,8 @@ int sin6_set_addr(struct sockaddr_in6 *sin6, const struct in6_addr *addr)
 int tun_guess_ifname(char *dev, int devlen)
 {
 #ifdef __sun__
-   char buf[devlen] = "";
+   char buf[devlen];
+   buf[0] = '\0';
 #endif
    char *s = CNF(use_tap) ? "tap" : "tun";
 
@@ -371,6 +372,15 @@ int tun_ipv6_config(const char *dev, const struct in6_addr *addr, int prefix_len
    {
       log_msg(LOG_ERR, "SIOCAIFADDR_IN6: %s", strerror(errno));
    }
+#else
+   char buf[IFCBUF];
+#ifdef __sun__
+   // FIXME: This command does not work on Solaris 11, but could not figure out how to do it.
+   snprintf(buf, sizeof(buf), "ifconfig %s inet6 plumb addif %s/%d :: up", dev, astr, prefix_len);
+#else
+   snprintf(buf, sizeof(buf), "ifconfig %s inet6 %s/%d up", dev, astr, prefix_len);
+#endif
+   system_w(buf);
 #endif
    close(sockfd);
 #endif
@@ -435,6 +445,7 @@ int tun_ipv4_config(const char *dev, const struct in_addr *addr, const struct in
       log_msg(LOG_ERR, "SIOCAIFADDR: %s", strerror(errno));
    }
 #else
+   char buf[SIZE_256];
    snprintf(buf, sizeof(buf), "ifconfig %s %s netmask %s", dev, inet_ntoa(*addr), inet_ntoa(*netmask));
    system_w(buf);
 #endif
