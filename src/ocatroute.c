@@ -781,18 +781,11 @@ static uint32_t get_saddr(const struct ip *ihdr)
 #endif
  
 
-/* helper function to avoid pointer aliasing */
-static struct in6_addr *get_6dst_ptr(struct ip6_hdr *i6hdr)
-{
-   return &i6hdr->ip6_dst;
-}
-
-
 void packet_forwarder(void)
 {
    char buf[FRAME_SIZE];
    int rlen;
-   struct in6_addr *dest;
+   struct in6_addr *dest, destbuf;
    struct in_addr in;
    struct ether_header *eh = (struct ether_header*) &buf[4];
 #ifdef PACKET_LOG
@@ -885,15 +878,12 @@ void packet_forwarder(void)
             continue;
          }
 
-         if (has_tor_prefix(get_6dst_ptr((struct ip6_hdr*) &buf[4])))
-         {
-            dest = get_6dst_ptr((struct ip6_hdr*) &buf[4]);
-         }
-         else if (!(dest = ipv6_lookup_route(get_6dst_ptr((struct ip6_hdr*) &buf[4]))))
+         IN6_ADDR_COPY(&destbuf, &buf[4 + offsetof(struct ip6_hdr, ip6_dst)]);
+         dest = &destbuf;
+         if (!has_tor_prefix(dest) && !(dest = ipv6_lookup_route(dest)))
          {
             char abuf[INET6_ADDRSTRLEN];
-            dest = get_6dst_ptr((struct ip6_hdr*) &buf[4]);
-            log_msg(LOG_ERR, "no route to destination %s, dropping frame.", inet_ntop(AF_INET6, dest, abuf, INET6_ADDRSTRLEN));
+            log_msg(LOG_ERR, "no route to destination %s, dropping frame.", inet_ntop(AF_INET6, &destbuf, abuf, INET6_ADDRSTRLEN));
             continue;
          }
       }

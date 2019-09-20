@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -290,7 +291,8 @@
 #define MFD_SET(f,s,m) {FD_SET(f, s); m = f > m ? f : m;}
 
 //! copy an IPv6 address from b to a
-#define IN6_ADDR_COPY(a,b) *((struct in6_addr*)a)=*(struct in6_addr*)b
+//#define IN6_ADDR_COPY(a,b) *((struct in6_addr*)a)=*(struct in6_addr*)b
+#define IN6_ADDR_COPY(a,b) memcpy(a, b, sizeof(struct in6_addr))
 
 //! Index to OcatSetup.fhd_key for IPv4.
 #define IPV4_KEY 0
