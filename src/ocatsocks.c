@@ -64,7 +64,7 @@ static int get_hostname(const SocksQueue_t *sq, char *onion, int onion_size)
 
 #define DIRECT_CONNECTIONS
 #ifdef DIRECT_CONNECTIONS
-static int hostname_addr(const char *name, struct sockaddr *addr, int *len)
+static int hostname_addr(const char *name, struct sockaddr *addr, socklen_t *len)
 {
    char portname[16];
    struct addrinfo hints, *res;
