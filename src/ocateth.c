@@ -120,12 +120,19 @@ int mac_set(const struct in6_addr *in6, uint8_t *hwaddr)
 }
 
 
+/*! Wrapper function for mac_set() (see above) to keep valid pointer alignment. */
+int mac_set_s(struct in6_addr in6, uint8_t *hwaddr)
+{
+   return mac_set(&in6, hwaddr);
+}
+
+
 /*! Add MAC/IPv6-pair to MAC table.
  *  @param hwaddr MAC address.
  *  @param in6 IPv6 address.
  *  @return Index of entry (starting with 0) or -1 if MAC table is full (MAX_MAC_ENTRY)
  */
-int mac_add_entry(const uint8_t *hwaddr, const struct in6_addr *in6)
+int mac_add_entry(const uint8_t *hwaddr, struct in6_addr in6)
 {
    int e = -1;
 
@@ -135,7 +142,7 @@ int mac_add_entry(const uint8_t *hwaddr, const struct in6_addr *in6)
    {
       log_debug("adding entry to MAC table %d", mac_cnt_);
       memcpy(&mac_tbl_[mac_cnt_].hwaddr, hwaddr, ETHER_ADDR_LEN);
-      memcpy(&mac_tbl_[mac_cnt_].in6addr, in6, sizeof(struct in6_addr));
+      IN6_ADDR_COPY(&mac_tbl_[mac_cnt_].in6addr, &in6);
       mac_tbl_[mac_cnt_].age = time(NULL);
       mac_tbl_[mac_cnt_].family = AF_INET6;
       e = mac_cnt_++;
@@ -211,7 +218,7 @@ void free_ckbuf(uint16_t *buf)
 
 /*! Malloc and fill buffer suitable for ICMPv6 checksum calculation.
  */
-uint16_t *malloc_ckbuf(const struct in6_addr *src, const struct in6_addr *dst, uint16_t plen, uint8_t proto, const void *payload)
+uint16_t *malloc_ckbuf(struct in6_addr src, struct in6_addr dst, uint16_t plen, uint8_t proto, const void *payload)
 {
    struct ip6_psh *psh;
 
@@ -222,8 +229,8 @@ uint16_t *malloc_ckbuf(const struct in6_addr *src, const struct in6_addr *dst, u
       exit(1);
    }
 
-   psh->src = *src;
-   psh->dst = *dst;
+   psh->src = src;
+   psh->dst = dst;
    psh->len = htons(plen);
    psh->nxt = proto;
    memcpy(psh + 1, payload, plen);
@@ -279,7 +286,7 @@ int ndp_solicit(const struct in6_addr *src, const struct in6_addr *dst)
    memcpy(ohd + 1, ndp6->eth.ether_src, ETHER_ADDR_LEN);
 
    // calculate checksum
-   ckb = malloc_ckbuf(&ndp6->ip6.ip6_src, &ndp6->ip6.ip6_dst, ntohs(ndp6->ip6.ip6_plen), IPPROTO_ICMPV6, &ndp6->icmp6);
+   ckb = malloc_ckbuf(ndp6->ip6.ip6_src, ndp6->ip6.ip6_dst, ntohs(ndp6->ip6.ip6_plen), IPPROTO_ICMPV6, &ndp6->icmp6);
    ndp6->icmp6.icmp6_cksum = checksum(ckb, ntohs(ndp6->ip6.ip6_plen) + sizeof(struct ip6_psh));
    free_ckbuf(ckb);
 
@@ -294,6 +301,27 @@ int ndp_solicit(const struct in6_addr *src, const struct in6_addr *dst)
 #endif
 
    return 0;
+}
+
+
+/*! Wrapper function for macro IN6_IS_ADDR_MULTICAST to keep valid pointer alignment. */
+static int IN6_IS_ADDR_MULTICAST_S(struct in6_addr a)
+{
+   return IN6_IS_ADDR_MULTICAST(&a);
+}
+
+
+/*! Wrapper function for macro IN6_IS_ADDR_MC_LINKLOCAL to keep valid pointer alignment. */
+static int IN6_IS_ADDR_MC_LINKLOCAL_S(struct in6_addr a)
+{
+   return IN6_IS_ADDR_MC_LINKLOCAL(&a);
+}
+
+
+/*! Wrapper function for macro IN6_IS_ADDR_UNSPECIFIED_S to keep valid pointer alignment. */
+static int IN6_IS_ADDR_UNSPECIFIED_S(struct in6_addr a)
+{
+   return IN6_IS_ADDR_UNSPECIFIED(&a);
 }
 
 
@@ -321,14 +349,14 @@ int ndp_soladv(char *buf, int rlen)
       }
 
       // check for right multicast destination in IPv6
-      if (!IN6_IS_ADDR_MULTICAST(&ndp6->ip6.ip6_dst) || !IN6_IS_ADDR_MC_LINKLOCAL(&ndp6->ip6.ip6_dst))
+      if (!IN6_IS_ADDR_MULTICAST_S(ndp6->ip6.ip6_dst) || !IN6_IS_ADDR_MC_LINKLOCAL_S(ndp6->ip6.ip6_dst))
       {
          log_debug("IPv6 multicast destination not solicited node address");
          return -1;
       }
    }
 
-   ckb = malloc_ckbuf(&ndp6->ip6.ip6_src, &ndp6->ip6.ip6_dst, ntohs(ndp6->ip6.ip6_plen), IPPROTO_ICMPV6, &ndp6->icmp6);
+   ckb = malloc_ckbuf(ndp6->ip6.ip6_src, ndp6->ip6.ip6_dst, ntohs(ndp6->ip6.ip6_plen), IPPROTO_ICMPV6, &ndp6->icmp6);
    cksum = checksum(ckb, ntohs(ndp6->ip6.ip6_plen) + sizeof(struct ip6_psh));
    free_ckbuf(ckb);
 
@@ -339,14 +367,16 @@ int ndp_soladv(char *buf, int rlen)
    }
 
    // check for duplicate address detection
-   if (IN6_IS_ADDR_UNSPECIFIED(&ndp6->ip6.ip6_src))
+   if (IN6_IS_ADDR_UNSPECIFIED_S(ndp6->ip6.ip6_src))
    {
       log_debug("duplicate address detection in progress");
       //FIXME: we should check something more here. See RFC2462
       return -1;
    }
 
-   if (!has_tor_prefix(&ndp6->ndp_sol.nd_ns_target))
+   struct in6_addr _nst;
+   IN6_ADDR_COPY(&_nst, &ndp6->ndp_sol.nd_ns_target);
+   if (!has_tor_prefix(&_nst))
    //if (!IN6_HAS_TOR_PREFIX(&ndp6->ndp_sol.nd_ns_target))
    {
       log_debug("solicit target is not TOR IPv6");
@@ -355,8 +385,8 @@ int ndp_soladv(char *buf, int rlen)
 
    log_debug("generating response");
    // add source MAC to table
-   if (mac_set(&ndp6->ip6.ip6_src, ndp6->eth.ether_src) == -1)
-      if (mac_add_entry(ndp6->eth.ether_src, &ndp6->ip6.ip6_src) == -1)
+   if (mac_set_s(ndp6->ip6.ip6_src, ndp6->eth.ether_src) == -1)
+      if (mac_add_entry(ndp6->eth.ether_src, ndp6->ip6.ip6_src) == -1)
       {
          log_msg(LOG_ERR, "MAC table full");
          return -1;
@@ -380,7 +410,7 @@ int ndp_soladv(char *buf, int rlen)
    ohd->nd_opt_type = ND_OPT_TARGET_LINKADDR;
    memcpy(ohd + 1, CNF(ocat_hwaddr), ETHER_ADDR_LEN);
 
-   ckb = malloc_ckbuf(&ndp6->ip6.ip6_src, &ndp6->ip6.ip6_dst, ntohs(ndp6->ip6.ip6_plen), IPPROTO_ICMPV6, &ndp6->icmp6);
+   ckb = malloc_ckbuf(ndp6->ip6.ip6_src, ndp6->ip6.ip6_dst, ntohs(ndp6->ip6.ip6_plen), IPPROTO_ICMPV6, &ndp6->icmp6);
    ndp6->ndp_adv.nd_na_hdr.icmp6_cksum = checksum(ckb, ntohs(ndp6->ip6.ip6_plen) + sizeof(struct ip6_psh));
    free_ckbuf(ckb);
 
@@ -406,8 +436,8 @@ int ndp_recadv(char *buf, int len)
    ndp6_t *ndp6 = (ndp6_t*) (buf + 4);
 
    // add source MAC to table
-   if (mac_set(&ndp6->ip6.ip6_src, ndp6->eth.ether_src) == -1)
-      if (mac_add_entry(ndp6->eth.ether_src, &ndp6->ip6.ip6_src) == -1)
+   if (mac_set_s(ndp6->ip6.ip6_src, ndp6->eth.ether_src) == -1)
+      if (mac_add_entry(ndp6->eth.ether_src, ndp6->ip6.ip6_src) == -1)
       {
          log_msg(LOG_ERR, "MAC table full");
          return -1;

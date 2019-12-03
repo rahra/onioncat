@@ -736,7 +736,7 @@ char *ether_ntoa_r(const struct ether_addr *, char *);
 #endif
 uint16_t checksum(const uint16_t *, int);
 void free_ckbuf(uint16_t *);
-uint16_t *malloc_ckbuf(const struct in6_addr *, const struct in6_addr *, uint16_t, uint8_t, const void *);
+uint16_t *malloc_ckbuf(struct in6_addr, struct in6_addr, uint16_t, uint8_t, const void *);
 
 /* ocatsocks.c */
 void socks_queue(struct in6_addr, int);

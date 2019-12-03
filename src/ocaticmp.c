@@ -122,7 +122,7 @@ int ocat_echo_request(void)
    }
 
    // calculate checksum
-   ckb = malloc_ckbuf(&hdr->ip6_src, &hdr->ip6_dst, ntohs(hdr->ip6_plen), IPPROTO_ICMPV6, icmp);
+   ckb = malloc_ckbuf(hdr->ip6_src, hdr->ip6_dst, ntohs(hdr->ip6_plen), IPPROTO_ICMPV6, icmp);
    icmp->icmp6_cksum = checksum(ckb, ntohs(hdr->ip6_plen) + sizeof(struct ip6_psh));
    free_ckbuf(ckb);
 

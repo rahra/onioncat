@@ -51,7 +51,7 @@ int check_dns(const struct ip6_hdr *ip6, int len)
 
    log_debug("destination is virtual OC DNS server");
    udp = (struct udphdr*) (ip6 + 1);
-   ckbuf = malloc_ckbuf(&ip6->ip6_src, &ip6->ip6_dst, ntohs(ip6->ip6_plen), IPPROTO_UDP, udp);
+   ckbuf = malloc_ckbuf(ip6->ip6_src, ip6->ip6_dst, ntohs(ip6->ip6_plen), IPPROTO_UDP, udp);
    sum = checksum(ckbuf, ntohs(ip6->ip6_plen) + sizeof(struct ip6_psh));
    free_ckbuf(ckbuf);
 
