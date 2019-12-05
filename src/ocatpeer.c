@@ -112,6 +112,7 @@ OcatPeer_t *get_empty_peer(void)
       free(peer);
       return NULL;
    }
+   peer->rand = random();
 
    peer->next = peer_;
    peer_ = peer;

@@ -258,6 +258,55 @@ uint32_t get_tunheader(char *buf)
 }
 
 
+int ident_loopback(OcatPeer_t *peer, const struct ip6_hdr *i6h)
+{
+   OcatPeer_t *lpeer;
+   int flow;
+
+   // check if ip6 packet without content (header only)
+   if (i6h->ip6_nxt != IPPROTO_NONE)
+      return -1;
+   log_debug("packet seems to be keepalive");
+
+   // check if flowlabel is set
+   if (!(flow = ntohl(i6h->ip6_flow) & 0xfffff))
+      return -1;
+
+   lock_peers();
+   if ((lpeer = search_peer(&CNF(ocat_addr))))
+   {
+      if (lpeer == peer)
+      {
+         log_msg(LOG_ERR, "peer points back to self, this should not happen!");
+         unlock_peers();
+         return -1;
+      }
+      lock_peer(lpeer);
+   }
+   unlock_peers();
+
+   log_debug("found peer to myself");
+   if (lpeer->dir != PEER_OUTGOING)
+   {
+      unlock_peer(lpeer);
+      log_msg(LOG_ERR, "peer is not OUTGOING, something went wrong...");
+      return -1;
+   }
+
+   if ((lpeer->rand & 0xfffff) != flow)
+   {
+      log_msg(LOG_ERR, "flowlabel does not match: rand = 0x%05x, flow = 0x%05x", lpeer->rand & 0xfffff, flow);
+      unlock_peer(lpeer);
+      return -1;
+   }
+
+   log_debug("identified valid loopback keepalive");
+
+   unlock_peer(lpeer);
+   return 0;
+}
+
+
 void *socket_receiver(void *p)
 {
    int maxfd, len;
@@ -448,6 +497,19 @@ void *socket_receiver(void *p)
                break;
             }
 
+            // identify remote loopback
+            if (!drop && IN6_IS_ADDR_UNSPECIFIED(&peer->addr))
+            {
+               if (!ident_loopback(peer, (struct ip6_hdr*)peer->fragbuf))
+               {
+                  run_ocat_thread("rloopback", remote_loopback_responder, (void*)(long)peer->tcpfd);
+
+                  // remove peer
+                  log_msg(LOG_INFO, "mark peer on fd %d for deletion", peer->tcpfd);
+                  peer->state = PEER_DELETE;
+               }
+            }
+
             // set IP address if it is not set yet and frame is valid and in bidirectional mode
             if (!CNF(unidirectional) && !drop && IN6_IS_ADDR_UNSPECIFIED(&peer->addr))
             {
@@ -540,7 +602,15 @@ void *socket_receiver(void *p)
 
         } // while (peer->fraglen)
 
-        unlock_peer(peer);
+         if (peer->state == PEER_DELETE)
+         {
+            unlock_peer(peer);
+            lock_peers();
+            delete_peer(peer);
+            unlock_peers();
+            continue;
+         }
+         unlock_peer(peer);
       } // while (maxfd)
    } // for (;;)
 
@@ -879,8 +949,10 @@ void packet_forwarder(void)
          }
 
          IN6_ADDR_COPY(&destbuf, &buf[4 + offsetof(struct ip6_hdr, ip6_dst)]);
-         dest = &destbuf;
-         if (!has_tor_prefix(dest) && !(dest = ipv6_lookup_route(dest)))
+         if (!(dest = ipv6_lookup_route(&destbuf)))
+            dest = &destbuf;
+
+         if (!has_tor_prefix(dest))
          {
             char abuf[INET6_ADDRSTRLEN];
             log_msg(LOG_ERR, "no route to destination %s, dropping frame.", inet_ntop(AF_INET6, &destbuf, abuf, INET6_ADDRSTRLEN));
@@ -936,6 +1008,7 @@ int send_keepalive(OcatPeer_t *peer)
    IN6_ADDR_COPY(&hdr.ip6_dst, &peer->addr);
    //memcpy(&hdr.ip6_src, &CNF(ocat_addr), sizeof(struct in6_addr));
    IN6_ADDR_COPY(&hdr.ip6_src, &CNF(ocat_addr));
+   hdr.ip6_flow = htonl(peer->rand & 0xfffff);
    hdr.ip6_vfc = 0x60;
    hdr.ip6_nxt = IPPROTO_NONE;
    hdr.ip6_hops = 1;
@@ -1052,54 +1125,33 @@ static void memor(void *dst, const void *src, int n)
 }
 
 
-int loopback_handler(int fd, const struct in6_addr *laddr)
+int loopback_loop(int fd)
 {
    char buf[FRAME_SIZE];
    struct in6_addr addr;
    struct ip6_hdr *ip6h = (struct ip6_hdr*) buf;
-   int len, wlen, uni;
+   int len, wlen, maxfd;
+   fd_set rset;
    OcatPeer_t *peer;
 
-   log_debug("starting loopback_handler");
-   memset(ip6h, 0, sizeof(*ip6h));
-   ip6h->ip6_src = *laddr;
-   ip6h->ip6_dst = CNF(ocat_addr);
-   ip6h->ip6_vfc = 0x60;
-   ip6h->ip6_nxt = IPPROTO_NONE;
-   ip6h->ip6_hops = 1;
-   wlen = sizeof(*ip6h);
-
-   log_debug("clearing unidirectional mode and sending packet");
-   uni = CNF(unidirectional);
-   CNF(unidirectional) = 0;
-   len = write(fd, ip6h, wlen);
-   log_debug("sent %d of %d bytes to fd %d", len, wlen, fd);
-
-   for (peer = NULL; peer == NULL; )
-   {
-      lock_peers();
-      if ((peer = search_peer(laddr)))
-         lock_peer(peer);
-      unlock_peers();
-
-      if (peer == NULL)
-      {
-         log_debug("peer not found, waiting...");
-         usleep(100000);
-      }
-   }
-
-   // reset unidirectional mode
-   log_debug("resetting unidirectional mode to %d and setting peer parameters", uni);
-   CNF(unidirectional) = uni;
-   //peer->addr = addr;
-   peer->perm = 1;
-   unlock_peer(peer);
-
-   set_thread_ready();
-   log_msg(LOG_INFO, "loopback_handler ready listening on %s", inet_ntop(AF_INET6, laddr, buf, INET6_ADDRSTRLEN));
+   log_debug("starting loopback loop on fd %d", fd);
    while (!term_req())
    {
+      FD_ZERO(&rset);
+      FD_SET(fd, &rset);
+      log_debug("selecting in fd %d", fd);
+      if ((maxfd = select(fd + 1, &rset, NULL, NULL, NULL)) == -1)
+      {
+         log_msg(LOG_ERR, "select encountered error: \"%s\", restarting", strerror(errno));
+         continue;
+      }
+
+      if (!FD_ISSET(fd, &rset))
+      {
+         log_msg(LOG_ERR, "fd %d not in fdset, this should not happen");
+         continue;
+      }
+
       // read from pipe
       len = read(fd, buf, sizeof(buf));
       // check for error
@@ -1147,6 +1199,59 @@ int loopback_handler(int fd, const struct in6_addr *laddr)
 }
 
 
+int loopback_handler(int fd, const struct in6_addr *laddr)
+{
+   char buf[FRAME_SIZE];
+   struct in6_addr addr;
+   struct ip6_hdr *ip6h = (struct ip6_hdr*) buf;
+   int len, wlen, uni;
+   OcatPeer_t *peer;
+
+   log_debug("starting loopback_handler");
+   memset(ip6h, 0, sizeof(*ip6h));
+   ip6h->ip6_src = *laddr;
+   ip6h->ip6_dst = CNF(ocat_addr);
+   ip6h->ip6_vfc = 0x60;
+   ip6h->ip6_nxt = IPPROTO_NONE;
+   ip6h->ip6_hops = 1;
+   wlen = sizeof(*ip6h);
+
+   log_debug("clearing unidirectional mode and sending packet");
+   uni = CNF(unidirectional);
+   CNF(unidirectional) = 0;
+   len = write(fd, ip6h, wlen);
+   log_debug("sent %d of %d bytes to fd %d", len, wlen, fd);
+
+   for (peer = NULL; peer == NULL; )
+   {
+      lock_peers();
+      if ((peer = search_peer(laddr)))
+         lock_peer(peer);
+      unlock_peers();
+
+      if (peer == NULL)
+      {
+         log_debug("peer not found, waiting...");
+         usleep(100000);
+      }
+   }
+
+   // reset unidirectional mode
+   log_debug("resetting unidirectional mode to %d and setting peer parameters", uni);
+   CNF(unidirectional) = uni;
+   //peer->addr = addr;
+   peer->perm = 1;
+   unlock_peer(peer);
+
+   set_thread_ready();
+   log_msg(LOG_INFO, "loopback_handler ready listening on %s", inet_ntop(AF_INET6, laddr, buf, INET6_ADDRSTRLEN));
+
+   loopback_loop(fd);
+
+   return 0;
+}
+
+
 void *local_loopback_responder(void *ptr)
 {
    struct in6_addr addr = {{{0,0,0,0,0,0,0,0,0,0,0,0,0xde,0xad,0xbe,0xef}}};
@@ -1183,41 +1288,33 @@ loop_exit1:
 
 void *remote_loopback_responder(void *ptr)
 {
-   struct in6_addr addr = {{{0,0,0,0,0,0,0,0,0,0,0,0,0xfe,0xed,0xbe,0xef}}};
-   int fd;
-
    log_debug("initializing feed_beef_responder");
-   // dont queue if SOCKS is disabled (-t none)
-   if (!CNF(socks_dst)->sin_family)
-   {
-      log_msg(LOG_INFO, "Not testing SOCKS, outgoing connections disabled (-t)");
-      goto rlr_exit;
-   }
 
-   if (CNF(socks5) == CONNTYPE_DIRECT)
-   {
-      log_msg(LOG_INFO, "No SOCKS to test (-5)");
-      goto rlr_exit;
-   }
+   detach_thread();
+   set_thread_ready();
 
-   wait_thread_by_name_ready("lloopback");
+   loopback_loop((int)(long) ptr);
 
-   log_debug("self-connecting through SOCKS");
-   if ((fd = synchron_socks_connect(&CNF(ocat_addr))) == -1)
-   {
-      log_msg(LOG_ERR, "SOCKS connection failed");
-      goto rlr_exit;
-   }
-
-   memor(&addr, &NDESC(prefix), sizeof(addr));
-   loopback_handler(fd, &addr);
-
-   oe_close(fd);
-
-rlr_exit:
    log_msg(LOG_INFO, "remote_looback_responder exiting");
 
    return NULL;
+}
+
+
+int add_remote_loopback_route(void)
+{
+   IPv6Route_t br;
+
+   br.dest = (struct in6_addr) {{{0,0,0,0,0,0,0,0,0,0,0,0,0xfe,0xed,0xbe,0xef}}};
+   memor(&br.dest, &NDESC(prefix), sizeof(br.dest));
+   br.prefixlen = 128;
+   IN6_ADDR_COPY(&br.gw, &CNF(ocat_addr));
+
+   log_debug("adding feed:beef route");
+   if (ipv6_add_route(&br))
+      log_msg(LOG_ERR, "ipv6_add_route() failed!");
+
+   return 0;
 }
 #endif
 

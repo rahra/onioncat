@@ -220,6 +220,7 @@
 
 //#define PEER_CONNECT 0
 #define PEER_ACTIVE 1
+#define PEER_DELETE 2
 
 //! Outgoing peer => connect().
 #define PEER_INCOMING 0
@@ -491,6 +492,7 @@ typedef struct OcatPeer
    time_t last_io;         //!< timestamp when last I/O packet measurement started
    unsigned inm;
    unsigned outm;
+   int rand;               //!< random peer number
 } OcatPeer_t;
 
 //! OcatThread is a control structure to manage each thread of OnionCat.
@@ -676,6 +678,7 @@ uint32_t get_tunheader(char *);
 #ifdef WITH_LOOPBACK_RESPONDER
 void *local_loopback_responder(void *);
 void *remote_loopback_responder(void *);
+int add_remote_loopback_route(void);
 #endif
 
 /* ocatthread.c */
@@ -759,6 +762,7 @@ int fdprintf(int, const char *, va_list);
 struct in6_addr *ipv6_lookup_route(const struct in6_addr *);
 void ipv6_print_routes(FILE *);
 int ipv6_parse_route(const char *);
+int ipv6_add_route(const IPv6Route_t *);
 
 #ifdef __CYGWIN__
 /* ocat_wintuntap.c */

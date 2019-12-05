@@ -722,7 +722,7 @@ int main(int argc, char *argv[])
 #ifdef WITH_LOOPBACK_RESPONDER
    // starting loopback responder
    run_ocat_thread("lloopback", local_loopback_responder, NULL);
-   run_ocat_thread("rloopback", remote_loopback_responder, NULL);
+   add_remote_loopback_route();
 #endif
 
 #ifdef CONNECT_ROOT_PEERS
