@@ -1125,6 +1125,11 @@ static void memor(void *dst, const void *src, int n)
 }
 
 
+/*! This is the actual loopback loop. It reflects all valid IPv6 packets with
+ * swapped IP addresses.
+ * @param fd File descriptor to receive and send packets.
+ * @return The function always returns 0.
+ */
 int loopback_loop(int fd)
 {
    char buf[FRAME_SIZE];
@@ -1252,6 +1257,12 @@ int loopback_handler(int fd, const struct in6_addr *laddr)
 }
 
 
+/*! This is the local loopback responder thread (the dead-beef-responder). It
+ * connects locally to the OnionCat TCP port (the acceptor/receiver thread).
+ * Once connected, it receives IPv6 packets and reflects it with swapped IP
+ * addresses.
+ * @return This function always returns NULL.
+ */
 void *local_loopback_responder(void *ptr)
 {
    struct in6_addr addr = {{{0,0,0,0,0,0,0,0,0,0,0,0,0xde,0xad,0xbe,0xef}}};
@@ -1286,6 +1297,11 @@ loop_exit1:
 }
 
 
+/*! This is the remote loopback responder thread. It receives IPv6 packets on a
+ * file descriptor and reflects the packets with swapped IP addresses.
+ * @param ptr The pointer contains the int file descriptor casted to a pointer.
+ * @return The function always return NULL.
+ */
 void *remote_loopback_responder(void *ptr)
 {
    int fd = (uintptr_t) ptr;
@@ -1305,6 +1321,11 @@ void *remote_loopback_responder(void *ptr)
 }
 
 
+/*! This function adds a route for remote loopback responder (the
+ * feed-beef-responder). This is an IPv6 route to itself which can not
+ * regularly be added.
+ * @return On success the function returns 0, otherwise -1.
+ */
 int add_remote_loopback_route(void)
 {
    IPv6Route_t br;
@@ -1316,7 +1337,10 @@ int add_remote_loopback_route(void)
 
    log_debug("adding feed:beef route");
    if (ipv6_add_route(&br))
+   {
       log_msg(LOG_ERR, "ipv6_add_route() failed!");
+      return -1;
+   }
 
    return 0;
 }
