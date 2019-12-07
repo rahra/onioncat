@@ -502,7 +502,7 @@ void *socket_receiver(void *p)
             {
                if (!ident_loopback(peer, (struct ip6_hdr*)peer->fragbuf))
                {
-                  run_ocat_thread("rloopback", remote_loopback_responder, (void*)(long)peer->tcpfd);
+                  run_ocat_thread("rloopback", remote_loopback_responder, (void*)(uintptr_t) peer->tcpfd);
 
                   // remove peer
                   log_msg(LOG_INFO, "mark peer on fd %d for deletion", peer->tcpfd);
@@ -1288,12 +1288,16 @@ loop_exit1:
 
 void *remote_loopback_responder(void *ptr)
 {
+   int fd = (uintptr_t) ptr;
+
    log_debug("initializing feed_beef_responder");
 
    detach_thread();
    set_thread_ready();
 
-   loopback_loop((int)(long) ptr);
+   loopback_loop(fd);
+
+   oe_close(fd);
 
    log_msg(LOG_INFO, "remote_looback_responder exiting");
 
