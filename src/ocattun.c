@@ -71,8 +71,8 @@ extern char **environ;
  */
 int run_tun_ifup(const char *ifname, const char *astr, int prefix_len)
 {
-   char env_ifname[ENVLEN], env_address[ENVLEN], env_prefix[ENVLEN], env_prefix_len[ENVLEN];
-   char *env[] = {env_ifname, env_address, env_prefix, env_prefix_len, NULL};
+   char env_ifname[ENVLEN], env_address[ENVLEN], env_prefix[ENVLEN], env_prefix_len[ENVLEN], env_onion_url[ENVLEN], env_onion3_url[ENVLEN], env_domain[ENVLEN];
+   char *env[] = {env_ifname, env_address, env_prefix, env_prefix_len, env_onion_url, env_onion3_url, env_domain, NULL};
    pid_t pid;
 
    if (ifname == NULL || astr == NULL)
@@ -96,6 +96,9 @@ int run_tun_ifup(const char *ifname, const char *astr, int prefix_len)
          strlcpy(env_prefix, "OCAT_PREFIX=", sizeof(env_prefix));
          inet_ntop(AF_INET6, &NDESC(prefix), env_prefix + strlen(env_prefix), sizeof(env_prefix) - strlen(env_prefix));
          snprintf(env_prefix_len, sizeof(env_prefix_len), "OCAT_PREFIXLEN=%d", prefix_len);
+         snprintf(env_onion_url, sizeof(env_onion_url), "OCAT_ONION_URL=%s", CNF(onion_url));
+         snprintf(env_onion3_url, sizeof(env_onion3_url), "OCAT_ONION3_URL=%s", CNF(onion3_url));
+         snprintf(env_domain, sizeof(env_domain), "OCAT_DOMAIN=%s", CNF(domain));
          environ = env;
 
          execlp(CNF(ifup), CNF(ifup), NULL);
