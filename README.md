@@ -108,6 +108,18 @@ tunnel.
   fd87:d87e:eb43:: in Onioncat (Tor) mode and fd60:db4d:ddb5:: in Garlicat
   (I2P) mode.
   
+  **OCAT_ONION_URL**  
+  This variable contains the short onion URL without domain appendix. It is a
+  16 character long string.
+  
+  **OCAT_ONION3_URL**  
+  This variable contains the long onion URL if available which is always true for
+  I2P and in case of Tor it is used together with the HSv3 variant.
+  
+  **OCAT_DOMAIN**  
+  This variable contains the TLD appendix which is .onion for Tor .b32.i2p for
+  I2P.
+  
 * **-f** _config file_  
   Read initial configuration from _config file_. 
 * **-g** _hosts_path_  

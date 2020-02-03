@@ -140,6 +140,21 @@ This variable contains the IPv6 prefix, i.e. the network. This typically is
 fd87:d87e:eb43:: in Onioncat (Tor) mode and fd60:db4d:ddb5:: in Garlicat
 (I2P) mode.
 
+\fBOCAT_ONION_URL\fP
+.br
+This variable contains the short onion URL without domain appendix. It is a
+16 character long string.
+
+\fBOCAT_ONION3_URL\fP
+.br
+This variable contains the long onion URL if available which is always true for
+I2P and in case of Tor it is used together with the HSv3 variant.
+
+\fBOCAT_DOMAIN\fP
+.br
+This variable contains the TLD appendix which is .onion for Tor .b32.i2p for
+I2P.
+
 .TP
 \fB\-f\fP \fIconfig file\fP
 Read initial configuration from \fIconfig file\fP. 
