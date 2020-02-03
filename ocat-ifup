@@ -5,6 +5,6 @@
 # is /system/bin/sh on Android as tested.).
 
 ip address add $OCAT_ADDRESS/$OCAT_PREFIXLEN dev $OCAT_IFNAME
-ip route add table local $OCAT_PREFIX/$OCAT_PREFIXLEN dev $OCAT_IFNAME
 ip link set $OCAT_IFNAME up 
+ip route add table local $OCAT_PREFIX/$OCAT_PREFIXLEN dev $OCAT_IFNAME
 
