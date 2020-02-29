@@ -285,6 +285,12 @@ int ident_loopback(OcatPeer_t *peer, const struct ip6_hdr *i6h)
    }
    unlock_peers();
 
+   if (lpeer == NULL)
+   {
+      log_msg(LOG_ERR, "peer not found");
+      return -1;
+   }
+
    log_debug("found peer to myself");
    if (lpeer->dir != PEER_OUTGOING)
    {
