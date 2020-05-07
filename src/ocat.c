@@ -725,14 +725,6 @@ int main(int argc, char *argv[])
    add_remote_loopback_route();
 #endif
 
-#ifdef CONNECT_ROOT_PEERS
-   // initiate connections to permanent root peers
-   log_debug("connecting root peers");
-   for (c = 0; c < ROOT_PEERS; c++)
-      if (!IN6_ARE_ADDR_EQUAL(&CNF(root_peer[c]), &CNF(ocat_addr)))
-         socks_queue(CNF(root_peer[c]), 1);
-#endif
-
    // install signal handler
    install_sig();
 

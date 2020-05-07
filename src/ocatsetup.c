@@ -87,16 +87,6 @@ struct OcatSetup setup_ =
 #else
    1,                                      // daemon
 #endif
-#ifdef CONNECT_ROOT_PEERS
-   {
-      /*
-      {{{0xfd, 0x87, 0xd8, 0x7e, 0xeb, 0x43,
-           0xed, 0xb1, 0x08, 0xe4, 0x35, 0x88, 0xe5, 0x46, 0x35, 0xca}}}, // initial permanent peer "5wyqrzbvrdsumnok" (mail.root-servers.cat)
-           */
-      {{{0xfd, 0x87, 0xd8, 0x7e, 0xeb, 0x43,
-           0xf6, 0x83, 0x64, 0xac, 0x73, 0xf9, 0x61, 0xac, 0x9a, 0x00}}}  // initial permanent peer "62bwjldt7fq2zgqa" (dot.cat)
-   },
-#endif
    0,
    "/dev/urandom",
    {(struct sockaddr_in*) &socks_dst6_},
@@ -352,12 +342,6 @@ void print_setup_struct(FILE *f)
          SSTR(setup_.hosts_path),
          setup_.domain
          );
-
-#ifdef CONNECT_ROOT_PEERS
-   for (i = 0; i < ROOT_PEERS; i++)
-      if (inet_ntop(AF_INET6, &setup_.root_peer[i], ip6, SBUF))
-         fprintf(f, "root_peer[%d]           = %s\n", i, ip6);
-#endif
 
    if (inet_ntops((struct sockaddr*) setup_.socks_dst, &sas))
    {

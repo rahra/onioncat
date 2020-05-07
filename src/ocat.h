@@ -398,11 +398,6 @@ struct OcatSetup
    FILE *logf;
    int use_syslog;
    int daemon;
-#ifdef CONNECT_ROOT_PEERS
-   //! hardcoded permanent peers
-#define ROOT_PEERS 1
-   struct in6_addr root_peer[ROOT_PEERS];
-#endif
    time_t uptime;
    char *frandn;
    //! destination socket address of Tor's SOCKS port
