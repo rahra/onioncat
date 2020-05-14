@@ -1,7 +1,7 @@
 
 AC_PREREQ(2.62)
 #define([svnversion], esyscmd([sh -c "echo -n $(wc -l <GitLog)"]))dnl
-AC_INIT([onioncat],[[0.3.6]],[rahra@cypherpunk.at])
+AC_INIT([onioncat],[[0.3.7]],[rahra@cypherpunk.at])
 AM_INIT_AUTOMAKE([-Wall -Werror])
 AC_CONFIG_HEADERS([config.h])
 

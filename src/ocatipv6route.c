@@ -44,6 +44,10 @@ void ipv6_reduce(struct in6_addr *net, int prefixlen)
    int i;
    char m;
 
+   // safety check
+   if (prefixlen < 0 || prefixlen >= 128)
+      return;
+
    for (i = 0; i < ((128 - prefixlen) >> 3); i++)
       net->s6_addr[15 - i] = 0;
 
