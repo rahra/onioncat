@@ -1,6 +1,7 @@
 *.o
 *~
 *.gz
+*.swp
 .deps
 aclocal.m4
 Makefile
