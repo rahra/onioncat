@@ -3,7 +3,3 @@ ocat_SOURCES = ocat.c ocatlog.c ocatroute.c ocatthread.c ocattun.c ocatv6conv.c 
 noinst_HEADERS = ocat.h ocat_netdesc.h strlcpy.c strlcat.c ocathosts.h
 AM_CFLAGS = -DSYSCONFDIR=\"$(sysconfdir)\"
 
-install-exec-hook:
-	$(LN_S) -f ocat$(EXEEXT) \
-	$(DESTDIR)$(bindir)/gcat$(EXEEXT)
-
