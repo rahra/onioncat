@@ -1,0 +1,13 @@
+[Unit]
+Description=OnionCat
+After=network.target auditd.service
+
+[Service]
+EnvironmentFile=-/etc/default/onioncat
+ExecStart=/usr/local/bin/ocat $ONIONCAT_OPTS
+Type=forking
+
+[Install]
+WantedBy=multi-user.target
+Alias=onioncat.service ocat.service
+
