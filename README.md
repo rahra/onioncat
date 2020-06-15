@@ -129,8 +129,8 @@ OnionCat and Tor itself works, hidden service correctly configured and enabled.
   I2P and in case of Tor it is used together with the HSv3 variant.
   
   **OCAT\_DOMAIN**  
-  This variable contains the TLD appendix which is .onion for Tor .b32.i2p for
-  I2P.
+  This variable contains the TLD appendix which is .onion for Tor and .b32.i2p
+  for I2P.
   
 * **-f** _config file_  
   Read initial configuration from _config file_. 
@@ -208,8 +208,11 @@ OnionCat and Tor itself works, hidden service correctly configured and enabled.
   that this does not interoperate with option **-R** if the remote OC is
   working in unidirectional mode.
 * **-u** _username_  
-  _username_ under which ocat should run. The uid is changed as soon as possible
-  after tun device setup. 
+  _username_ under which OnionCat should run. The uid is changed as soon as
+  possible after the tun device setup. If **-u** is omitted, on OpenBSD and
+  FreeBSD it tries to use the uid of the user "_tor" which is by default used for
+  Tor. On all other systems it tries to get the uid for the user "tor". If it
+  does not exists (it calls getpwnam(3)) it defaults to the uid 65534.
   
 
 <a name="tap-device"></a>
