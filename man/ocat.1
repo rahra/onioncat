@@ -157,8 +157,8 @@ I2P and in case of Tor it is used together with the HSv3 variant.
 
 \fBOCAT_DOMAIN\fP
 .br
-This variable contains the TLD appendix which is .onion for Tor .b32.i2p for
-I2P.
+This variable contains the TLD appendix which is .onion for Tor and .b32.i2p
+for I2P.
 
 .TP
 \fB\-f\fP \fIconfig file\fP
@@ -256,8 +256,11 @@ that this does not interoperate with option \fB\-R\fP if the remote OC is
 working in unidirectional mode.
 .TP
 \fB\-u\fP \fIusername\fP
-\fIusername\fP under which ocat should run. The uid is changed as soon as possible
-after tun device setup. 
+\fIusername\fP under which OnionCat should run. The uid is changed as soon as
+possible after the tun device setup. If \fB\-u\fP is omitted, on OpenBSD and
+FreeBSD it tries to use the uid of the user "_tor" which is by default used for
+Tor. On all other systems it tries to get the uid for the user "tor". If it
+does not exists (it calls getpwnam(3)) it defaults to the uid 65534.
 
 .SS TAP DEVICE
 Usually OnionCat opens a TUN device which is a layer 3 interface. With option
