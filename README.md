@@ -1,6 +1,6 @@
 # ocat(1) - OnionCat creates a transparent IPv6 layer on top of Tor's or I2P hidden
 
-ocat, 2020-05-15
+ocat, 2021-02-10
 
 services.
 
@@ -65,12 +65,12 @@ OnionCat and Tor itself works, hidden service correctly configured and enabled.
   SOCKS5 (version 5 as specified in RFC1928), currently with no authentication
   mechanism. As of today it actually makes no difference but it might be
   desireable in future.  
-  If _direct_ is used, OnionCat does not connect through to SOCKS server but
+  If _direct_ is used, OnionCat does not connect through the SOCKS server but
   instead it connects directly to the remote peers using the hosts lookup
   mechanism (see option **-H**).
   This feature is experimental and turns OnionCat into a distributed virtual switch
-  based on regular Internet transport instead of Tor. It is useful feature for lab
-  setup.
+  based on regular Internet transport instead of Tor. It is a useful feature for
+  a lab setup.
 * **-a**  
   OnionCat creates a log file at $HOME/.ocat/connect_log. All incoming connects are
   logged to that file. $HOME is determined from the user under which OnionCat runs
@@ -308,6 +308,8 @@ Haselbacher, Daniel Haslinger &lt;[creo-ocat@blackmesa.at](mailto:creo-ocat@blac
 
 # See Also
 
+Onioncat source code https://github.com/rahra/onioncat
+
 OnionCat project page https://www.onioncat.org/
 
 OnionCat source packages are found at https://www.cypherpunk.at/ocat/download/Source/
@@ -321,7 +323,7 @@ I2P project homepage https://geti2p.net/
 
 # Copyright
 
-Copyright 2008-2020 Bernhard R. Fischer.
+Copyright 2008-2021 Bernhard R. Fischer.
 
 This file is part of OnionCat.
 
