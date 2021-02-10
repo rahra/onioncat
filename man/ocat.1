@@ -1,4 +1,4 @@
-.\" Copyright 2008-2020 Bernhard R. Fischer, Daniel Haslinger.
+.\" Copyright 2008-2021 Bernhard R. Fischer, Daniel Haslinger.
 .\"
 .\" This file is part of OnionCat.
 .\"
@@ -14,7 +14,7 @@
 .\" You should have received a copy of the GNU General Public License
 .\" along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
 .\"
-.TH OCAT 1 2020-05-15 "ocat" "OnionCat User's Manual"
+.TH OCAT 1 2021-02-10 "ocat" "OnionCat User's Manual"
 .SH NAME
 ocat \- OnionCat creates a transparent IPv6 layer on top of Tor's or I2P hidden
 services.
@@ -79,12 +79,12 @@ SOCKS5 (version 5 as specified in RFC1928), currently with no authentication
 mechanism. As of today it actually makes no difference but it might be
 desireable in future.
 .br
-If \fIdirect\fP is used, OnionCat does not connect through to SOCKS server but
+If \fIdirect\fP is used, OnionCat does not connect through the SOCKS server but
 instead it connects directly to the remote peers using the hosts lookup
 mechanism (see option \fB\-H\fP).
 This feature is experimental and turns OnionCat into a distributed virtual switch
-based on regular Internet transport instead of Tor. It is useful feature for lab
-setup.
+based on regular Internet transport instead of Tor. It is a useful feature for
+a lab setup.
 .TP
 \fB\-a\fP
 OnionCat creates a log file at $HOME/.ocat/connect_log. All incoming connects are
@@ -330,6 +330,8 @@ Concepts, software, and man page written by Bernhard R. Fischer
 Haselbacher, Daniel Haslinger <creo-ocat@blackmesa.at>, and Wim Gaethofs.
 
 .SH "SEE ALSO"
+Onioncat source code https://github.com/rahra/onioncat
+
 OnionCat project page https://www.onioncat.org/
 
 OnionCat source packages are found at https://www.cypherpunk.at/ocat/download/Source/
@@ -339,7 +341,7 @@ Tor project homepage https://www.torproject.org/
 I2P project homepage https://geti2p.net/
 
 .SH COPYRIGHT
-Copyright 2008-2020 Bernhard R. Fischer.
+Copyright 2008-2021 Bernhard R. Fischer.
 
 This file is part of OnionCat.
 
