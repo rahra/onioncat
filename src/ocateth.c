@@ -221,21 +221,23 @@ void free_ckbuf(uint16_t *buf)
 uint16_t *malloc_ckbuf(struct in6_addr src, struct in6_addr dst, uint16_t plen, uint8_t proto, const void *payload)
 {
    struct ip6_psh *psh;
+   uint16_t *psh_u16;
 
-   if (!(psh = calloc(1, sizeof(struct ip6_psh) + plen)))
+   if (!(psh_u16 = calloc(1, sizeof(struct ip6_psh) + plen)))
    {
       log_msg(LOG_EMERG, "error creating checksum buffer: %s", strerror(errno));
       //return NULL;
       exit(1);
    }
 
+   psh = (struct ip6_psh*) psh_u16;
    psh->src = src;
    psh->dst = dst;
    psh->len = htons(plen);
    psh->nxt = proto;
    memcpy(psh + 1, payload, plen);
 
-   return (uint16_t*) psh;
+   return psh_u16;
 }
 
 
