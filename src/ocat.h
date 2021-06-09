@@ -1,4 +1,4 @@
-/* Copyright 2008-2019 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2021 Bernhard R. Fischer, Daniel Haslinger.
  *
  * This file is part of OnionCat.
  *
@@ -222,6 +222,7 @@
 //#define PEER_CONNECT 0
 #define PEER_ACTIVE 1
 #define PEER_DELETE 2
+#define PEER_HTTP 3
 
 //! Outgoing peer => connect().
 #define PEER_INCOMING 0
@@ -775,6 +776,12 @@ int win_write_tun(const char *, int);
 
 /* ocatresolv.c */
 int check_dns(const struct ip6_hdr *, int);
+
+/* ocathttp.c */
+#ifdef HANDLE_HTTP
+int is_http_request(const OcatPeer_t *);
+void *http_handler(void *);
+#endif
 
 #endif
 

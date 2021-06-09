@@ -15,7 +15,7 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*! @file
+/*! @file ocatctrl.c
  *  Contains functions for local controller interface.
  *
  *  @author Bernhard Fischer <rahra _at_ cypherpunk at>
@@ -149,12 +149,12 @@ void *ctrl_handler(void *p)
          lock_peers();
          for (peer = get_first_peer(); peer; peer = peer->next)
             // FIXME: should peer be locked?
-            if (peer->state == PEER_ACTIVE)
+            //if (peer->state == PEER_ACTIVE)
             {
                tm = localtime(&peer->otime);
                strftime(timestr, 32, "%c", tm);
-               fprintf(fo, "[%s]\n fd = %d\n addr = %s\n dir = \"%s\" (%d)\n idle = %lds\n bytes_in = %ld\n bytes_out = %ld\n setup_delay = %lds\n opening_time = \"%s\"\n conn type = \"%s\" (%d)\n rand = 0x%08x\n",
-                     IN6_IS_ADDR_UNSPECIFIED(&peer->addr) ? "--unidentified--" : ipv6tonion(&peer->addr, onionstr), peer->tcpfd,
+               fprintf(fo, "[%s]\n state = %d\n fd = %d\n addr = %s\n dir = \"%s\" (%d)\n idle = %lds\n bytes_in = %ld\n bytes_out = %ld\n setup_delay = %lds\n opening_time = \"%s\"\n conn type = \"%s\" (%d)\n rand = 0x%08x\n",
+                     IN6_IS_ADDR_UNSPECIFIED(&peer->addr) ? "--unidentified--" : ipv6tonion(&peer->addr, onionstr), peer->state, peer->tcpfd,
                      inet_ntop(AF_INET6, &peer->addr, addrstr, INET6_ADDRSTRLEN),
                      peer->dir == PEER_INCOMING ? "IN" : "OUT", peer->dir,
                      (long) (time(NULL) - peer->time), peer->in, peer->out, (long) peer->sdelay, timestr,

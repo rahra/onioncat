@@ -1,4 +1,4 @@
-/* Copyright 2008-2019 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2021 Bernhard R. Fischer, Daniel Haslinger.
  *
  * This file is part of OnionCat.
  *
@@ -184,36 +184,6 @@ void cleanup_socket(int fd, OcatPeer_t *peer)
    delete_peer(peer);
    unlock_peers();
 }
-
-
-#ifdef HANDLE_HTTP
-#define BSTRLEN 1024
-
-int handle_http(const OcatPeer_t *peer)
-{
-   time_t t;
-   char response[BSTRLEN], timestr[BSTRLEN];
-   struct tm tm;
-
-   // simple check if packet could be an HTTP request
-   if (strncmp(peer->fragbuf, "GET ", 4))
-      return 0;
-
-   t = time(NULL);
-   (void) localtime_r(&t, &tm);
-   strftime(timestr, BSTRLEN, "%a, %d %b %Y %H:%M:%S %z", &tm);
-   snprintf(response, BSTRLEN,
-         "HTTP/1.0 301 HTTP not possible\r\nLocation: %s\r\nDate: %s\r\nContent-Type: text/html; charset=iso-8859-1\r\n\r\n"
-         "<html><body><h1>HTTP not possible!<br>OnionCat is running on this port at \"%s.onion\"</h1></body></html>\r\n",
-         OCAT_URL, timestr, CNF(onion_url)
-         );
-   log_msg(LOG_NOTICE, "request seems to be HTTP");
-   if (send(peer->tcpfd, response, strlen(response), MSG_DONTWAIT) == -1)
-      log_msg(LOG_ERR, "could not send html response");
-
-   return 1;
-}
-#endif
 
 
 int set_peer_dest(struct in6_addr *dest, const struct in6_addr *addr)
@@ -470,14 +440,13 @@ void *socket_receiver(void *p)
                }
 
  #ifdef HANDLE_HTTP
-               if (handle_http(peer))
+               // detect if the first incoming data is an HTTP request
+               if (len >= 4 && peer->in == len && is_http_request(peer))
                {
-                  log_msg(LOG_INFO | LOG_FCONN, "closing %d due to HTTP", peer->tcpfd);
-                  oe_close(peer->tcpfd);
-                  unlock_peer(peer);
-                  lock_peers();
-                  delete_peer(peer);
-                  unlock_peers();
+                  log_msg(LOG_INFO | LOG_FCONN, "peer on fd %d seems to be HTTP connection", peer->tcpfd);
+                  peer->state = PEER_HTTP;
+                  run_ocat_thread("http_handler", http_handler, peer);
+                  break;
                }
 #endif
               
