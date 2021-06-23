@@ -34,17 +34,44 @@ int is_http_request(const OcatPeer_t *peer)
 }
 
 
-static void empty_socket(int fd)
+/*! This function fills the buffer until the buffer is full or no more data is
+ * available.
+ * @param peer Pointer to the peer.
+ * @return On succes the function returns a value >= 0. On error, -1 is
+ * returned.
+ */
+static int fill_buffer(OcatPeer_t *peer)
 {
-   char buf[16];
-   int len;
+   int len, rlen;
 
-   while ((len = read(fd, buf, sizeof(buf))) > 0);
+   // loop until buffer is full
+   for (rlen = 0; peer->fraglen < FRAME_SIZE - 4;)
+   {
+      // append-read data into the buffer
+      len = read(peer->tcpfd, peer->fragbuf + peer->fraglen, FRAME_SIZE - 4 - peer->fraglen);
 
-   if (len == -1 && errno != EAGAIN && errno != EWOULDBLOCK)
-      log_msg(LOG_ERR, "read() on buffer empty failed: %s", strerror(errno));
+      // eof (actually this will not happen because of non-blocking io, just a safety measure)
+      if (!len)
+         break;
 
-   log_debug("fd %d emptied", fd);
+      // error check
+      if (len == -1)
+      {
+         // some error occured
+         if (errno != EAGAIN && errno != EWOULDBLOCK)
+            log_msg(LOG_ERR, "read() on buffer fill failed: %s", strerror(errno));
+         // no more data available
+         else
+            len = 0;
+         break;
+      }
+
+      rlen += len;
+      peer->fraglen += len;
+      peer->in += len;
+   }
+
+   return rlen;
 }
 
 
@@ -70,6 +97,7 @@ void *http_handler(void *p)
    struct tm tm;
    time_t t;
    int len, fd;
+   char *uri, *ver;
 
    detach_thread();
 
@@ -116,11 +144,27 @@ void *http_handler(void *p)
    if (strlen(s) > 1024)
       goto hh_bad;
 
-   log_msg(LOG_INFO, "returning some info");
-   len = snprintf(buf, sizeof(buf),
-         "HTTP/1.0 200 OK\r\nDate: %s\r\nContent-Type: text/html\r\n\r\n"
-         "<!doctype html>\n<html><body>200 OK</body></html>\n",
-         timestr);
+   uri = s;
+   if ((ver = strtok(NULL, "\r\n")) == NULL)
+      goto hh_bad;
+   if (strcmp(ver, "HTTP/1.0") && strcmp(ver, "HTTP/1.1"))
+      goto hh_bad;
+
+   if (!strcmp(uri, "/api/v1/hosts"))
+   {
+      log_msg(LOG_INFO, "hosts request", uri);
+      len = snprintf(buf, sizeof(buf), "HTTP/1.0 200 OK\r\nDate: %s\r\nContent-Type: text/plain\r\n\r\n", timestr);
+      sn_hosts_list(buf + len, sizeof(buf) - len);
+      len = strlen(buf); // FIXME: sn_hosts_list should return number of bytes written
+   }
+   else
+   {
+      log_msg(LOG_WARNING, "uri \"%s\" not found", uri);
+      len = snprintf(buf, sizeof(buf),
+            "HTTP/1.0 404 Not Found\r\nDate: %s\r\nContent-Type: text/html\r\n\r\n"
+            "<!doctype html>\n<html><body>404 Not Found</body></html>\n",
+            timestr);
+   }
    peer_write(peer, buf, len);
 
    goto hh_exit;
@@ -134,7 +178,7 @@ hh_bad:
    peer_write(peer, buf, len);
 
 hh_exit:
-   empty_socket(peer->tcpfd);
+   fill_buffer(peer);
    log_debug("closing and deleting http peer fd %d", peer->tcpfd);
    fd = peer->tcpfd;
    peer->state = PEER_DELETE;
