@@ -37,13 +37,17 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#ifdef HAVE_PWD_H
 #include <pwd.h>
+#endif
 #include <errno.h>
 #include <time.h>
 #include <pthread.h>
 #include <signal.h>
 #include <ctype.h>
+#ifdef HAVE_SYSLOG_H
 #include <syslog.h>
+#endif
 
 
 #include <sys/time.h>
