@@ -362,12 +362,14 @@ void *socket_receiver(void *p)
          lock_peer(peer);
          unlock_peers();
 
+         // non-active peers are not in the set, ignore
          if (peer->state != PEER_ACTIVE)
          {
             unlock_peer(peer);
             continue;
          }
 
+         // active peers which are not ready may not be handled, ignore
          if (!FD_ISSET(peer->tcpfd, &rset))
          {
             unlock_peer(peer);
@@ -481,6 +483,7 @@ void *socket_receiver(void *p)
 
                   // remove peer
                   log_msg(LOG_INFO, "mark peer on fd %d for deletion", peer->tcpfd);
+                  //FIXME: shouldn't the fd be closed?
                   peer->state = PEER_DELETE;
                }
             }
