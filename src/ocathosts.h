@@ -36,6 +36,8 @@
 
 
 #define HOSTS_LINE_LENGTH 1024
+#define HOSTS_LINE_LENGTH_OUT 128
+
 
 struct hosts_ent
 {
@@ -57,6 +59,8 @@ int hosts_check(void);
 int hosts_get_name(const struct in6_addr*, char*, int);
 void hosts_init(const char*);
 int hosts_list(FILE *);
+int sn_hosts_list(char*, int);
+
 
 #endif
 

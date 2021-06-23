@@ -257,9 +257,55 @@ int hosts_get_name(const struct in6_addr *addr, char *buf, int s)
  **/
 int hosts_list(FILE *f)
 {
+   char *buf;
+   size_t blen;
+
+   // safety check
+   if (f == NULL)
+      return 0;
+
+   // get memory buffer
+   blen = hosts_.hosts_ent_cnt * HOSTS_LINE_LENGTH_OUT;
+   if ((buf = malloc(blen)) == NULL)
+   {
+      log_msg(LOG_CRIT, "malloc failed: %s", strerror(errno));
+      return -1;
+   }
+
+   // write hosts to buffer
+   if (sn_hosts_list(buf, blen) <= 0)
+   {
+      log_msg(LOG_ERR, "hosts buffer should be realloced or increased, not implemented yet...");
+      goto hl_exit;
+   }
+
+   // write buffer to stream
+   if (fwrite(buf, blen, 1, f) != 1)
+      log_msg(LOG_WARNING, "could not write data to stream");
+
+   // free buffer and return
+hl_exit:
+   free(buf);
+   return 0;
+}
+
+
+/*! Output the list of hosts to a memory buffer. The function does not write
+ * more then len bytes to the buffer.
+ * @param buf Pointer to the memory buffer.
+ * @param len Size of the buffer.
+ * @return On success the function returns a value greater than 0. On error a
+ * value <= 0 is returned.
+ **/
+int sn_hosts_list(char *buf, int len)
+{
    char in6[INET6_ADDRSTRLEN];
-   int i;
+   int i, plen;
    struct hosts_ent *h;
+
+   // safety check
+   if (buf == NULL || len <= 0)
+      return 0;
 
    pthread_mutex_lock(&hosts_mutex_);
    for (i = hosts_.hosts_ent_cnt - 1, h = hosts_.hosts_ent; i >= 0; i--, h++)
@@ -269,10 +315,23 @@ int hosts_list(FILE *f)
          log_msg(LOG_ERR, "inet_ntop() failed: %s", strerror(errno));
          continue;
       }
-      fprintf(f, "%s %s\n", in6, h->name);
+      if ((plen = snprintf(buf, len, "%s %s\n", in6, h->name)) == -1)
+      {
+         log_msg(LOG_CRIT, "snprintf() failed");
+         len = -1;
+         break;
+      }
+      len -= plen;
+      buf += plen;
+      // check if buffer is full
+      if (len <= 0)
+      {
+         log_msg(LOG_WARNING, "output buffer is full");
+         break;
+      }
    }
    pthread_mutex_unlock(&hosts_mutex_);
-   return 0;
+   return len;
 }
 
 
