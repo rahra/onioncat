@@ -31,18 +31,22 @@
  */
 void oe_close(int fd)
 {
+   struct timeval tv;
    int r;
 
    log_debug("closing %d", fd);
    while (close(fd) == -1)
    {
       r = errno;
-      log_msg(LOG_CRIT, "close(%d) failed: \"%s\"", fd, strerror(r));
       if (r == EINTR)
       {
-         log_msg(LOG_ERR, "close(%d) failed: \"%s\". restarting...", fd, strerror(r));
+         log_msg(LOG_ERR, "close(%d) failed: \"%s\". restarting in a moment...", fd, strerror(r));
+         set_select_timeout(&tv);
+         if (select(0, NULL, NULL, NULL, &tv) == -1)
+            log_msg(LOG_ERR, "select() failed: %s", strerror(errno));
          continue;
       }
+      log_msg(LOG_CRIT, "close(%d) failed: \"%s\"", fd, strerror(r));
       break;
    }
 }
