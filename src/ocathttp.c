@@ -34,13 +34,42 @@ int is_http_request(const OcatPeer_t *peer)
 }
 
 
+static void empty_socket(int fd)
+{
+   char buf[16];
+   int len;
+
+   while ((len = read(fd, buf, sizeof(buf))) > 0);
+
+   if (len == -1 && errno != EAGAIN && errno != EWOULDBLOCK)
+      log_msg(LOG_ERR, "read() on buffer empty failed: %s", strerror(errno));
+
+   log_debug("fd %d emptied", fd);
+}
+
+
+/*! Write buffer to fd of peer, handle error and byte counters of peer.
+ */
+static int peer_write(OcatPeer_t *peer, const char *buf, int len)
+{
+   if ((len = write(peer->tcpfd, buf, len)) == -1)
+   {
+      log_msg(LOG_ERR, "write failed: %s", strerror(errno));
+      return -1;
+   }
+
+   peer->out += len;
+   return len;
+}
+
+
 void *http_handler(void *p)
 {
    char buf[4096], timestr[64], *s;
    OcatPeer_t *peer;
    struct tm tm;
    time_t t;
-   int len;
+   int len, fd;
 
    detach_thread();
 
@@ -58,7 +87,10 @@ void *http_handler(void *p)
    strftime(timestr, sizeof(timestr), "%a, %d %b %Y %H:%M:%S %z", &tm);
  
    log_debug("locking peer");
+   lock_peers();
    lock_peer(peer);
+   unlock_peers();
+
    if (strncmp(peer->fragbuf, "GET ", 4))
    {
       log_msg(LOG_INFO, "this is not a GET request");
@@ -66,13 +98,9 @@ void *http_handler(void *p)
             "HTTP/1.0 501 Not Implemented\r\nDate: %s\r\nContent-Type: text/html\r\n\r\n"
             "<!doctype html>\n<html><body>501 Not Implemented</body></html>\n",
             timestr);
-      write(peer->tcpfd, buf, len);
-      len = read(peer->tcpfd, peer->fragbuf, FRAME_SIZE - 4);
-      log_debug("buffer emptied (%d)", len);
-      oe_close(peer->tcpfd);
-      peer->state = PEER_DELETE;
-      unlock_peer(peer);
-      return NULL;
+      peer_write(peer, buf, len);
+
+      goto hh_exit;
    }
 
    //make sure that buffer is 0-terminated
@@ -93,13 +121,9 @@ void *http_handler(void *p)
          "HTTP/1.0 200 OK\r\nDate: %s\r\nContent-Type: text/html\r\n\r\n"
          "<!doctype html>\n<html><body>200 OK</body></html>\n",
          timestr);
-   write(peer->tcpfd, buf, len);
-   len = read(peer->tcpfd, peer->fragbuf, FRAME_SIZE - 4);
-   log_debug("buffer emptied (%d)", len);
-   oe_close(peer->tcpfd);
-   peer->state = PEER_DELETE;
-   unlock_peer(peer);
-   return NULL;
+   peer_write(peer, buf, len);
+
+   goto hh_exit;
 
 hh_bad:
    log_msg(LOG_INFO, "this is a bad request");
@@ -107,12 +131,18 @@ hh_bad:
          "HTTP/1.0 400 Bad Request\r\nDate: %s\r\nContent-Type: text/html\r\n\r\n"
          "<!doctype html>\n<html><body>400 Bad Request</body></html>\n",
          timestr);
-   write(peer->tcpfd, buf, len);
-   len = read(peer->tcpfd, peer->fragbuf, FRAME_SIZE - 4);
-   log_debug("buffer emptied (%d)", len);
-   oe_close(peer->tcpfd);
+   peer_write(peer, buf, len);
+
+hh_exit:
+   empty_socket(peer->tcpfd);
+   log_debug("closing and deleting http peer fd %d", peer->tcpfd);
+   fd = peer->tcpfd;
    peer->state = PEER_DELETE;
    unlock_peer(peer);
+   lock_peers();
+   delete_peer(peer);
+   unlock_peers();
+   oe_close(fd);
    return NULL;
 }
 
