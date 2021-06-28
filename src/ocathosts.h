@@ -60,6 +60,7 @@ int hosts_get_name(const struct in6_addr*, char*, int);
 void hosts_init(const char*);
 int hosts_list(FILE *);
 int sn_hosts_list(char*, int);
+time_t hosts_time(void);
 
 
 #endif

@@ -308,6 +308,8 @@ int sn_hosts_list(char *buf, int len)
    if (buf == NULL || len <= 0)
       return -1;
 
+   wlen = snprintf(buf, len, "# hosts_ent_cnt = %d\n", hosts_.hosts_ent_cnt);
+
    pthread_mutex_lock(&hosts_mutex_);
    for (i = hosts_.hosts_ent_cnt - 1, h = hosts_.hosts_ent; i >= 0; i--, h++)
    {
@@ -334,6 +336,7 @@ int sn_hosts_list(char *buf, int len)
       wlen += plen;
    }
    pthread_mutex_unlock(&hosts_mutex_);
+
    return wlen;
 }
 
@@ -341,6 +344,12 @@ int sn_hosts_list(char *buf, int len)
 void hosts_init(const char *dom)
 {
    hosts_.hdom = dom;
+}
+
+
+time_t hosts_time(void)
+{
+   return hosts_.hosts_ts.tv_sec;
 }
 
 
