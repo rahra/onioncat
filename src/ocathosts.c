@@ -294,18 +294,19 @@ hl_exit:
  * more then len bytes to the buffer.
  * @param buf Pointer to the memory buffer.
  * @param len Size of the buffer.
- * @return On success the function returns a value greater than 0. On error a
- * value <= 0 is returned.
+ * @return On success the function returns the number of bytes written to buf
+ * excluding the terminating '\0'. If the buffer was too small, 0 is returned.
+ * On error, -1 is returned.
  **/
 int sn_hosts_list(char *buf, int len)
 {
    char in6[INET6_ADDRSTRLEN];
-   int i, plen;
+   int i, plen, wlen = 0;
    struct hosts_ent *h;
 
    // safety check
    if (buf == NULL || len <= 0)
-      return 0;
+      return -1;
 
    pthread_mutex_lock(&hosts_mutex_);
    for (i = hosts_.hosts_ent_cnt - 1, h = hosts_.hosts_ent; i >= 0; i--, h++)
@@ -318,20 +319,22 @@ int sn_hosts_list(char *buf, int len)
       if ((plen = snprintf(buf, len, "%s %s\n", in6, h->name)) == -1)
       {
          log_msg(LOG_CRIT, "snprintf() failed");
-         len = -1;
+         wlen = -1;
+         break;
+      }
+      // check if buffer is full
+      if (plen >= len)
+      {
+         log_msg(LOG_WARNING, "output buffer is full");
+         wlen = 0;
          break;
       }
       len -= plen;
       buf += plen;
-      // check if buffer is full
-      if (len <= 0)
-      {
-         log_msg(LOG_WARNING, "output buffer is full");
-         break;
-      }
+      wlen += plen;
    }
    pthread_mutex_unlock(&hosts_mutex_);
-   return len;
+   return wlen;
 }
 
 
