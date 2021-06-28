@@ -25,12 +25,206 @@
 #include "ocat.h"
 #include "ocat_netdesc.h"
 #include "ocathosts.h"
-
+#include "bstring.h"
 
 #ifdef HANDLE_HTTP
 int is_http_request(const OcatPeer_t *peer)
 {
    return !strncmp(peer->fragbuf, "GET ", 4);
+}
+
+
+/*! Return the next line in the HTTP header. The line will be returned in dst
+ * (basepointer and data length). The source pointer src will be advanced to
+ * the beginning of the next line. A HTTP line is terminated by \r\n.
+ * @param src Pointer to the HTTP header.
+ * @param dst Pointer to a bstring which will receive the result.
+ * @return The function returns 0 on success. In case of a format error, 1 is
+ * returned. In case of NULL pointers where passed to the function -1 is
+ * returned.
+ */
+int get_http_line(bstring_t *src, bstring_t *dst)
+{
+   //safety check
+   if (src == NULL || dst == NULL)
+   {
+      log_msg(LOG_CRIT, "this should never happen");
+      return -1;
+   }
+
+   // find 1st occurance of '\r'
+   for (*dst = *src; src->len > 0 && *src->buf != '\r'; bs_advance(src));
+   dst->len -= src->len;
+
+   if (src->len <= 0)
+      goto ghl_err;
+
+   // skip '\r'
+   bs_advance(src);
+
+   if (src->len <= 0)
+      goto ghl_err;
+
+   if (*src->buf != '\n')
+      goto ghl_err;
+
+   // skip '\n'
+   bs_advance(src);
+   return 0;
+
+ghl_err:
+   log_msg(LOG_WARNING, "HTTP format incorrect");
+   return 1;
+}
+
+
+int parse_sp_sep_token(bstring_t *src, bstring_t *dst)
+{
+   //safety check
+   if (src == NULL || dst == NULL)
+   {
+      log_msg(LOG_CRIT, "this should never happen");
+      return -1;
+   }
+
+   // find 1st occurance of ' '
+   for (*dst = *src; src->len > 0 && *src->buf != ' '; bs_advance(src));
+   dst->len -= src->len;
+
+   // find 1st occurance of !' '
+   for (; src->len > 0 && *src->buf == ' '; bs_advance(src));
+
+   return 0;
+}
+
+
+void parse_status_line(bstring_t *sline, bstring_t *s1, bstring_t *s2, bstring_t *s3)
+{
+   parse_sp_sep_token(sline, s1);
+   parse_sp_sep_token(sline, s2);
+   parse_sp_sep_token(sline, s3);
+}
+
+
+static void gmtime_str(char *timestr, int tslen, time_t t)
+{
+   struct tm tm;
+
+   // safety check
+   if (timestr == NULL)
+   {
+      log_msg(LOG_CRIT, "this should never happen");
+      return;
+   }
+
+   (void) gmtime_r(&t, &tm);
+   strftime(timestr, tslen, "%a, %d %b %Y %H:%M:%S %z", &tm);
+}
+
+
+const char *response_msg(int n)
+{
+   switch (n)
+   {
+      case 200:
+         return "OK";
+      case 400:
+         return "Bad Request";
+      case 404:
+         return "Not Found";
+      case 501:
+         return "Not Implemented";
+      default:
+         return "";
+   }
+}
+
+
+int mk_http_error_msg(char *buf, int buflen, int code)
+{
+   int len;
+
+   len = snprintf(buf, buflen, "<!doctype html>\n<html><header><meta charset=\"UTF-8\"/></head><body>%d %s</body></html>\n", code, response_msg(code));
+   if (len >= buflen)
+      return -1;
+   return len;
+}
+
+
+int mk_response_header(char *buf, int buflen, int code, const char *type, time_t t)
+{
+   char timestr[64];
+   int len;
+
+   // safety check
+   if (buf == NULL || type == NULL)
+   {
+      log_msg(LOG_CRIT, "this should never happen");
+      return -1;
+   }
+
+   gmtime_str(timestr, sizeof(timestr), t);
+   len = snprintf(buf, buflen, "HTTP/1.0 %d %s\r\nDate: %s\r\nContent-Type: %s\r\n\r\n", code, response_msg(code), timestr, type);
+
+   // error checking
+   if (len >= buflen)
+   {
+      log_msg(LOG_WARNING, "data buffer too small, len = %d", len);
+      return -1;
+   }
+
+   return len;
+}
+
+
+int mk_error_response(char *buf, int buflen, int code)
+{
+   int len;
+
+   if ((len = mk_response_header(buf, buflen, code, "text/html", time(NULL))) == -1)
+      return -1;
+   if ((buflen = mk_http_error_msg(buf + len, buflen - len, code)) == -1)
+      return -1;
+   return len + buflen;
+}
+
+
+int mk_hosts_response(char *buf, int buflen)
+{
+   int len;
+
+   log_debug("creating hosts response");
+   if ((len = mk_response_header(buf, buflen, 200, "text/plain", hosts_time())) == -1)
+      return -1;
+
+   if ((buflen = sn_hosts_list(buf + len, buflen - len)) <= 0)
+      return -1;
+
+   return len + buflen;
+}
+
+
+int handle_request(OcatPeer_t *peer, char *resp, int len)
+{
+   bstring_t req, line, method, uri, version;
+
+   req.buf = peer->fragbuf;
+   req.len = peer->fraglen;
+
+   if (get_http_line(&req, &line))
+      return mk_error_response(resp, len, 400);
+
+   parse_status_line(&line, &method, &uri, &version);
+
+   if (bs_cmp(method, "GET"))
+      return mk_error_response(resp, len, 501);
+
+   if (bs_cmp(uri, "/api/v1/hosts"))
+      return mk_error_response(resp, len, 404);
+
+   len = mk_hosts_response(resp, len);
+
+   return len;
 }
 
 
@@ -92,10 +286,8 @@ static int peer_write(OcatPeer_t *peer, const char *buf, int len)
 
 void *http_handler(void *p)
 {
-   char buf[4096], timestr[64], *s;
+   char buf[8192], timestr[64], *s;
    OcatPeer_t *peer;
-   struct tm tm;
-   time_t t;
    int len, fd;
    char *uri, *ver;
 
@@ -110,74 +302,15 @@ void *http_handler(void *p)
 
    peer = (OcatPeer_t*) p;
 
-   t = time(NULL);
-   (void) localtime_r(&t, &tm);
-   strftime(timestr, sizeof(timestr), "%a, %d %b %Y %H:%M:%S %z", &tm);
- 
    log_debug("locking peer");
    lock_peers();
    lock_peer(peer);
    unlock_peers();
 
-   if (strncmp(peer->fragbuf, "GET ", 4))
-   {
-      log_msg(LOG_INFO, "this is not a GET request");
-      len = snprintf(buf, sizeof(buf),
-            "HTTP/1.0 501 Not Implemented\r\nDate: %s\r\nContent-Type: text/html\r\n\r\n"
-            "<!doctype html>\n<html><body>501 Not Implemented</body></html>\n",
-            timestr);
+   log_debug("handling request");
+   if ((len = handle_request(peer, buf, sizeof(buf))) > 0)
       peer_write(peer, buf, len);
 
-      goto hh_exit;
-   }
-
-   //make sure that buffer is 0-terminated
-   if (peer->fraglen >= FRAME_SIZE - 4)
-      peer->fraglen = FRAME_SIZE - 4 - 1;
-   peer->fragbuf[peer->fraglen] = '\0';
-
-   s = peer->fragbuf + 4;
-   // skip spaces
-   for (; *s == ' '; s++);
-   if ((s = strtok(s, " ")) == NULL)
-      goto hh_bad;
-   if (strlen(s) > 1024)
-      goto hh_bad;
-
-   uri = s;
-   if ((ver = strtok(NULL, "\r\n")) == NULL)
-      goto hh_bad;
-   if (strcmp(ver, "HTTP/1.0") && strcmp(ver, "HTTP/1.1"))
-      goto hh_bad;
-
-   if (!strcmp(uri, "/api/v1/hosts"))
-   {
-      log_msg(LOG_INFO, "hosts request", uri);
-      len = snprintf(buf, sizeof(buf), "HTTP/1.0 200 OK\r\nDate: %s\r\nContent-Type: text/plain\r\n\r\n", timestr);
-      sn_hosts_list(buf + len, sizeof(buf) - len);
-      len = strlen(buf); // FIXME: sn_hosts_list should return number of bytes written
-   }
-   else
-   {
-      log_msg(LOG_WARNING, "uri \"%s\" not found", uri);
-      len = snprintf(buf, sizeof(buf),
-            "HTTP/1.0 404 Not Found\r\nDate: %s\r\nContent-Type: text/html\r\n\r\n"
-            "<!doctype html>\n<html><body>404 Not Found</body></html>\n",
-            timestr);
-   }
-   peer_write(peer, buf, len);
-
-   goto hh_exit;
-
-hh_bad:
-   log_msg(LOG_INFO, "this is a bad request");
-   len = snprintf(buf, sizeof(buf),
-         "HTTP/1.0 400 Bad Request\r\nDate: %s\r\nContent-Type: text/html\r\n\r\n"
-         "<!doctype html>\n<html><body>400 Bad Request</body></html>\n",
-         timestr);
-   peer_write(peer, buf, len);
-
-hh_exit:
    fill_buffer(peer);
    log_debug("closing and deleting http peer fd %d", peer->tcpfd);
    fd = peer->tcpfd;
