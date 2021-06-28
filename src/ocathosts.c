@@ -309,6 +309,8 @@ int sn_hosts_list(char *buf, int len)
       return -1;
 
    wlen = snprintf(buf, len, "# hosts_ent_cnt = %d\n", hosts_.hosts_ent_cnt);
+   len -= wlen;
+   buf += wlen;
 
    pthread_mutex_lock(&hosts_mutex_);
    for (i = hosts_.hosts_ent_cnt - 1, h = hosts_.hosts_ent; i >= 0; i--, h++)
