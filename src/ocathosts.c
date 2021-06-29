@@ -127,7 +127,7 @@ int hosts_file_modified_r(struct timespec *ts)
 
 int hosts_read(struct hosts_ent **hent, time_t age)
 {
-   int e, n = hosts_.hosts_ent_cnt, m, o = 0, c;
+   int e, n = hosts_.hosts_ent_cnt, m, o = 0, c, rem;
    char buf[HOSTS_LINE_LENGTH + 1], *s;
    struct addrinfo hints, *res;
    struct hosts_ent *h;
@@ -168,8 +168,26 @@ int hosts_read(struct hosts_ent **hent, time_t age)
       }
 
       // parse all hostnames behind IPv6 address
-      for (c = 0; (s = strtok(NULL, " \t\r\n")); c++)
+      for (c = 0, rem = 0, m = -1; (s = strtok(NULL, " \t\r\n")) != NULL; c++)
       {
+         // ignore anything behind a comment
+         if (s[0] == '#')
+         {
+            rem++;
+            if (rem > 1)
+            {
+               log_debug("ignoring everything after comment in comment");
+               break;
+            }
+         }
+
+         // handling data in comment
+         if (rem)
+         {
+            log_debug("handling data in comment");
+            continue;
+         }
+
          // copy hostname if it ends with "${hdom_}"
          if ((strlen(s) > strlen(hosts_.hdom)) && !strcasecmp(s + (strlen(s) - strlen(hosts_.hdom)), hosts_.hdom))
          {
@@ -194,6 +212,7 @@ int hosts_read(struct hosts_ent **hent, time_t age)
                break;
             }
 
+            m = n;
             h = (*hent) + n++;
             h->age = age;
             h->source = HSRC_HOSTS;
@@ -352,7 +371,7 @@ int sn_hosts_list(char *buf, int len)
          log_msg(LOG_ERR, "inet_ntop() failed: %s", strerror(errno));
          continue;
       }
-      if ((plen = snprintf(buf, len, "%s %s\n", in6, h->name)) == -1)
+      if ((plen = snprintf(buf, len, "%s %s # age = %ld, src = %d\n", in6, h->name, h->age, h->source)) == -1)
       {
          log_msg(LOG_CRIT, "snprintf() failed");
          wlen = -1;
