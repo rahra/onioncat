@@ -561,7 +561,7 @@ void *socks_connector_sel(void *p)
 #ifdef DIRECT_CONNECTIONS
                if (CNF(socks5) == CONNTYPE_DIRECT)
                {
-                  if (get_hostname(squeue, name, sizeof(name)))
+                  if (get_hostname(squeue, name, sizeof(name)) == -1)
                   {
                      log_msg(LOG_ERR, "no valid destination name found for DIRECT connection");
                      continue;
