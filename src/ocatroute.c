@@ -1006,30 +1006,42 @@ void packet_forwarder(void)
 
 int send_keepalive(OcatPeer_t *peer)
 {
-   struct ip6_hdr hdr;
-   int len;
+   char buf[512];
+   struct ip6_hdr *hdr;
+   int len, slen;
 
-   memset(&hdr, 0, sizeof(hdr));
-   //memcpy(&hdr.ip6_dst, &peer->addr, sizeof(struct in6_addr));
-   IN6_ADDR_COPY(&hdr.ip6_dst, &peer->addr);
-   //memcpy(&hdr.ip6_src, &CNF(ocat_addr), sizeof(struct in6_addr));
-   IN6_ADDR_COPY(&hdr.ip6_src, &CNF(ocat_addr));
-   hdr.ip6_flow = htonl(peer->rand & 0xfffff);
-   hdr.ip6_vfc = 0x60;
-   hdr.ip6_nxt = IPPROTO_NONE;
-   hdr.ip6_hops = 1;
+   memset(buf, 0, sizeof(buf));
+   hdr = (struct ip6_hdr*) buf;
+   IN6_ADDR_COPY(&hdr->ip6_dst, &peer->addr);
+   IN6_ADDR_COPY(&hdr->ip6_src, &CNF(ocat_addr));
+   hdr->ip6_flow = htonl(peer->rand & 0xfffff);
+   hdr->ip6_vfc = 0x60;
+   hdr->ip6_nxt = IPPROTO_NONE;
+   hdr->ip6_hops = 1;
+   slen = sizeof(*hdr);
 
-   log_debug("sending %d bytes keepalive to fd %d", sizeof(hdr), peer->tcpfd);
+   if (CNF(onion3_url)[0] != '\0')
+   {
+      len = snprintf(buf + slen, sizeof(buf) - slen, "%s%s", CNF(onion3_url), CNF(domain));
+      if (len != -1 && len < sizeof(buf) - slen)
+      {
+         len++;
+         hdr->ip6_plen = htons(len);
+         slen += len;
+      }
+   }
 
-   if ((len = send(peer->tcpfd, &hdr, sizeof(hdr), MSG_DONTWAIT)) == -1)
+   log_debug("sending %d bytes keepalive to fd %d", slen, peer->tcpfd);
+
+   if ((len = send(peer->tcpfd, hdr, slen, MSG_DONTWAIT)) == -1)
    {
       log_msg(LOG_ERR, "could not send keepalive: %s", strerror(errno));
       return -1;
    }
    peer->out += len;
-   if (len != sizeof(hdr))
+   if (len != slen)
    {
-      log_msg(LOG_ERR, "sending of %d bytes keepalive truncated to %d", sizeof(hdr), len);
+      log_msg(LOG_ERR, "sending of %d bytes keepalive truncated to %d", slen, len);
       return -1;
    }
    return 0;
