@@ -1,4 +1,4 @@
-/* Copyright 2008-2010 Bernhard R. Fischer.
+/* Copyright 2008-2021 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -15,6 +15,11 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*! \file ocathosts.c
+ * This file contains the code of the hosts file handling and OnionCat's
+ * internal database of hosts.
+ * \author Bernhard R. Fischer
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -63,6 +68,9 @@
 static struct hosts_info hosts_ = {{0, 0}, -1, NULL, 0, ""};
 static char *path_hosts_ = NULL;
 static pthread_mutex_t hosts_mutex_ = PTHREAD_MUTEX_INITIALIZER;
+
+
+int hosts_get_name_unlocked(const struct in6_addr *addr, char *buf, int s);
 
 
 /*! Set path to hosts file.
@@ -117,9 +125,9 @@ int hosts_file_modified_r(struct timespec *ts)
 }
 
 
-int hosts_read(struct hosts_ent **hent)
+int hosts_read(struct hosts_ent **hent, time_t age)
 {
-   int e, n = 0, c;
+   int e, n = hosts_.hosts_ent_cnt, m, o = 0, c, rem;
    char buf[HOSTS_LINE_LENGTH + 1], *s;
    struct addrinfo hints, *res;
    struct hosts_ent *h;
@@ -132,12 +140,6 @@ int hosts_read(struct hosts_ent **hent)
    }
 
    pthread_mutex_lock(&hosts_mutex_);
-   if (*hent)
-   {
-      free(*hent);
-      *hent = NULL;
-   }
-
    memset(&hints, 0, sizeof(hints));
    hints.ai_family = AF_INET6;
    hints.ai_flags = AI_NUMERICHOST;
@@ -166,19 +168,54 @@ int hosts_read(struct hosts_ent **hent)
       }
 
       // parse all hostnames behind IPv6 address
-      for (c = 0; (s = strtok(NULL, " \t\r\n")); c++)
+      for (c = 0, rem = 0, m = -1; (s = strtok(NULL, " \t\r\n")) != NULL; c++)
       {
+         // ignore anything behind a comment
+         if (s[0] == '#')
+         {
+            rem++;
+            if (rem > 1)
+            {
+               log_debug("ignoring everything after comment in comment");
+               break;
+            }
+         }
+
+         // handling data in comment
+         if (rem)
+         {
+            log_debug("handling data in comment");
+            continue;
+         }
+
          // copy hostname if it ends with "${hdom_}"
          if ((strlen(s) > strlen(hosts_.hdom)) && !strcasecmp(s + (strlen(s) - strlen(hosts_.hdom)), hosts_.hdom))
          {
-            if ((*hent = realloc(*hent, ++n * sizeof(struct hosts_ent))) == NULL)
+            o++;
+            // check if IPv6 address already exists in table
+            if ((m = hosts_get_name_unlocked(&((struct sockaddr_in6*) res->ai_addr)->sin6_addr, NULL, 0)) != -1)
+            {
+               h = (*hent) + m;
+               h->age = age; // FIXME: check age and source, could be new from net
+               h->source = HSRC_HOSTS;
+               // check if hostname changed and ignore if not
+               if (!strcmp(h->name, s))
+                  continue;
+               log_msg(LOG_INFO, "name[%d] %s changed to %s", m, h->name, s);
+               strlcpy(h->name, s, NI_MAXHOST);
+               continue;
+            }
+            // allocate memory for new host entry
+            else if ((*hent = realloc(*hent, (n + 1) * sizeof(struct hosts_ent))) == NULL)
             {
                log_msg(LOG_ERR, "realloc failed: \"%s\"", strerror(errno));
-               n--;
                break;
             }
 
-            h = (*hent) + n - 1;
+            m = n;
+            h = (*hent) + n++;
+            h->age = age;
+            h->source = HSRC_HOSTS;
             h->addr = ((struct sockaddr_in6*) res->ai_addr)->sin6_addr;
             strlcpy(h->name, s, NI_MAXHOST);
             break;
@@ -190,7 +227,7 @@ int hosts_read(struct hosts_ent **hent)
    pthread_mutex_unlock(&hosts_mutex_);
    (void) fclose(f);
 
-   log_debug("found %d valid IPv6 records in %s", n, path_hosts_);
+   log_debug("found %d valid IPv6 records in %s (total %d)", o, path_hosts_, n);
 
    return n;
 }
@@ -220,35 +257,49 @@ int hosts_check(void)
    }
 
    if (hosts_file_modified_r(&hosts_.hosts_ts))
-      hosts_.hosts_ent_cnt = hosts_read(&hosts_.hosts_ent);
+      hosts_.hosts_ent_cnt = hosts_read(&hosts_.hosts_ent, hosts_.hosts_ts.tv_sec);
 
    return 0;
 }
 
 
 /*! Return name for IPv6 address.
- *  @return 0 on success, -1 on error.
+ *  @return On success it returns index >= 0 within host_ent array. If not
+ *  found, -1 on error.
  **/
-int hosts_get_name(const struct in6_addr *addr, char *buf, int s)
+int hosts_get_name_unlocked(const struct in6_addr *addr, char *buf, int s)
 {
    int i;
    struct hosts_ent *h;
 
    log_debug("looking up name");
-   pthread_mutex_lock(&hosts_mutex_);
-   for (i = hosts_.hosts_ent_cnt - 1, h = hosts_.hosts_ent; i >= 0; i--, h++)
+   for (i = 0, h = hosts_.hosts_ent; i < hosts_.hosts_ent_cnt; i++, h++)
       if (IN6_ARE_ADDR_EQUAL(addr, &h->addr))
       {
-         strlcpy(buf, h->name, s);
-         log_debug("name \"%s\" found", buf);
-         break;
+         if (buf != NULL)
+            strlcpy(buf, h->name, s);
+         log_debug("name \"%s\" found", h->name);
+         return i;
       }
+
+   return -1;
+}
+
+
+/*! Return name for IPv6 address.
+ *  @return On success it returns index >= 0 within host_ent array. If not
+ *  found, -1 on error.
+ **/
+int hosts_get_name(const struct in6_addr *addr, char *buf, int s)
+{
+   int i;
+
+   log_debug("looking up name");
+   pthread_mutex_lock(&hosts_mutex_);
+   i = hosts_get_name_unlocked(addr, buf, s);
    pthread_mutex_unlock(&hosts_mutex_);
 
-   if (i < 0)
-      return -1;
-
-   return 0;
+   return i;
 }
 
 
@@ -257,9 +308,60 @@ int hosts_get_name(const struct in6_addr *addr, char *buf, int s)
  **/
 int hosts_list(FILE *f)
 {
+   char *buf;
+   size_t blen;
+
+   // safety check
+   if (f == NULL)
+      return 0;
+
+   // get memory buffer
+   blen = hosts_.hosts_ent_cnt * HOSTS_LINE_LENGTH_OUT;
+   if ((buf = malloc(blen)) == NULL)
+   {
+      log_msg(LOG_CRIT, "malloc failed: %s", strerror(errno));
+      return -1;
+   }
+
+   // write hosts to buffer
+   if ((blen = sn_hosts_list(buf, blen)) <= 0)
+   {
+      log_msg(LOG_ERR, "hosts buffer should be realloced or increased, not implemented yet...");
+      goto hl_exit;
+   }
+
+   // write buffer to stream
+   if (fwrite(buf, blen, 1, f) != 1)
+      log_msg(LOG_WARNING, "could not write data to stream");
+
+   // free buffer and return
+hl_exit:
+   free(buf);
+   return 0;
+}
+
+
+/*! Output the list of hosts to a memory buffer. The function does not write
+ * more then len bytes to the buffer.
+ * @param buf Pointer to the memory buffer.
+ * @param len Size of the buffer.
+ * @return On success the function returns the number of bytes written to buf
+ * excluding the terminating '\0'. If the buffer was too small, 0 is returned.
+ * On error, -1 is returned.
+ **/
+int sn_hosts_list(char *buf, int len)
+{
    char in6[INET6_ADDRSTRLEN];
-   int i;
+   int i, plen, wlen = 0;
    struct hosts_ent *h;
+
+   // safety check
+   if (buf == NULL || len <= 0)
+      return -1;
+
+   wlen = snprintf(buf, len, "# hosts_ent_cnt = %d\n", hosts_.hosts_ent_cnt);
+   len -= wlen;
+   buf += wlen;
 
    pthread_mutex_lock(&hosts_mutex_);
    for (i = hosts_.hosts_ent_cnt - 1, h = hosts_.hosts_ent; i >= 0; i--, h++)
@@ -269,16 +371,38 @@ int hosts_list(FILE *f)
          log_msg(LOG_ERR, "inet_ntop() failed: %s", strerror(errno));
          continue;
       }
-      fprintf(f, "%s %s\n", in6, h->name);
+      if ((plen = snprintf(buf, len, "%s %s # age = %ld, src = %d\n", in6, h->name, h->age, h->source)) == -1)
+      {
+         log_msg(LOG_CRIT, "snprintf() failed");
+         wlen = -1;
+         break;
+      }
+      // check if buffer is full
+      if (plen >= len)
+      {
+         log_msg(LOG_WARNING, "output buffer is full");
+         wlen = 0;
+         break;
+      }
+      len -= plen;
+      buf += plen;
+      wlen += plen;
    }
    pthread_mutex_unlock(&hosts_mutex_);
-   return 0;
+
+   return wlen;
 }
 
 
 void hosts_init(const char *dom)
 {
    hosts_.hdom = dom;
+}
+
+
+time_t hosts_time(void)
+{
+   return hosts_.hosts_ts.tv_sec;
 }
 
 
@@ -299,7 +423,7 @@ int main()
       printf("%s\n", h->name);
    }
 
-   if (!hosts_get_name(&addr, buf, NI_MAXHOST))
+   if (hosts_get_name(&addr, buf, NI_MAXHOST) != -1)
       printf("loopname = \"%s\"\n", buf);
 
    return 0;

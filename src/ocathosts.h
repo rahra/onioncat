@@ -1,4 +1,4 @@
-/* Copyright 2008-2010 Bernhard R. Fischer.
+/* Copyright 2008-2021 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -36,11 +36,17 @@
 
 
 #define HOSTS_LINE_LENGTH 1024
+#define HOSTS_LINE_LENGTH_OUT 256
+#define HSRC_HOSTS 0
+#define HSRC_NET 1
+
 
 struct hosts_ent
 {
    struct in6_addr addr;
    char name[NI_MAXHOST];
+   time_t age;
+   int source;
 };
 
 struct hosts_info
@@ -57,6 +63,9 @@ int hosts_check(void);
 int hosts_get_name(const struct in6_addr*, char*, int);
 void hosts_init(const char*);
 int hosts_list(FILE *);
+int sn_hosts_list(char*, int);
+time_t hosts_time(void);
+
 
 #endif
 
