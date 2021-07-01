@@ -28,10 +28,24 @@
 
 
 // global thread id var and mutex for thread initializiation
-static int thread_id_ = 0;
 static pthread_mutex_t thread_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t thread_cond_ = PTHREAD_COND_INITIALIZER;
 static OcatThread_t *octh_ = NULL;
+
+
+/*! Find highest thread number.
+ * @return Returns the highest id of an active thread.
+ */
+static int highest_id(void)
+{
+   OcatThread_t *th;
+   int i;
+
+   for (i = -1, th = octh_; th; th = th->next)
+      if (th->id > i)
+         i = th->id;
+   return i;
+}
 
 
 void init_ocat_thread_struct(OcatThread_t *th)
@@ -39,7 +53,7 @@ void init_ocat_thread_struct(OcatThread_t *th)
    // init ocat thread structure
    th->handle = pthread_self();
    pthread_mutex_lock(&thread_mutex_);
-   th->id = thread_id_++;
+   th->id = highest_id() + 1;
    th->next = octh_;
    octh_ = th;
    pthread_mutex_unlock(&thread_mutex_);
@@ -71,7 +85,7 @@ void *thread_run(void *p)
    void *r;
    sigset_t ss;
 #ifdef DEBUG
-   int ecnt, icnt;
+   int ecnt;
    static int exit_cnt_ = 0;
 #endif
 
@@ -100,11 +114,10 @@ void *thread_run(void *p)
    }
 #ifdef DEBUG
    ecnt = ++exit_cnt_;
-   icnt = thread_id_;
 #endif
    pthread_mutex_unlock(&thread_mutex_);
 
-   log_debug("_exit_ thread, %d inits, %d exits", icnt, ecnt);
+   log_debug("_exit_ thread, %d exits", ecnt);
    return r;
 }
 

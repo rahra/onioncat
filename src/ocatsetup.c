@@ -54,7 +54,7 @@ struct OcatSetup setup_ =
    1, // ipconfig
    //! default debug level
    LOG_DEBUG,
-   OCAT_UNAME, {0}, {0}, {{{0}}}, 0,
+   OCAT_UNAME, {0}, {0}, IN6ADDR_ANY_INIT, 0,
 #ifndef __ANDROID__
    0,                                     // run as root (dont drop privs)
 #else
@@ -68,7 +68,7 @@ struct OcatSetup setup_ =
    {'\0'},                                // tunname
    0, 
    //ADDR4_PREFIX, ADDR4_MASK
-   {0}, 0,
+   {0}, {0},
    // config_file, config_read, config_failed
    NULL, 0, 0,
    NULL,                                  // ifup
@@ -131,7 +131,8 @@ struct OcatSetup setup_ =
    // hosts_path
    NULL,
    // domain
-   ""
+   "",
+   IN6ADDR_ANY_INIT
 };
 
 
