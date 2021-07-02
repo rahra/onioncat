@@ -1022,7 +1022,7 @@ int send_keepalive(OcatPeer_t *peer)
 
    if (CNF(onion3_url)[0] != '\0')
    {
-      len = snprintf(buf + slen, sizeof(buf) - slen, "%s%s", CNF(onion3_url), CNF(domain));
+      len = snprintf(buf + slen, sizeof(buf) - slen, "%c%s%s", 1, CNF(onion3_url), CNF(domain));
       if (len != -1 && len < sizeof(buf) - slen)
       {
          len++;
