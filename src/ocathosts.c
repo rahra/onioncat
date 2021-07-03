@@ -303,6 +303,28 @@ int hosts_get_name(const struct in6_addr *addr, char *buf, int s)
 }
 
 
+/*! Get address of ith hosts entry.
+ * @param n Index to hosts table.
+ * @param addr Pointer to adress which will receive address.
+ * @return On success n is returned, on error -1 is returned.
+ */
+int hosts_get_addr(int n, struct in6_addr *addr)
+{
+   // safety check
+   if (addr == NULL)
+      return -1;
+
+   pthread_mutex_lock(&hosts_mutex_);
+   if (n < hosts_.hosts_ent_cnt)
+      IN6_ADDR_COPY(addr, &hosts_.hosts_ent[n].addr);
+   else
+      n = -1;
+   pthread_mutex_unlock(&hosts_mutex_);
+
+   return n;
+}
+
+
 /*! Output list of hosts to file.
  *  @return Returns always 0.
  **/

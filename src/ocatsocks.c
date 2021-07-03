@@ -52,7 +52,7 @@ static int get_hostname(const SocksQueue_t *sq, char *onion, int onion_size)
 
    // If no hostname was found above or network type is Tor
    // do usual OnionCat name transformation.
-   if (ret == -1)
+   if (ret == -1 && onion != NULL)
    {
       ipv6tonion(&sq->addr, onion);
       strlcat(onion, CNF(domain), onion_size);
@@ -510,6 +510,57 @@ void socks_reschedule(SocksQueue_t *squeue)
 }
 
  
+/*! Send out a DNS reverse lookup for the addess found in sq.
+ * @param sq Pointer to the queue message.
+ * @return On success, the function returns a value >= 0. On error, -1 is
+ * returned.
+ */
+int socks_dns_req(SocksQueue_t *sq)
+{
+   struct sockaddr_in6 saddr;
+   char buf[PACKETSZ];
+   socklen_t slen;
+   int n, len;
+
+   if ((sq->fd = socket(AF_INET6, SOCK_DGRAM, 0)) == -1)
+   {
+      log_msg(LOG_ERR, "could not create UDP socket: %s", strerror(errno));
+      return -1;
+   }
+   set_nonblock(sq->fd);
+
+   memset(&saddr, 0, sizeof(saddr));
+
+   if ((n = hosts_get_addr(sq->retry, &saddr.sin6_addr)) == -1)
+   {
+      log_msg(LOG_WARNING, "no DNS server available");
+      oe_close(sq->fd);
+      return -1;
+   }
+
+   slen = sizeof(saddr);
+   saddr.sin6_family = AF_INET6;
+#ifdef HAVE_SIN_LEN
+   saddr.sin6_len = slen;
+#endif
+   saddr.sin6_port = htons(CNF(ocat_dest_port));
+
+   len = oc_mk_ptrquery((char*) &sq->addr, buf, sizeof(buf));
+
+   if ((n = sendto(sq->fd, buf, len, 0, (struct sockaddr*) &saddr, slen)) == -1)
+   {
+      log_msg(LOG_ERR, "sendto() failed: %s", strerror(errno));
+      oe_close(sq->fd);
+      return -1;
+   }
+
+   if (n < len)
+      log_msg(LOG_WARNING, "message was truncated: %d < %d", n, len);
+
+   return n;
+}
+
+
 void *socks_connector_sel(void *p)
 {
    fd_set rset, wset;
@@ -556,6 +607,19 @@ void *socks_connector_sel(void *p)
                   log_msg(LOG_NOTICE, "temporary request failed %d times and will be removed", squeue->retry - 1);
                   squeue->state = SOCKS_DELETE;
                   continue;
+               }
+
+               // send a DNS lookup if configured and no hostname in DB yet
+               if (CNF(dns_lookup) && get_hostname(squeue, NULL, 0) == -1 && squeue->retry < 3)
+               {
+                  if (socks_dns_req(squeue) != -1)
+                  {
+                     log_msg(LOG_INFO, "dns request sent");
+                     squeue->state = SOCKS_DNS_SENT;
+                     squeue->retry++;
+                     MFD_SET(squeue->fd, &rset, maxfd);
+                     continue;
+                  }
                }
 
 #ifdef DIRECT_CONNECTIONS
