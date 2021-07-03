@@ -55,6 +55,7 @@ void usage(const char *s)
          "   -r                    run as root, i.e. do not change uid/gid\n"
          "   -R                    generate a random local onion URL\n"
          "   -s <port>             set hidden service virtual port, default = %d\n"
+         "   -S                    Run OnionCat name service, default = %d\n"
          "   -t [<ip>:]<port>      set Tor SOCKS address and port, default = 127.0.0.1:%d\n"
 #ifndef WITHOUT_TUN
          "   -T <tun_device>       path to tun character device, default = \"%s\"\n"
@@ -69,7 +70,7 @@ void usage(const char *s)
          CNF(daemon), CNF(daemon) ^ 1, CNF(hosts_lookup),
          CNF(debug_level), CNF(dns_lookup), CNF(config_file), NDESC(listen_port),
          CNF(pid_file),
-         CNF(ocat_dest_port), ntohs(CNF(socks_dst)->sin_port), 
+         CNF(ocat_dest_port), CNF(dns_server), ntohs(CNF(socks_dst)->sin_port), 
 #ifndef WITHOUT_TUN
          TUN_DEV,
 #endif
@@ -347,7 +348,7 @@ int parse_opt(int argc, char *argv[])
    log_debug("parse_opt_early()");
    opterr = 1;
    optind = 1;
-   while ((c = getopt(argc, argv, "f:IabBCd:De:g:hHrRiopl:t:T:s:Uu:45:L:P:n:")) != -1)
+   while ((c = getopt(argc, argv, "f:IabBCd:De:g:hHrRiopl:t:T:s:SUu:45:L:P:n:")) != -1)
    {
       log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, SSTR(optarg));
       switch (c)
@@ -462,6 +463,10 @@ int parse_opt(int argc, char *argv[])
 
          case 's':
             CNF(ocat_dest_port) = atoi(optarg);
+            break;
+
+         case 'S':
+            CNF(dns_server) = 1;
             break;
 
          case 't':
@@ -672,6 +677,9 @@ int main(int argc, char *argv[])
       log_msg(LOG_INFO, "acceptor not started");
    // starting socket cleaner
    run_ocat_thread("cleaner", socket_cleaner, NULL);
+   // starting dns server thread
+   if (CNF(dns_server))
+      run_ocat_thread("nserver", oc_nameserver, NULL);
 
    // getting passwd info for user
    log_debug("getting user info for \"%s\"", CNF(usrname));

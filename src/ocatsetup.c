@@ -133,6 +133,8 @@ struct OcatSetup setup_ =
    // domain
    "",
    // dns_loopup
+   0,
+   // dns_server
    0
 };
 

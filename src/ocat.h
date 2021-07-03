@@ -265,6 +265,8 @@
 
 //! maximum number of SOCKS retries before becoming deleted
 #define SOCKS_MAX_RETRY 3
+//! maximum numner of DNS retries
+#define SOCKS_DNS_RETRY 3
 
 #define E_RT_NOMEM -1
 #define E_RT_DUP -2
@@ -439,7 +441,8 @@ struct OcatSetup
    int hosts_lookup;
    char *hosts_path;       //!< path to hosts file, defaults to system hosts file if NULL
    const char *domain;     //!< domain name appended to network host name
-   int dns_lookup;         //!< do Onioncat DNS reverse queries
+   int dns_lookup;         //!< do OnionCat DNS reverse queries
+   int dns_server;         //!< run OnionCat DNS server
 };
 
 #ifdef PACKET_QUEUE
@@ -781,6 +784,8 @@ int win_write_tun(const char *, int);
 
 /* ocatresolv.c */
 int oc_mk_ptrquery(const char *, char *, int);
+void *oc_nameserver(void *);
+
 
 #endif
 
