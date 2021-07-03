@@ -15,10 +15,20 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*! \file ocatdns.c
+/*! \file ocatresolv.c
+ *  This file contains all code for the OnionCat name/revptr resolution as well
+ *  as the server code.
+ *  There is no portable thread-safe low level resolver interface, thus, I
+ *  wrote the code completely new for OnionCat. Although it is not a full
+ *  resolver nor a full nameserver. It just implements those parts which are
+ *  necessary as far as the conform to the standards, which is manly RFC1034
+ *  and RFC1035.
+ *
+ *  Note: The code previously found in this file was deleted since it was never
+ *  used.
  *
  *  \author Bernhard Fischer <bf@abenteuerland.at>
- *  \date 2021/07/02
+ *  \date 2021/07/03
  */
 
 
