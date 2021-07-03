@@ -26,6 +26,7 @@
 
 #include "ocat.h"
 #include "ocat_netdesc.h"
+#include "ocathosts.h"
 
 #ifdef HAVE_STRUCT_IPHDR
 #define IPPKTLEN(x) ntohs(((struct iphdr*) (x))->tot_len)
@@ -255,6 +256,46 @@ uint32_t get_tunheader(char *buf)
 {
    uint32_t *ibuf = (uint32_t*) buf;
    return *ibuf;
+}
+
+
+int handle_keepalive(const struct ip6_hdr *i6h)
+{
+   // FIXME: should that be activated only if lookup is enabled?
+   char *buf;
+   int len;
+
+   // check if ip6 packet without specific content (header only)
+   if (i6h->ip6_nxt != IPPROTO_NONE)
+      return -1;
+
+   // extract payload data
+   len = ntohs(i6h->ip6_plen);
+   if (len < 2)
+   {
+      log_debug("not enough data for hostname in keepalive");
+      return -1;
+   }
+
+   // create pointer to payload
+   buf = (char*) (i6h + 1);
+
+   // check version info
+   if (buf[0] != 1)
+   {
+      log_debug("version %d in keepalive not supported", buf[0]);
+      return -1;
+   }
+
+   log_msg(LOG_INFO, "seems to be foreign keepalive");
+   // advance pointer to hostname
+   buf++;
+   len--;
+   // make sure it is \0-terminated
+   buf[len] = '\0';
+
+   hosts_add_entry(&i6h->ip6_src, buf, HSRC_KPLV, time(NULL));
+   return 0;
 }
 
 
@@ -514,6 +555,8 @@ void *socket_receiver(void *p)
                   log_msg(LOG_INFO, "mark peer on fd %d for deletion", peer->tcpfd);
                   peer->state = PEER_DELETE;
                }
+               else
+                  handle_keepalive((struct ip6_hdr*)peer->fragbuf);
             }
 
             // set IP address if it is not set yet and frame is valid and in bidirectional mode
