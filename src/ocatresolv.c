@@ -178,7 +178,8 @@ int oc_proc_request(char *buf, int msglen, int buflen)
    struct in6_addr in6;
    char name[NI_MAXHOST];
    HEADER *dh;
-   int n;
+   time_t age;
+   int n, source;
 
    // safety check
    if (buf == NULL || msglen < (int) sizeof(*dh))
@@ -241,12 +242,16 @@ int oc_proc_request(char *buf, int msglen, int buflen)
    // make sure to read hosts file
    hosts_check();
    // lookup hostname in memory
-   if (hosts_get_name(&in6, name, sizeof(name)) == -1)
+   if (hosts_get_name_ext(&in6, name, sizeof(name), &source, &age) == -1)
    {
       log_debug("no such name");
       dh->rcode = NXDOMAIN;
       return msglen;
    }
+
+   // set authorative answer for hosts file entries
+   if (source == HSRC_HOSTS)
+      dh->aa = 1;
 
    // advance buf pointer to section befind question
    buf += n + 2 + 2;

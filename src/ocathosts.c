@@ -290,16 +290,28 @@ int hosts_get_name_unlocked(const struct in6_addr *addr, char *buf, int s)
  *  @return On success it returns index >= 0 within host_ent array. If not
  *  found, -1 on error.
  **/
-int hosts_get_name(const struct in6_addr *addr, char *buf, int s)
+int hosts_get_name_ext(const struct in6_addr *addr, char *buf, int s, int *source, time_t *age)
 {
    int i;
 
    log_debug("looking up name");
    pthread_mutex_lock(&hosts_mutex_);
-   i = hosts_get_name_unlocked(addr, buf, s);
+   if ((i = hosts_get_name_unlocked(addr, buf, s)) != -1)
+   {
+      if (source != NULL)
+         *source = hosts_.hosts_ent[i].source;
+      if (age != NULL)
+         *age = hosts_.hosts_ent[i].age;
+   }
    pthread_mutex_unlock(&hosts_mutex_);
 
    return i;
+}
+
+
+int hosts_get_name(const struct in6_addr *addr, char *buf, int s)
+{
+   return hosts_get_name_ext(addr, buf, s, NULL, NULL);
 }
 
 
