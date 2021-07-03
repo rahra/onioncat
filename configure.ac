@@ -1,7 +1,7 @@
 
 AC_PREREQ(2.62)
 #define([svnversion], esyscmd([sh -c "echo -n $(wc -l <GitLog)"]))dnl
-AC_INIT([onioncat],[[0.3.9]],[rahra@cypherpunk.at])
+AC_INIT([onioncat],[[0.4.0]],[rahra@cypherpunk.at])
 AM_INIT_AUTOMAKE([-Wall -Werror])
 AC_SUBST([CFLAGS], [["$CFLAGS -Wall -Wextra"]])
 AC_CONFIG_HEADERS([config.h])
@@ -56,10 +56,12 @@ CC="$PTHREAD_CC"
 
 AC_SEARCH_LIBS([bind], [socket])
 AC_SEARCH_LIBS([inet_ntop], [nsl])
+AC_SEARCH_LIBS([__dn_expand], [resolv])
+AC_SEARCH_LIBS([__dn_comp], [resolv])
 
 # Checks for header files.
 #AC_HEADER_STDC
-AC_CHECK_HEADERS([sys/types.h sys/wait.h sys/socket.h sys/stat.h netdb.h arpa/nameser.h netinet/in.h netinet/in_systm.h netinet/ip.h netinet/ip6.h netinet/in6.h net/if.h net/if_tun.h net/tun/if_tun.h linux/if_tun.h linux/sockios.h linux/ipv6.h endian.h sys/endian.h netinet/icmp6.h net/ethernet.h netinet/if_ether.h netinet/ether.h netinet/udp.h sys/ethernet.h fcntl.h time.h netinet6/in6_var.h netinet6/nd6.h pwd.h syslog.h], [], [],
+AC_CHECK_HEADERS([sys/types.h sys/wait.h sys/socket.h sys/stat.h netdb.h arpa/nameser.h netinet/in.h netinet/in_systm.h netinet/ip.h netinet/ip6.h netinet/in6.h net/if.h net/if_tun.h net/tun/if_tun.h linux/if_tun.h linux/sockios.h linux/ipv6.h endian.h sys/endian.h netinet/icmp6.h net/ethernet.h netinet/if_ether.h netinet/ether.h netinet/udp.h sys/ethernet.h fcntl.h time.h netinet6/in6_var.h netinet6/nd6.h pwd.h syslog.h resolv.h], [], [],
 [[
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
@@ -214,6 +216,7 @@ AC_CHECK_MEMBER([struct ether_header.ether_dhost.ether_addr_octet],
 #AC_FUNC_VPRINTF
 #AC_CHECK_FUNCS([clock_gettime memset select socket strchr strerror])
 AC_CHECK_FUNCS([strlcat strlcpy ether_ntoa ether_ntoa_r getpwnam_r])
+AC_CHECK_FUNCS([__dn_expand __dn_comp])
 
 AC_CONFIG_FILES([Makefile src/cygwin/Makefile src/Makefile man/Makefile i2p/Makefile])
 AC_OUTPUT

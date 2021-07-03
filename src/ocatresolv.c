@@ -1,4 +1,4 @@
-/* Copyright 2008 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2021 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -15,61 +15,69 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* This files contains DNS interception stuff. This routines are not used, yet.
+/*! \file ocatdns.c
+ *
+ *  \author Bernhard Fischer <bf@abenteuerland.at>
+ *  \date 2021/07/02
  */
 
+
 #include "ocat.h"
+#include "ocat_netdesc.h"
 
-#ifdef USE_DNS_REDIRECT
+#ifdef HAVE_RESOLV_H
+#include <resolv.h>
+#endif
+#ifdef HAVE_ARPA_NAMESER_H
+#include <arpa/nameser.h>
+#endif
 
-int check_dns(const struct ip6_hdr *ip6, int len)
+
+/*! Convert an IPv6 address to a DNS reverse name of the format
+ * x.x.x.x...ip6.arpa suitable for a DNS query message.
+ * @param in6addr Pointer to the IPv6 address.
+ * @param dst Pointer to the destination buffer. The buffer must have at least
+ * 74 bytes.
+ */
+void oc_ip6_ptr(const char *in6addr, char *dst)
 {
-   uint16_t *ckbuf, sum;
-   struct udphdr *udp;
-   HEADER *dns;
-#ifdef DEBUG
-   int i;
-   char tmp[100];
-#endif
+   static char _dh[] = "0123456789abcdef";
 
-   log_debug("check_dns");
-   if (len < sizeof(*ip6))
-      return -1;
-
-#ifdef DEBUG
-   tmp[0] = '\0';
-   for (i = 0; i < 40; i++)
-      snprintf(tmp + strlen(tmp), 100 - strlen(tmp), "%02x", ((char*)ip6)[i]);
-   log_debug("ip6: %s", tmp);
-#endif
-
-   if (ip6->ip6_nxt != IPPROTO_UDP)
-      return -1;
-
-   if (!IN6_ARE_ADDR_EQUAL(&CNF(oc_vdns), &ip6->ip6_dst))
-      return -1;
-
-   log_debug("destination is virtual OC DNS server");
-   udp = (struct udphdr*) (ip6 + 1);
-   ckbuf = malloc_ckbuf(ip6->ip6_src, ip6->ip6_dst, ntohs(ip6->ip6_plen), IPPROTO_UDP, udp);
-   sum = checksum(ckbuf, ntohs(ip6->ip6_plen) + sizeof(struct ip6_psh));
-   free_ckbuf(ckbuf);
-
-   if (sum)
+   for (int i = 15; i >= 0; i--)
    {
-      log_debug("checksum error");
-      return -1;
+      *dst++ = 1;
+      *dst++ = _dh[in6addr[i] & 0xf];
+      *dst++ = 1;
+      *dst++ = _dh[(in6addr[i] >> 4) & 0xf];
    }
-
-   log_debug("dport = %d", ntohs(udp->uh_dport));
-   if (ntohs(udp->uh_dport) != 53)
-      return -1;
-
-   log_debug("DNS request found");
-   dns = (HEADER*) (udp + 1);
-
-   return 0;
+   strcat(dst, "\003ip6\004arpa");
 }
 
-#endif
+
+/*! Create a DNS message for a reverse query for a specific IPv6 address.
+ * @param in6addr Pointer to the IPv6 address which should be queried.
+ * @param buf Pointer to the destination buffer.
+ * @param len Maximum length of the buffer.
+ * @return Returns the total length of the final message (which is always 90),
+ * or -1 in case of error.
+ */
+int oc_mk_ptrquery(const char *in6addr, char *buf, int len)
+{
+   HEADER *dh;
+
+   // safety checks
+   if (buf == NULL || in6addr == NULL || len < (int) sizeof(*dh) + 78)
+      return -1;
+
+   dh = (HEADER*) buf;
+   memset(dh, 0, sizeof(*dh));
+   dh->id = rand();
+   dh->qdcount = htons(1);
+
+   oc_ip6_ptr(in6addr, (char*) (dh + 1));
+   *((uint16_t*) (buf + sizeof(*dh) + 74)) = htons(T_PTR);
+   *((uint16_t*) (buf + sizeof(*dh) + 76)) = htons(C_IN);
+
+   return sizeof(*dh) + 74 + 2 + 2;
+}
 
