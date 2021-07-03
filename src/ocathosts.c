@@ -70,7 +70,7 @@ static char *path_hosts_ = NULL;
 static pthread_mutex_t hosts_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 
 
-int hosts_get_name_unlocked(const struct in6_addr *addr, char *buf, int s);
+int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, int source, time_t age);
 
 
 /*! Set path to hosts file.
@@ -125,12 +125,11 @@ int hosts_file_modified_r(struct timespec *ts)
 }
 
 
-int hosts_read(struct hosts_ent **hent, time_t age)
+int hosts_read(time_t age)
 {
-   int e, n = hosts_.hosts_ent_cnt, m, o = 0, c, rem;
+   int e, n = hosts_.hosts_ent_cnt, o = 0, c, rem;
    char buf[HOSTS_LINE_LENGTH + 1], *s;
    struct addrinfo hints, *res;
-   struct hosts_ent *h;
    FILE *f;
 
    if ((f = fopen(path_hosts_, "r")) == NULL)
@@ -168,7 +167,7 @@ int hosts_read(struct hosts_ent **hent, time_t age)
       }
 
       // parse all hostnames behind IPv6 address
-      for (c = 0, rem = 0, m = -1; (s = strtok(NULL, " \t\r\n")) != NULL; c++)
+      for (c = 0, rem = 0; (s = strtok(NULL, " \t\r\n")) != NULL; c++)
       {
          // ignore anything behind a comment
          if (s[0] == '#')
@@ -192,32 +191,7 @@ int hosts_read(struct hosts_ent **hent, time_t age)
          if ((strlen(s) > strlen(hosts_.hdom)) && !strcasecmp(s + (strlen(s) - strlen(hosts_.hdom)), hosts_.hdom))
          {
             o++;
-            // check if IPv6 address already exists in table
-            if ((m = hosts_get_name_unlocked(&((struct sockaddr_in6*) res->ai_addr)->sin6_addr, NULL, 0)) != -1)
-            {
-               h = (*hent) + m;
-               h->age = age; // FIXME: check age and source, could be new from net
-               h->source = HSRC_HOSTS;
-               // check if hostname changed and ignore if not
-               if (!strcmp(h->name, s))
-                  continue;
-               log_msg(LOG_INFO, "name[%d] %s changed to %s", m, h->name, s);
-               strlcpy(h->name, s, NI_MAXHOST);
-               continue;
-            }
-            // allocate memory for new host entry
-            else if ((*hent = realloc(*hent, (n + 1) * sizeof(struct hosts_ent))) == NULL)
-            {
-               log_msg(LOG_ERR, "realloc failed: \"%s\"", strerror(errno));
-               break;
-            }
-
-            m = n;
-            h = (*hent) + n++;
-            h->age = age;
-            h->source = HSRC_HOSTS;
-            h->addr = ((struct sockaddr_in6*) res->ai_addr)->sin6_addr;
-            strlcpy(h->name, s, NI_MAXHOST);
+            hosts_add_entry_unlocked(&((struct sockaddr_in6*) res->ai_addr)->sin6_addr, s, HSRC_HOSTS, age);
             break;
          }
       }
@@ -257,7 +231,7 @@ int hosts_check(void)
    }
 
    if (hosts_file_modified_r(&hosts_.hosts_ts))
-      hosts_.hosts_ent_cnt = hosts_read(&hosts_.hosts_ent, hosts_.hosts_ts.tv_sec);
+      hosts_read(hosts_.hosts_ts.tv_sec);
 
    return 0;
 }
@@ -272,7 +246,6 @@ int hosts_get_name_unlocked(const struct in6_addr *addr, char *buf, int s)
    int i;
    struct hosts_ent *h;
 
-   log_debug("looking up name");
    for (i = 0, h = hosts_.hosts_ent; i < hosts_.hosts_ent_cnt; i++, h++)
       if (IN6_ARE_ADDR_EQUAL(addr, &h->addr))
       {
@@ -294,7 +267,6 @@ int hosts_get_name_ext(const struct in6_addr *addr, char *buf, int s, int *sourc
 {
    int i;
 
-   log_debug("looking up name");
    pthread_mutex_lock(&hosts_mutex_);
    if ((i = hosts_get_name_unlocked(addr, buf, s)) != -1)
    {
@@ -333,6 +305,73 @@ int hosts_get_addr(int n, struct in6_addr *addr)
       n = -1;
    pthread_mutex_unlock(&hosts_mutex_);
 
+   return n;
+}
+
+
+static void hosts_copy_data(struct hosts_ent *h, const char *name, int source, time_t age)
+{
+   h->source = source;
+   h->age = age;
+   if (strcmp(h->name, name))
+   {
+      strlcpy(h->name, name, NI_MAXHOST);
+      log_msg(LOG_INFO, "name %s updated, source = %d", name, source);
+   }
+}
+
+
+/*! Add an entry to the hosts memory database.
+ * @return Returns the index in the database or -1 on error.
+ */
+int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, int source, time_t age)
+{
+   struct hosts_ent *h;
+   int n;
+
+   // check if entry already exists
+   if ((n = hosts_get_name_unlocked(addr, NULL, 0)) == -1)
+   {
+      // create new entry if there is no entry yet
+      if ((h = realloc(hosts_.hosts_ent, (hosts_.hosts_ent_cnt + 1) * sizeof(*h))) == NULL)
+      {
+         log_msg(LOG_ERR, "realloc failed: %s", strerror(errno));
+         return -1;
+      }
+
+      // maintain memory pointers
+      hosts_.hosts_ent = h;
+      n = hosts_.hosts_ent_cnt;
+      hosts_.hosts_ent_cnt++;
+      log_debug("created new hosts entry, cnt = %d", hosts_.hosts_ent_cnt);
+
+      // copy address to new entry
+      hosts_.hosts_ent[n].addr = *addr;
+
+      // copy data to new entry
+      hosts_copy_data(&hosts_.hosts_ent[n], name, source, age);
+   }
+   else if (source == HSRC_HOSTS || hosts_.hosts_ent[n].source == HSRC_NET || (source != HSRC_NET && hosts_.hosts_ent[n].source == HSRC_KPLV))
+   {
+      log_debug("overwriting old.source = %d, new.source = %d", hosts_.hosts_ent[n].source, source);
+      hosts_copy_data(&hosts_.hosts_ent[n], name, source, age);
+   }
+   else
+   {
+      log_debug("hosts file entries cannot be overwritten with this function");
+   }
+
+   return n;
+}
+
+
+int hosts_add_entry(const struct in6_addr *addr, const char *name, int source, time_t age)
+{
+   int n;
+
+   pthread_mutex_lock(&hosts_mutex_);
+   n = hosts_add_entry_unlocked(addr, name, source, age);
+   pthread_mutex_unlock(&hosts_mutex_);
    return n;
 }
 

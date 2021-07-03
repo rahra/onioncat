@@ -39,6 +39,7 @@
 #define HOSTS_LINE_LENGTH_OUT 256
 #define HSRC_HOSTS 0
 #define HSRC_NET 1
+#define HSRC_KPLV 2
 
 
 struct hosts_ent
@@ -63,6 +64,7 @@ int hosts_check(void);
 int hosts_get_name(const struct in6_addr*, char*, int);
 int hosts_get_name_ext(const struct in6_addr *, char *, int, int *, time_t *);
 int hosts_get_addr(int n, struct in6_addr *addr);
+int hosts_add_entry(const struct in6_addr *, const char *, int, time_t);
 void hosts_init(const char*);
 int hosts_list(FILE *);
 int sn_hosts_list(char*, int);
