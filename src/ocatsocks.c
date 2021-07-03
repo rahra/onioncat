@@ -522,13 +522,6 @@ int socks_dns_req(SocksQueue_t *sq)
    socklen_t slen;
    int n, len;
 
-   if ((sq->fd = socket(AF_INET6, SOCK_DGRAM, 0)) == -1)
-   {
-      log_msg(LOG_ERR, "could not create UDP socket: %s", strerror(errno));
-      return -1;
-   }
-   set_nonblock(sq->fd);
-
    memset(&saddr, 0, sizeof(saddr));
 
    if ((n = hosts_get_addr(sq->retry, &saddr.sin6_addr)) == -1)
@@ -610,16 +603,26 @@ void *socks_connector_sel(void *p)
                }
 
                // send a DNS lookup if configured and no hostname in DB yet
-               if (CNF(dns_lookup) && get_hostname(squeue, NULL, 0) == -1 && squeue->retry < 3)
+               if (CNF(dns_lookup) && get_hostname(squeue, NULL, 0) == -1 && squeue->retry < SOCKS_DNS_RETRY)
                {
-                  if (socks_dns_req(squeue) != -1)
+                  // create anonymous UDP socket
+                  if ((squeue->fd = socket(AF_INET6, SOCK_DGRAM, 0)) != -1)
                   {
-                     log_msg(LOG_INFO, "dns request sent");
-                     squeue->state = SOCKS_DNS_SENT;
-                     squeue->retry++;
-                     MFD_SET(squeue->fd, &rset, maxfd);
-                     continue;
+                     log_debug("created UDP fd %d for DNS lookup", squeue->fd);
+                     set_nonblock(squeue->fd);
+
+                     if (socks_dns_req(squeue) != -1)
+                     {
+                        log_msg(LOG_INFO, "DNS request sent to fd %d, retry = %d", squeue->fd, squeue->retry);
+                        squeue->state = SOCKS_DNS_SENT;
+                        squeue->retry++;
+                        squeue->restart_time = t + 5;
+                        MFD_SET(squeue->fd, &rset, maxfd);
+                        continue;
+                     }
                   }
+                  else
+                     log_msg(LOG_ERR, "could not create UDP socket: %s", strerror(errno));
                }
 
 #ifdef DIRECT_CONNECTIONS
@@ -669,6 +672,30 @@ void *socks_connector_sel(void *p)
             case SOCKS_5GREET_SENT:
             case SOCKS_5REQ_SENT:
                MFD_SET(squeue->fd, &rset, maxfd);
+               break;
+
+            case SOCKS_DNS_SENT:
+               if (t < squeue->restart_time)
+               {
+                  log_debug("DNS re-request is scheduled not before %ds", squeue->restart_time - t);
+                  continue;
+               }
+               log_debug("rechecking DNS_SENT");
+               if (squeue->retry < SOCKS_DNS_RETRY && socks_dns_req(squeue) != -1)
+               {
+                  log_msg(LOG_INFO, "DNS request re-sent to fd %d, retry = %d", squeue->fd, squeue->retry);
+                  squeue->state = SOCKS_DNS_SENT;
+                  squeue->retry++;
+                  squeue->restart_time = t + 5;
+                  MFD_SET(squeue->fd, &rset, maxfd);
+                  continue;
+               }
+               else
+               {
+                  log_msg(LOG_INFO, "trying request with V2 hostname");
+                  oe_close(squeue->fd);
+                  squeue->state = SOCKS_NEW;
+               }
                break;
          }
       }
