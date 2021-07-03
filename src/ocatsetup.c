@@ -132,7 +132,8 @@ struct OcatSetup setup_ =
    NULL,
    // domain
    "",
-   IN6ADDR_ANY_INIT
+   // dns_loopup
+   0
 };
 
 
@@ -219,8 +220,6 @@ void post_init_setup(void)
 #endif
 
    setup_.pid_file = NDESC(pid_file);
-   setup_.oc_vdns = NDESC(prefix);
-   setup_.oc_vdns.s6_addr[15] = 1;
 }
 
 
@@ -295,6 +294,7 @@ void print_setup_struct(FILE *f)
          "hosts_lookup           = %d\n"
          "hosts_path             = %s\n"
          "domain                 = \"%s\"\n"
+         "dns_lookup             = %d\n"
          "----------------------\n"
          ,
          IPV4_KEY, ntohl(setup_.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup_.fhd_key[IPV6_KEY]),
@@ -341,7 +341,8 @@ void print_setup_struct(FILE *f)
          setup_.unidirectional,
          setup_.hosts_lookup,
          SSTR(setup_.hosts_path),
-         setup_.domain
+         setup_.domain,
+         setup_.dns_lookup
          );
 
    if (inet_ntops((struct sockaddr*) setup_.socks_dst, &sas))
@@ -374,9 +375,6 @@ void print_setup_struct(FILE *f)
       else
          log_msg(LOG_WARNING, "could not convert struct sockaddr: \"%s\"", strerror(errno));
    }
-
-   inet_ntop(AF_INET6, &setup_.oc_vdns, ip6, SBUF);
-   fprintf(f, "oc_vdns                = %s\n", ip6);
 }
 
 

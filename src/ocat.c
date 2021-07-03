@@ -39,6 +39,7 @@ void usage(const char *s)
          "   -H                    toggle hosts lookup (default = %d, see also option -g)\n"
          "   -C                    disable local controller interface\n"
          "   -d <n>                set debug level to n, default = %d\n"
+         "   -D                    Do OnionCat DNS lookups, default = %d. This option implicitly activates -H.\n"
          "   -e <ifup-script>      execute ifup-script after opening interface\n"
          "   -f <config_file>      read config from config_file (default = %s)\n"
          "   -g <hosts_path>       set path to hosts file for hosts lookup, defaults to system hosts file, if not set.\n"
@@ -66,7 +67,7 @@ void usage(const char *s)
          // option defaults start here
          OCAT_DIR, NDESC(clog_file), CNF(create_clog), 
          CNF(daemon), CNF(daemon) ^ 1, CNF(hosts_lookup),
-         CNF(debug_level), CNF(config_file), NDESC(listen_port),
+         CNF(debug_level), CNF(dns_lookup), CNF(config_file), NDESC(listen_port),
          CNF(pid_file),
          CNF(ocat_dest_port), ntohs(CNF(socks_dst)->sin_port), 
 #ifndef WITHOUT_TUN
@@ -346,7 +347,7 @@ int parse_opt(int argc, char *argv[])
    log_debug("parse_opt_early()");
    opterr = 1;
    optind = 1;
-   while ((c = getopt(argc, argv, "f:IabBCd:e:g:hHrRiopl:t:T:s:Uu:45:L:P:n:")) != -1)
+   while ((c = getopt(argc, argv, "f:IabBCd:De:g:hHrRiopl:t:T:s:Uu:45:L:P:n:")) != -1)
    {
       log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, SSTR(optarg));
       switch (c)
@@ -388,6 +389,11 @@ int parse_opt(int argc, char *argv[])
 
          case 'd':
             CNF(debug_level) = atoi(optarg);
+            break;
+
+         case 'D':
+            CNF(dns_lookup) = 1;
+            CNF(hosts_lookup) = 1;
             break;
 
          case 'e':

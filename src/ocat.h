@@ -256,6 +256,8 @@
 #define SOCKS_5GREET_SENT 4
 //! SOCKS state machine: SOCK5 request sent
 #define SOCKS_5REQ_SENT 5
+//! SOCKS state machine: sent DNS request
+#define SOCKS_DNS_SENT 6
 //! SOCKS state machine: successfully opened, ready for data transfer
 #define SOCKS_READY 126
 //! SOCKS state machine: request ready for deletion
@@ -437,7 +439,7 @@ struct OcatSetup
    int hosts_lookup;
    char *hosts_path;       //!< path to hosts file, defaults to system hosts file if NULL
    const char *domain;     //!< domain name appended to network host name
-   struct in6_addr oc_vdns;
+   int dns_lookup;         //!< do Onioncat DNS reverse queries
 };
 
 #ifdef PACKET_QUEUE
@@ -778,7 +780,7 @@ int win_write_tun(const char *, int);
 #endif
 
 /* ocatresolv.c */
-int check_dns(const struct ip6_hdr *, int);
+int oc_mk_ptrquery(const char *, char *, int);
 
 #endif
 
