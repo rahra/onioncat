@@ -510,6 +510,7 @@ void socks_reschedule(SocksQueue_t *squeue)
 }
 
  
+#ifdef WITH_DNS_LOOKUP
 /*! Send out a DNS reverse lookup for the addess found in sq.
  * @param sq Pointer to the queue message.
  * @return On success, the function returns a value >= 0. On error, -1 is
@@ -517,30 +518,30 @@ void socks_reschedule(SocksQueue_t *squeue)
  */
 int socks_dns_req(SocksQueue_t *sq)
 {
-   struct sockaddr_in6 saddr;
+   //struct sockaddr_in6 saddr;
    char buf[PACKETSZ];
    socklen_t slen;
    int n, len;
 
-   memset(&saddr, 0, sizeof(saddr));
+   memset(&sq->ns_addr, 0, sizeof(sq->ns_addr));
 
-   if ((n = hosts_get_addr(sq->retry, &saddr.sin6_addr)) == -1)
+   if ((n = hosts_get_addr(sq->retry, &sq->ns_addr.sin6_addr)) == -1)
    {
       log_msg(LOG_WARNING, "no DNS server available");
       oe_close(sq->fd);
       return -1;
    }
 
-   slen = sizeof(saddr);
-   saddr.sin6_family = AF_INET6;
+   slen = sizeof(sq->ns_addr);
+   sq->ns_addr.sin6_family = AF_INET6;
 #ifdef HAVE_SIN_LEN
-   saddr.sin6_len = slen;
+   sq->ns_addr.sin6_len = slen;
 #endif
-   saddr.sin6_port = htons(CNF(ocat_dest_port));
+   sq->ns_addr.sin6_port = htons(CNF(ocat_dest_port));
 
    len = oc_mk_ptrquery((char*) &sq->addr, buf, sizeof(buf));
 
-   if ((n = sendto(sq->fd, buf, len, 0, (struct sockaddr*) &saddr, slen)) == -1)
+   if ((n = sendto(sq->fd, buf, len, 0, (struct sockaddr*) &sq->ns_addr, slen)) == -1)
    {
       log_msg(LOG_ERR, "sendto() failed: %s", strerror(errno));
       oe_close(sq->fd);
@@ -552,6 +553,27 @@ int socks_dns_req(SocksQueue_t *sq)
 
    return n;
 }
+
+
+int socks_dns_recv(SocksQueue_t *sq)
+{
+   struct sockaddr_in6 saddr;
+   char buf[PACKETSZ + 1];
+   socklen_t slen;
+   int n, len;
+
+   slen = sizeof(saddr);
+   if ((len = recvfrom(sq->fd, buf, sizeof(buf), 0, (struct sockaddr*) &saddr, &slen)) == -1)
+   {
+      log_msg(LOG_ERR, "failed to receive DNS data on fd %d", sq->fd);
+      return -1;
+   }
+
+   log_debug("received %d bytes on fd %d", len, sq->fd);
+
+   return 0;
+}
+#endif
 
 
 void *socks_connector_sel(void *p)
@@ -602,6 +624,7 @@ void *socks_connector_sel(void *p)
                   continue;
                }
 
+#ifdef WITH_DNS_LOOKUP
                // send a DNS lookup if configured and no hostname in DB yet
                if (CNF(dns_lookup) && get_hostname(squeue, NULL, 0) == -1 && squeue->retry < SOCKS_DNS_RETRY)
                {
@@ -624,6 +647,7 @@ void *socks_connector_sel(void *p)
                   else
                      log_msg(LOG_ERR, "could not create UDP socket: %s", strerror(errno));
                }
+#endif
 
 #ifdef DIRECT_CONNECTIONS
                if (CNF(socks5) == CONNTYPE_DIRECT)
@@ -674,6 +698,7 @@ void *socks_connector_sel(void *p)
                MFD_SET(squeue->fd, &rset, maxfd);
                break;
 
+#ifdef WITH_DNS_LOOKUP
             case SOCKS_DNS_SENT:
                if (t < squeue->restart_time)
                {
@@ -697,6 +722,7 @@ void *socks_connector_sel(void *p)
                   squeue->state = SOCKS_NEW;
                }
                break;
+#endif
          }
       }
 

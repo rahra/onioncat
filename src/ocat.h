@@ -530,6 +530,10 @@ typedef struct SocksQueue
    time_t restart_time;
    time_t connect_time;
    int retry;
+#ifdef WITH_DNS_LOOKUP
+   struct sockaddr_in6 ns_addr;
+   uint16_t id;
+#endif
 } SocksQueue_t;
 
 //! IPv4 routing table entry
