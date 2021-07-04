@@ -569,7 +569,13 @@ int socks_dns_recv(SocksQueue_t *sq)
       return -1;
    }
 
-   log_debug("received %d bytes on fd %d", len, sq->fd);
+   log_debug("received %d bytes on fd %d, checking identity", len, sq->fd);
+
+   if (saddr.sin6_port != sq->ns_addr.sin6_port || !IN6_ARE_ADDR_EQUAL(&saddr.sin6_addr, &sq->ns_addr.sin6_addr))
+   {
+      log_msg(LOG_WARNING, "sender socket address does not match");
+      return -1;
+   }
 
    return 0;
 }
