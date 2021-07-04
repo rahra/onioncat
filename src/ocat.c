@@ -635,6 +635,14 @@ int main(int argc, char *argv[])
       exit(0);
    }
 
+   // add own address to hosts DB
+   if (*CNF(onion3_url))
+   {
+      char hname[300];
+      snprintf(hname, sizeof(hname), "%s%s", CNF(onion3_url), CNF(domain));
+      hosts_add_entry(&CNF(ocat_addr), hname, HSRC_SELF, time(NULL));
+   }
+
    log_msg(LOG_INFO, "%s", CNF(version));
 
    memcpy(&CNF(ocat_hwaddr[3]), &CNF(ocat_addr.s6_addr[13]), 3);
