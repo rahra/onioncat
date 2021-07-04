@@ -267,6 +267,8 @@
 #define SOCKS_MAX_RETRY 3
 //! maximum numner of DNS retries
 #define SOCKS_DNS_RETRY 3
+//! retry time for DNS request
+#define SOCKS_DNS_RETRY_TIMEOUT 4
 
 #define E_RT_NOMEM -1
 #define E_RT_DUP -2
@@ -677,6 +679,7 @@ int insert_peer(int, const SocksQueue_t *, time_t);
 int run_listeners(struct sockaddr **, int *, int, int (*)(int));
 int send_keepalive(OcatPeer_t *);
 void set_select_timeout(struct timeval *);
+void set_select_timeout0(struct timeval *, int);
 void set_nonblock(int);
 void set_tunheader(char *, uint32_t);
 uint32_t get_tunheader(char *);

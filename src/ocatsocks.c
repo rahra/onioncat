@@ -616,7 +616,7 @@ void *socks_connector_sel(void *p)
                         log_msg(LOG_INFO, "DNS request sent to fd %d, retry = %d", squeue->fd, squeue->retry);
                         squeue->state = SOCKS_DNS_SENT;
                         squeue->retry++;
-                        squeue->restart_time = t + 5;
+                        squeue->restart_time = t + SOCKS_DNS_RETRY_TIMEOUT;
                         MFD_SET(squeue->fd, &rset, maxfd);
                         continue;
                      }
@@ -686,7 +686,7 @@ void *socks_connector_sel(void *p)
                   log_msg(LOG_INFO, "DNS request re-sent to fd %d, retry = %d", squeue->fd, squeue->retry);
                   squeue->state = SOCKS_DNS_SENT;
                   squeue->retry++;
-                  squeue->restart_time = t + 5;
+                  squeue->restart_time = t + SOCKS_DNS_RETRY_TIMEOUT;
                   MFD_SET(squeue->fd, &rset, maxfd);
                   continue;
                }
@@ -701,7 +701,7 @@ void *socks_connector_sel(void *p)
       }
 
       // select all file descriptors
-      set_select_timeout(&tv);
+      set_select_timeout0(&tv, SOCKS_DNS_RETRY_TIMEOUT);
       log_debug("selecting (maxfd = %d)", maxfd);
       if ((maxfd = select(maxfd + 1, &rset, &wset, NULL, &tv)) == -1)
       {

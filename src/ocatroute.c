@@ -239,8 +239,15 @@ int set_peer_dest(struct in6_addr *dest, const struct in6_addr *addr)
 /*! Set select timeout a little bit "random" to diverse wakeup periods. */
 void set_select_timeout(struct timeval *tv)
 {
+   set_select_timeout0(tv, SELECT_TIMEOUT);
+}
+
+
+/*! Set select timeout a little bit "random" to diverse wakeup periods. */
+void set_select_timeout0(struct timeval *tv, int t)
+{
    tv->tv_usec = rand() % 1000000;
-   tv->tv_sec = SELECT_TIMEOUT + (tv->tv_usec & 1);
+   tv->tv_sec = t + (tv->tv_usec & 1);
    log_debug("timeout %d.%06d", tv->tv_sec, tv->tv_usec);
 }
 
