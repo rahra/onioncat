@@ -96,7 +96,7 @@ int oc_mk_ptrquery(const char *in6addr, char *buf, int len)
 }
 
 
-static char a2b(char a)
+static int a2b(char a)
 {
    if (a >= '0' && a <= '9')
       return a - '0';
@@ -104,7 +104,7 @@ static char a2b(char a)
       return a - 'a' + 0xa;
    if (a >= 'A' && a <= 'F')
       return a - 'A' + 0xa;
-   return '\0';
+   return -1;
 }
 
 
@@ -119,14 +119,16 @@ static char a2b(char a)
  */
 int oc_rev6ptr_addr(const char *buf, char *in6)
 {
-   int i, x;
+   int i, x, c;
 
    memset(in6, 0, 16);
    for (i = 31, x = 0; i >= 0; i--, x ^= 1)
    {
       if (*buf++ != '\001')
          return -1;
-      in6[i >> 1] |= a2b(*buf++) << (4 * x);
+      if ((c = a2b(*buf++)) == -1)
+         return -1;
+      in6[i >> 1] |= c << (4 * x);
    }
    return 0;
 }
