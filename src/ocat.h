@@ -135,6 +135,15 @@
 #include "cygwin/ocat_cygwin.h"
 #endif
 
+#ifdef UNUSED
+#elif defined(__GNUC__)
+# define UNUSED(x) UNUSED_ ## x __attribute__((unused))
+#elif defined(__LCLINT__)
+# define UNUSED(x) /*@unused@*/ x
+#else
+# define UNUSED(x) x
+#endif
+
 #ifndef ETHERTYPE_IP
 //! Ether type for IPv4.
 #define ETHERTYPE_IP 0x0800

@@ -129,7 +129,7 @@ void *ctrl_handler(void *p)
       }
 
 #ifdef DEBUG
-      for (c = 0; c < strlen(buf); c++)
+      for (c = 0; c < (int) strlen(buf); c++)
          snprintf(&buf[strlen(buf) + 2 + c * 3], FRAME_SIZE - strlen(buf) - 2 - c * 3, "%02x ", buf[c]);
       log_debug("xenc input buf: %s", &buf[strlen(buf) + 2]);
 #endif 
@@ -349,7 +349,7 @@ int run_ctrl_handler(int fd)
 }
 
 
-void *ocat_controller(void *p)
+void *ocat_controller(void *UNUSED(p))
 {
    run_listeners(CNF(ctrl_listen), CNF(ctrl_listen_fd), CNF(ctrl_listen_cnt), run_ctrl_handler);
    return NULL;

@@ -361,7 +361,7 @@ int ident_loopback(OcatPeer_t *peer, const struct ip6_hdr *i6h)
 }
 
 
-void *socket_receiver(void *p)
+void *socket_receiver(void *UNUSED(p))
 {
    int maxfd, len;
    char buf[FRAME_SIZE];
@@ -498,7 +498,7 @@ void *socket_receiver(void *p)
             if ((peer->fragbuf[0] & 0xf0) == 0x60)
             {
                log_debug("identified IPv6 packet");
-               if ((peer->fraglen < IP6HLEN) || (peer->fraglen < ntohs(((struct ip6_hdr*) peer->fragbuf)->ip6_plen) + IP6HLEN))
+               if ((peer->fraglen < (int) IP6HLEN) || (peer->fraglen < ntohs(((struct ip6_hdr*) peer->fragbuf)->ip6_plen) + (int) IP6HLEN))
                {
                   log_debug("keeping %d bytes frag", peer->fraglen);
                   break;
@@ -530,7 +530,7 @@ void *socket_receiver(void *p)
 #endif
               
                log_debug("identified IPv4 packet");
-               if ((peer->fraglen < IPHDLEN) || (peer->fraglen < IPPKTLEN(peer->fragbuf)))
+               if ((peer->fraglen < (int) IPHDLEN) || (peer->fraglen < IPPKTLEN(peer->fragbuf)))
                {
                   log_debug("keeping %d bytes frag", peer->fraglen);
                   break;
@@ -632,7 +632,7 @@ void *socket_receiver(void *p)
                      else if (*peer->tunhdr == CNF(fhd_key[IPV4_KEY]))
                         eh->ether_type = htons(ETHERTYPE_IP);
 
-                     if (tun_write(CNF(tunfd[1]), buf + BUF_OFF, len + 4 + sizeof(struct ether_header) - BUF_OFF) != (len + 4 + sizeof(struct ether_header) - BUF_OFF))
+                     if (tun_write(CNF(tunfd[1]), buf + BUF_OFF, len + 4 + sizeof(struct ether_header) - BUF_OFF) != (len + 4 + (int) sizeof(struct ether_header) - BUF_OFF))
                         log_msg(LOG_ERR, "could not write %d bytes to tunnel %d", len + 4 + sizeof(struct ether_header) - BUF_OFF, CNF(tunfd[1]));
                   }
                }
@@ -885,7 +885,7 @@ int run_listeners(struct sockaddr **addr, int *sockfd, int cnt, int (action_acce
 }
 
 
-void *socket_acceptor(void *p)
+void *socket_acceptor(void *UNUSED(p))
 {
    run_listeners(CNF(oc_listen), CNF(oc_listen_fd), CNF(oc_listen_cnt), insert_anon_peer);
    return NULL;
@@ -967,7 +967,7 @@ void packet_forwarder(void)
 #endif
 
       // just to be on the safe side but this should never happen
-      if ((!CNF(use_tap) && (rlen < 4)) || (CNF(use_tap) && (rlen < 4 + sizeof(struct ether_header))))
+      if ((!CNF(use_tap) && (rlen < 4)) || (CNF(use_tap) && (rlen < 4 + (int) sizeof(struct ether_header))))
       {
          log_msg(LOG_ERR, "frame effectively too short (rlen = %d)", rlen);
          continue;
@@ -998,7 +998,7 @@ void packet_forwarder(void)
 
       if (get_tunheader(buf) == CNF(fhd_key[IPV6_KEY]))
       {
-         if (((rlen - 4) < IP6HLEN))
+         if (((rlen - 4) < (int) IP6HLEN))
          {
             log_debug("IPv6 packet too short (%d bytes). dropping", rlen - 4);
             continue;
@@ -1017,7 +1017,7 @@ void packet_forwarder(void)
       }
       else if (get_tunheader(buf) == CNF(fhd_key[IPV4_KEY]))
       {
-         if (((rlen - 4) < IPHDLEN))
+         if (((rlen - 4) < (int) IPHDLEN))
          {
             log_debug("IPv4 packet too short (%d bytes). dropping", rlen - 4);
             continue;
@@ -1073,7 +1073,7 @@ int send_keepalive(OcatPeer_t *peer)
    if (CNF(onion3_url)[0] != '\0')
    {
       len = snprintf(buf + slen, sizeof(buf) - slen, "%c%s%s", 1, CNF(onion3_url), CNF(domain));
-      if (len != -1 && len < sizeof(buf) - slen)
+      if (len != -1 && len < (int) sizeof(buf) - slen)
       {
          len++;
          hdr->ip6_plen = htons(len);
@@ -1098,7 +1098,7 @@ int send_keepalive(OcatPeer_t *peer)
 }
 
 
-void *socket_cleaner(void *ptr)
+void *socket_cleaner(void *UNUSED(ptr))
 {
    OcatPeer_t *peer, **p;
    int stat_wup = 0;
@@ -1205,7 +1205,6 @@ int loopback_loop(int fd)
    struct ip6_hdr *ip6h = (struct ip6_hdr*) buf;
    int len, wlen, maxfd;
    fd_set rset;
-   OcatPeer_t *peer;
 
    log_debug("starting loopback loop on fd %d", fd);
    while (!term_req())
@@ -1240,7 +1239,7 @@ int loopback_loop(int fd)
       }
       log_debug("read %d bytes", len);
       // check for minimum length of packet
-      if (len < IP6HLEN)
+      if (len < (int) IP6HLEN)
       {
          log_msg(LOG_ERR, "packet too small (%d bytes), dropping", len);
          continue;
@@ -1275,7 +1274,6 @@ int loopback_loop(int fd)
 int loopback_handler(int fd, const struct in6_addr *laddr)
 {
    char buf[FRAME_SIZE];
-   struct in6_addr addr;
    struct ip6_hdr *ip6h = (struct ip6_hdr*) buf;
    int len, wlen, uni;
    OcatPeer_t *peer;
@@ -1331,7 +1329,7 @@ int loopback_handler(int fd, const struct in6_addr *laddr)
  * addresses.
  * @return This function always returns NULL.
  */
-void *local_loopback_responder(void *ptr)
+void *local_loopback_responder(void *UNUSED(ptr))
 {
    struct in6_addr addr = {{{0,0,0,0,0,0,0,0,0,0,0,0,0xde,0xad,0xbe,0xef}}};
    int fd;

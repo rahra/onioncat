@@ -453,7 +453,7 @@ int socks5_rec_response(SocksQueue_t *sq)
    }
 
    log_debug("got %d bytes as SOCKS5 response", ret);
-   if (ret < sizeof(*s5hdr))
+   if (ret < (int) sizeof(*s5hdr))
    {
       log_msg(LOG_ERR, "SOCKS5 response seems truncated to %d of at least %d bytes", ret, sizeof(*s5hdr));
       return -1;
@@ -582,7 +582,7 @@ int socks_dns_recv(SocksQueue_t *sq)
 #endif
 
 
-void *socks_connector_sel(void *p)
+void *socks_connector_sel(void *UNUSED(p))
 {
    fd_set rset, wset;
    int maxfd = 0, len, so_err;
@@ -749,7 +749,7 @@ void *socks_connector_sel(void *p)
          if ((len = read(CNF(socksfd[0]), &sq, sizeof(sq))) == -1)
             log_msg(LOG_ERR, "failed to read from SOCKS request pipe, fd = %d: \"%s\"", 
                   CNF(socksfd[0]), strerror(errno));
-         if (len < sizeof(sq))
+         if (len < (int) sizeof(sq))
             log_msg(LOG_ERR, "read from SOCKS request pipe truncated to %d of %d bytes, ignoring.", 
                   len, sizeof(sq));
          else

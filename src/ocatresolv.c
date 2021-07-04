@@ -288,7 +288,7 @@ int oc_proc_request(char *buf, int msglen, int buflen)
 }
 
 
-void *oc_nameserver(void *p)
+void *oc_nameserver(void *UNUSED(p))
 {
    struct sockaddr_str ssaddr;
    struct sockaddr_in6 s6addr;

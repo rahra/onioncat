@@ -298,7 +298,7 @@ int ndp_solicit(const struct in6_addr *src, const struct in6_addr *dst)
    win_write_tun(buf + 4, sizeof(buf) - 4);
 #else
    log_debug("writing %d bytes ndp solicitation to tunfd %d", sizeof(buf), CNF(tunfd[1]));
-   if (write(CNF(tunfd[1]), buf, sizeof(buf)) < sizeof(buf))
+   if (write(CNF(tunfd[1]), buf, sizeof(buf)) < (int) sizeof(buf))
       log_msg(LOG_ERR, "short write to tun fd %d", CNF(tunfd[1]));
 #endif
 
@@ -475,7 +475,7 @@ int eth_check(char *buf, int len)
    ndp6_t *ndp6= (ndp6_t*) (buf + 4);
 
    // check minimum frame length
-   if (len < sizeof(struct ether_header) + 4)
+   if (len < (int) sizeof(struct ether_header) + 4)
    {
       log_msg(LOG_ERR, "frame too short, len = %d < 4 + %d", len, sizeof(struct ether_header));
       return E_ETH_TRUNC;
@@ -496,7 +496,7 @@ int eth_check(char *buf, int len)
    }
 
    // check for ndp
-   if ((len >= sizeof(ndp6_t) + 4) && (ndp6->ip6.ip6_nxt == IPPROTO_ICMPV6))
+   if ((len >= (int) sizeof(ndp6_t) + 4) && (ndp6->ip6.ip6_nxt == IPPROTO_ICMPV6))
    {
       log_debug("ICMPv6 frame intercepted, icmp6_type = %d", ndp6->icmp6.icmp6_type);
       if (eth_ndp(buf, len, ndp6->icmp6.icmp6_type) != -1)
