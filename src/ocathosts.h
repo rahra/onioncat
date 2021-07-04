@@ -37,17 +37,15 @@
 
 #define HOSTS_LINE_LENGTH 1024
 #define HOSTS_LINE_LENGTH_OUT 256
-#define HSRC_HOSTS 0
-#define HSRC_NET 1
-#define HSRC_KPLV 2
 
+typedef enum {HSRC_SELF, HSRC_HOSTS, HSRC_KPLV, HSRC_NET_AA, HSRC_NET} hsrc_t;
 
 struct hosts_ent
 {
    struct in6_addr addr;
    char name[NI_MAXHOST];
    time_t age;
-   int source;
+   hsrc_t source;
 };
 
 struct hosts_info
@@ -64,7 +62,7 @@ int hosts_check(void);
 int hosts_get_name(const struct in6_addr*, char*, int);
 int hosts_get_name_ext(const struct in6_addr *, char *, int, int *, time_t *);
 int hosts_get_addr(int n, struct in6_addr *addr);
-int hosts_add_entry(const struct in6_addr *, const char *, int, time_t);
+int hosts_add_entry(const struct in6_addr *, const char *, hsrc_t, time_t);
 void hosts_init(const char*);
 int hosts_list(FILE *);
 int sn_hosts_list(char*, int);

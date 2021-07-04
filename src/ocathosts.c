@@ -70,7 +70,7 @@ static char *path_hosts_ = NULL;
 static pthread_mutex_t hosts_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 
 
-int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, int source, time_t age);
+int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, hsrc_t source, time_t age);
 
 
 /*! Set path to hosts file.
@@ -324,7 +324,7 @@ static void hosts_copy_data(struct hosts_ent *h, const char *name, int source, t
 /*! Add an entry to the hosts memory database.
  * @return Returns the index in the database or -1 on error.
  */
-int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, int source, time_t age)
+int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, hsrc_t source, time_t age)
 {
    struct hosts_ent *h;
    int n;
@@ -351,7 +351,7 @@ int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, int 
       // copy data to new entry
       hosts_copy_data(&hosts_.hosts_ent[n], name, source, age);
    }
-   else if (source == HSRC_HOSTS || hosts_.hosts_ent[n].source == HSRC_NET || (source != HSRC_NET && hosts_.hosts_ent[n].source == HSRC_KPLV))
+   else if (hosts_.hosts_ent[n].source >= source)
    {
       log_debug("overwriting old.source = %d, new.source = %d", hosts_.hosts_ent[n].source, source);
       hosts_copy_data(&hosts_.hosts_ent[n], name, source, age);
@@ -365,7 +365,7 @@ int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, int 
 }
 
 
-int hosts_add_entry(const struct in6_addr *addr, const char *name, int source, time_t age)
+int hosts_add_entry(const struct in6_addr *addr, const char *name, hsrc_t source, time_t age)
 {
    int n;
 
