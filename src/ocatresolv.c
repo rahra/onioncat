@@ -108,6 +108,15 @@ static char a2b(char a)
 }
 
 
+/*! This function converts an ip6 DNS reverse pointer (e.g.
+ * 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.4.0.0.0.3.0.0.0.2.0.0.0.1.0.0.0.ip6.arpa.)
+ * to an IPv6 address in its binary format (struct in6_addr).
+ * @param buf Pointer to the reverse pointer as found in a DNS message as
+ * described in RFC1035.
+ * @param in6 Destination pointer. The destination must be at least 16 bytes
+ * long.
+ * @return On success 0 is returned. In case of a format error -1 is returned.
+ */
 int oc_rev6ptr_addr(const char *buf, char *in6)
 {
    int i, x;
@@ -123,6 +132,13 @@ int oc_rev6ptr_addr(const char *buf, char *in6)
 }
 
 
+/*! Determine the lenght of a label, i.e. the number of characters until a '.'
+ * or '\0' character is found. The separating character is not included in the
+ * result.
+ * @param s Pointer to a \0-terminated string.
+ * @return Returnes the number of chars to the next '.' or '\0'. The return
+ * value always is >= 0.
+ */
 int oc_label_len(const char *s)
 {
    char *t;
@@ -183,6 +199,19 @@ int oc_name_dn(const char *name, char *buf, int len)
 }
 
 
+/*! This function processes a DNS request and constructs the answer directly
+ * into the same buffer. If the request contains a value PTR request and the
+ * name is found in the local database, a valid reply message is formed. If the
+ * request contains any valid query or the name of the PTR request is not
+ * found, a NXDOMAIN message is formed. If a format error in the request is
+ * found, a FORMERR message is formed. If any other error occurred, -1 is
+ * returned. No reply should be sent.
+ * @param buf Pointer to the request/response buffer.
+ * @param msglen Length of the request message.
+ * @param buflen Total length of the buffer.
+ * @return If a valid reply could be constructed, the length of the message is
+ * replied. On error, -1 is returned.
+ */
 int oc_proc_request(char *buf, int msglen, int buflen)
 {
    struct in6_addr in6;
@@ -288,6 +317,11 @@ int oc_proc_request(char *buf, int msglen, int buflen)
 }
 
 
+/*! This is the nameserver main loop. It waits for incoming packets, receives
+ * on after the other end processes the requests. If the requests are valid,
+ * answers are sent dependent if the names in the queries are found in the
+ * local DB, or not. In the latter case NXDOMAIN is relied.
+ */
 void *oc_nameserver(void *UNUSED(p))
 {
    struct sockaddr_str ssaddr;
@@ -297,6 +331,8 @@ void *oc_nameserver(void *UNUSED(p))
    struct timeval tv;
    socklen_t slen;
    fd_set rset;
+
+   detach_thread();
 
    // create UDP socket
    if ((fd = socket(AF_INET6, SOCK_DGRAM, 0)) == -1)
@@ -324,6 +360,8 @@ void *oc_nameserver(void *UNUSED(p))
       return NULL;
    }
    log_debug("bound dns socket %d", fd);
+
+   set_thread_ready();
 
    // loop over connections
    for (;;)
