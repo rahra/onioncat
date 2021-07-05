@@ -642,9 +642,8 @@ void *socks_connector_sel(void *UNUSED(p))
 
                      if (socks_dns_req(squeue) != -1)
                      {
-                        log_msg(LOG_INFO, "DNS request sent to fd %d, retry = %d", squeue->fd, squeue->retry);
+                        log_msg(LOG_INFO, "DNS request sent to fd %d", squeue->fd);
                         squeue->state = SOCKS_DNS_SENT;
-                        squeue->retry++;
                         squeue->restart_time = t + SOCKS_DNS_RETRY_TIMEOUT;
                         MFD_SET(squeue->fd, &rset, maxfd);
                         continue;
@@ -706,12 +705,15 @@ void *socks_connector_sel(void *UNUSED(p))
 
 #ifdef WITH_DNS_LOOKUP
             case SOCKS_DNS_SENT:
+               // check dns timeout
                if (t < squeue->restart_time)
                {
-                  log_debug("DNS re-request is scheduled not before %ds", squeue->restart_time - t);
+                  // and wait for response if timeout not elapsed
+                  log_debug("DNS re-request is scheduled not before %ds, awaiting response", squeue->restart_time - t);
+                  MFD_SET(squeue->fd, &rset, maxfd);
                   continue;
                }
-               log_debug("rechecking DNS_SENT");
+               // resend request after timeout
                if (squeue->retry < SOCKS_DNS_RETRY && socks_dns_req(squeue) != -1)
                {
                   log_msg(LOG_INFO, "DNS request re-sent to fd %d, retry = %d", squeue->fd, squeue->retry);
@@ -719,10 +721,10 @@ void *socks_connector_sel(void *UNUSED(p))
                   squeue->retry++;
                   squeue->restart_time = t + SOCKS_DNS_RETRY_TIMEOUT;
                   MFD_SET(squeue->fd, &rset, maxfd);
-                  continue;
                }
                else
                {
+                  // FIXME: not sure if this is working, have a look at the retry counters...
                   log_msg(LOG_INFO, "trying request with V2 hostname");
                   oe_close(squeue->fd);
                   squeue->state = SOCKS_NEW;
@@ -843,50 +845,58 @@ void *socks_connector_sel(void *UNUSED(p))
          if (FD_ISSET(squeue->fd, &rset))
          {
             maxfd--;
-            if (squeue->state == SOCKS_4AREQ_SENT)
+            switch (squeue->state)
             {
-               if (socks_rec_response(squeue) == -1)
-               {
-                  socks_reschedule(squeue);
-                  continue;
-               }
-               // success
-               log_debug("activating peer fd %d", squeue->fd);
-               socks_activate_peer(squeue);
-               squeue->state = SOCKS_DELETE;
+               case SOCKS_4AREQ_SENT:
+                  if (socks_rec_response(squeue) == -1)
+                  {
+                     socks_reschedule(squeue);
+                     continue;
+                  }
+                  // success
+                  log_debug("activating peer fd %d", squeue->fd);
+                  socks_activate_peer(squeue);
+                  squeue->state = SOCKS_DELETE;
+                  break;
+
+               case SOCKS_5GREET_SENT:
+                  // check greet response
+                  if (socks5_greet_response(squeue) == -1)
+                  {
+                     socks_reschedule(squeue);
+                     continue;
+                  }
+                  // greeting was successful, send request
+                  if (socks5_send_request(squeue) == -1)
+                  {
+                     log_msg(LOG_ERR, "sending SOCKS5 request failed");
+                     socks_reschedule(squeue);
+                     continue;
+                  }
+                  // request successfully sent, advance state machine
+                  squeue->state = SOCKS_5REQ_SENT;
+                  break;
+
+               case SOCKS_5REQ_SENT:
+                  if (socks5_rec_response(squeue) == -1)
+                  {
+                     socks_reschedule(squeue);
+                     continue;
+                  }
+                  // success
+                  log_debug("activating peer fd %d", squeue->fd);
+                  socks_activate_peer(squeue);
+                  squeue->state = SOCKS_DELETE;
+                  break;
+
+#ifdef WITH_DNS_LOOKUP
+               case SOCKS_DNS_SENT:
+                  log_debug("received UDP response");
+                  break;
+#endif
+               default:
+                  log_debug("unknown state %d in read set", squeue->state);
             }
-            else if (squeue->state == SOCKS_5GREET_SENT)
-            {
-               // check greet response
-               if (socks5_greet_response(squeue) == -1)
-               {
-                  socks_reschedule(squeue);
-                  continue;
-               }
-               // greeting was successful, send request
-               if (socks5_send_request(squeue) == -1)
-               {
-                  log_msg(LOG_ERR, "sending SOCKS5 request failed");
-                  socks_reschedule(squeue);
-                  continue;
-               }
-               // request successfully sent, advance state machine
-               squeue->state = SOCKS_5REQ_SENT;
-            }
-            else if (squeue->state == SOCKS_5REQ_SENT)
-            {
-               if (socks5_rec_response(squeue) == -1)
-               {
-                  socks_reschedule(squeue);
-                  continue;
-               }
-               // success
-               log_debug("activating peer fd %d", squeue->fd);
-               socks_activate_peer(squeue);
-               squeue->state = SOCKS_DELETE;
-            }
-            else
-               log_debug("unknown state %d in read set", squeue->state);
          }
       }
 
