@@ -655,8 +655,14 @@ int open_connect_log(const char*);
 void log_msg(int, const char *, ...);
 #ifdef DEBUG
 #define log_debug(x...) log_msg(LOG_DEBUG, ## x)
+#ifdef DEBUG_EXCESSIVE
+#define log_debug2(x...) log_msg(LOG_DEBUG, ## x)
+#else
+#define log_debug2(x...)
+#endif
 #else
 #define log_debug(x...)
+#define log_debug2(x...)
 #endif
 
 /* ocatv6conv.c */

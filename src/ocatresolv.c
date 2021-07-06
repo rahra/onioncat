@@ -402,7 +402,7 @@ int oc_proc_request(char *buf, int msglen, int buflen)
    }
 
    inet_ntop(AF_INET6, &in6, name, sizeof(name));
-   log_msg(LOG_INFO, "got dns request for address %s", name);
+   log_msg(LOG_INFO, "got valid DNS request for address %s", name);
 
    // make sure to read hosts file
    hosts_check();
@@ -608,7 +608,7 @@ void *oc_nameserver(void *UNUSED(p))
       }
 
       inet_ntops((struct sockaddr*) &s6addr, &ssaddr);
-      log_msg(LOG_INFO, "received %d bytes by %s", len, ssaddr.sstr_addr);
+      log_debug("received %d bytes by %s", len, ssaddr.sstr_addr);
 
       // make sure that there is \0-termination in the buffer
       buf[sizeof(buf) - 1] = '\0';
@@ -619,11 +619,14 @@ void *oc_nameserver(void *UNUSED(p))
          continue;
       }
 
-      log_msg(LOG_INFO, "sending %d bytes reply", len);
+      log_debug("sending %d bytes reply", len);
       if ((len = sendto(fd, buf, len, 0, (struct sockaddr*) &s6addr, sizeof(s6addr))) == -1)
+      {
          log_msg(LOG_ERR, "sendto() failed: %s", strerror(errno));
-      else
-         log_msg(LOG_INFO, "dns reply sent");
+         continue;
+      }
+
+      log_msg(LOG_INFO, "DNS reply sent to %s", ssaddr.sstr_addr);
    }
 
    oe_close(fd);

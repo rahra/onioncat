@@ -215,7 +215,7 @@ void socks_pipe_request(const SocksQueue_t *sq)
          log_msg(LOG_EMERG, "select encountered error: \"%s\", restarting", strerror(errno));
          return;
       }
-      log_debug("select returned %d", maxfd);
+      log_debug2("select returned %d", maxfd);
 
 
       if (maxfd && FD_ISSET(CNF(socksfd[1]), &wset))
@@ -748,13 +748,13 @@ void *socks_connector_sel(void *UNUSED(p))
 
       // select all file descriptors
       set_select_timeout0(&tv, SOCKS_DNS_RETRY_TIMEOUT);
-      log_debug("selecting (maxfd = %d)", maxfd);
+      log_debug2("selecting (maxfd = %d)", maxfd);
       if ((maxfd = select(maxfd + 1, &rset, &wset, NULL, &tv)) == -1)
       {
          log_msg(LOG_EMERG, "select encountered error: \"%s\", restarting", strerror(errno));
          continue;
       }
-      log_debug("select returned %d", maxfd);
+      log_debug2("select returned %d", maxfd);
 
       // check socks request pipe
       if (FD_ISSET(CNF(socksfd[0]), &rset))

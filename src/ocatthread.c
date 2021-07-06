@@ -343,7 +343,9 @@ void detach_thread(void)
    else if (rc)
       log_msg(LOG_ERR, "could not detach thread: \"%s\"", strerror(rc));
    else
+   {
       log_debug("thread detached");
+   }
 }
 
 

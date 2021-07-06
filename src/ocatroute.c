@@ -248,7 +248,7 @@ void set_select_timeout0(struct timeval *tv, int t)
 {
    tv->tv_usec = rand() % 1000000;
    tv->tv_sec = t + (tv->tv_usec & 1);
-   log_debug("timeout %d.%06d", tv->tv_sec, tv->tv_usec);
+   log_debug2("timeout %d.%06d", tv->tv_sec, tv->tv_usec);
 }
 
 
@@ -409,7 +409,7 @@ void *socket_receiver(void *UNUSED(p))
       unlock_peers();
 
       set_select_timeout(&tv);
-      log_debug("selecting (maxfd = %d)", maxfd);
+      log_debug2("selecting (maxfd = %d)", maxfd);
       if ((maxfd = select(maxfd + 1, &rset, NULL, NULL, &tv)) == -1)
       {
          log_msg(LOG_ERR, "select encountered error: \"%s\", restarting", strerror(errno));
@@ -826,7 +826,7 @@ int run_listeners(struct sockaddr **addr, int *sockfd, int cnt, int (action_acce
       if (term_req())
          break;
 
-      log_debug("setting up fd_set");
+      log_debug2("setting up fd_set");
       FD_ZERO(&rset);
       maxfd = -1;
       for (i = 0; i < cnt; i++)
@@ -846,13 +846,13 @@ int run_listeners(struct sockaddr **addr, int *sockfd, int cnt, int (action_acce
       }
 
       set_select_timeout(&tv);
-      log_debug("selecting (maxfd = %d)", maxfd);
+      log_debug2("selecting (maxfd = %d)", maxfd);
       if ((maxfd = select(maxfd + 1, &rset, NULL, NULL, &tv)) == -1)
       {
          log_debug("select returned: \"%s\"", strerror(errno));
          continue;
       }
-      log_debug("select returned %d fds ready", maxfd);
+      log_debug2("select returned %d fds ready", maxfd);
 
       for (i = 0; maxfd && (i < cnt); i++)
       {
@@ -1113,7 +1113,7 @@ void *socket_cleaner(void *UNUSED(ptr))
          break;
 
       sleep(CLEANER_WAKEUP);
-      log_debug("wakeup");
+      log_debug2("wakeup");
 
       act_time = time(NULL);
 
