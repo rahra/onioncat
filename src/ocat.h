@@ -277,7 +277,7 @@
 //! maximum numner of DNS retries
 #define SOCKS_DNS_RETRY 3
 //! retry time for DNS request
-#define SOCKS_DNS_RETRY_TIMEOUT 4
+#define SOCKS_DNS_RETRY_TIMEOUT 5
 
 #define E_RT_NOMEM -1
 #define E_RT_DUP -2

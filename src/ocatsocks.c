@@ -645,9 +645,15 @@ void *socks_connector_sel(void *UNUSED(p))
                      {
                         log_msg(LOG_INFO, "DNS request sent to fd %d", squeue->fd);
                         squeue->state = SOCKS_DNS_SENT;
+                        squeue->retry = 0;
                         squeue->restart_time = t + SOCKS_DNS_RETRY_TIMEOUT;
                         MFD_SET(squeue->fd, &rset, maxfd);
                         continue;
+                     }
+                     else
+                     {
+                        log_msg(LOG_ERR, "could not send DNS request");
+                        oe_close(squeue->fd);
                      }
                   }
                   else
@@ -718,7 +724,6 @@ void *socks_connector_sel(void *UNUSED(p))
                if (squeue->retry < SOCKS_DNS_RETRY && socks_dns_req(squeue) != -1)
                {
                   log_msg(LOG_INFO, "DNS request re-sent to fd %d, retry = %d", squeue->fd, squeue->retry);
-                  squeue->state = SOCKS_DNS_SENT;
                   squeue->retry++;
                   squeue->restart_time = t + SOCKS_DNS_RETRY_TIMEOUT;
                   MFD_SET(squeue->fd, &rset, maxfd);
@@ -730,6 +735,7 @@ void *socks_connector_sel(void *UNUSED(p))
                   oe_close(squeue->fd);
                   squeue->state = SOCKS_NEW;
                   squeue->restart_time = 0;
+                  squeue->retry = SOCKS_DNS_RETRY;    // do this to get lookup skipped in ´case SOCKS_NEW´.
                }
                break;
 #endif
