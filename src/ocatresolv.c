@@ -109,8 +109,9 @@ int oc_dn_len(const char *buf, int buflen)
 void oc_ip6_ptr(const char *in6addr, char *dst)
 {
    static char _dh[] = "0123456789abcdef";
+   int i;
 
-   for (int i = 15; i >= 0; i--)
+   for (i = 15; i >= 0; i--)
    {
       *dst++ = 1;
       *dst++ = _dh[in6addr[i] & 0xf];

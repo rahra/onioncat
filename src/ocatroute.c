@@ -654,7 +654,9 @@ void *socket_receiver(void *UNUSED(p))
                memmove(peer->fragbuf, peer->fragbuf + len, FRAME_SIZE - 4 - len);
             }
             else
+            {
                log_debug("fragbuf empty");
+            }
 
         } // while (peer->fraglen)
 

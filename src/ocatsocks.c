@@ -293,7 +293,9 @@ void socks_queue(struct in6_addr addr, int perm)
       socks_pipe_request(&sq);
    }
    else
+   {
       log_debug("connection already exists, not queueing SOCKS connection");
+   }
 }
 
 
@@ -491,7 +493,9 @@ int socks_tcp_connect(int fd, struct sockaddr *addr, int len)
       log_debug("connection in progress");
    }
    else
+   {
       log_debug("connected");
+   }
 
    return 0;
 }
@@ -560,7 +564,7 @@ int socks_dns_recv(SocksQueue_t *sq)
    struct sockaddr_in6 saddr;
    char buf[PACKETSZ];
    socklen_t slen;
-   int n, len;
+   int len;
 
    slen = sizeof(saddr);
    if ((len = recvfrom(sq->fd, buf, sizeof(buf), 0, (struct sockaddr*) &saddr, &slen)) == -1)
@@ -846,7 +850,9 @@ void *socks_connector_sel(void *UNUSED(p))
                }
             }
             else
+            {
                log_debug("unknown state %d in write set", squeue->state);
+            }
          }
 
          // check read set, this is valid after write, i.e. receiving SOCKS response
