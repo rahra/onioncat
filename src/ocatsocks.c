@@ -207,36 +207,32 @@ void socks_pipe_request(const SocksQueue_t *sq)
    FD_SET(CNF(socksfd[1]), &wset);
    maxfd = CNF(socksfd[1]);
 
-   log_debug("selecting until socks request pipe gets ready");
+   log_debug("selecting (maxfd = %d)", maxfd);
+   if ((maxfd = select(maxfd + 1, NULL, &wset, NULL, NULL)) == -1)
+   {
+      log_msg(LOG_EMERG, "select encountered error: \"%s\", restarting", strerror(errno));
+      return;
+   }
+   log_debug2("select returned %d", maxfd);
 
-      log_debug("selecting (maxfd = %d)", maxfd);
-      if ((maxfd = select(maxfd + 1, NULL, &wset, NULL, NULL)) == -1)
+   if (maxfd && FD_ISSET(CNF(socksfd[1]), &wset))
+   {
+      log_debug("writing %d bytes to fd %d", len, CNF(socksfd[1]));
+      if ((ret = write(CNF(socksfd[1]), sq, len)) == -1)
       {
-         log_msg(LOG_EMERG, "select encountered error: \"%s\", restarting", strerror(errno));
-         return;
+         log_msg(LOG_WARNING, "error writing to SOCKS request pipe fd %d: \"%s\"", CNF(socksfd[1]), strerror(errno));
       }
-      log_debug2("select returned %d", maxfd);
-
-
-      if (maxfd && FD_ISSET(CNF(socksfd[1]), &wset))
+      else if (ret < len)
       {
-
-   log_debug("writing %d bytes to fd %d", len, CNF(socksfd[1]));
-   if ((ret = write(CNF(socksfd[1]), sq, len)) == -1)
-   {
-      log_msg(LOG_WARNING, "error writing to SOCKS request pipe fd %d: \"%s\"", CNF(socksfd[1]), strerror(errno));
-   }
-   else if (ret < len)
-   {
-      log_msg(LOG_WARNING, "write to SOCKS request pipe fd %d truncated to %d bytes of %d", CNF(socksfd[1]), ret, len);
-   }
-   else
-   {
-      log_debug("wrote %d bytes to SOCKS request pipe fd %d", len, CNF(socksfd[1]));
-   }
+         log_msg(LOG_WARNING, "write to SOCKS request pipe fd %d truncated to %d bytes of %d", CNF(socksfd[1]), ret, len);
       }
       else
-         log_msg(LOG_WARNING, "fd %d not in write set", CNF(socksfd[1]));
+      {
+         log_debug("wrote %d bytes to SOCKS request pipe fd %d", len, CNF(socksfd[1]));
+      }
+   }
+   else
+      log_msg(LOG_WARNING, "fd %d not in write set", CNF(socksfd[1]));
 }
 
 
