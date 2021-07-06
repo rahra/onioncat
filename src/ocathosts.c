@@ -70,7 +70,7 @@ static char *path_hosts_ = NULL;
 static pthread_mutex_t hosts_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 
 
-int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, hsrc_t source, time_t age);
+int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, hsrc_t source, time_t age, int ttl);
 
 
 /*! Set path to hosts file.
@@ -191,7 +191,7 @@ int hosts_read(time_t age)
          if ((strlen(s) > strlen(hosts_.hdom)) && !strcasecmp(s + (strlen(s) - strlen(hosts_.hdom)), hosts_.hdom))
          {
             o++;
-            hosts_add_entry_unlocked(&((struct sockaddr_in6*) res->ai_addr)->sin6_addr, s, HSRC_HOSTS, age);
+            hosts_add_entry_unlocked(&((struct sockaddr_in6*) res->ai_addr)->sin6_addr, s, HSRC_HOSTS, age, -1);
             break;
          }
       }
@@ -309,10 +309,11 @@ int hosts_get_addr(int n, struct in6_addr *addr)
 }
 
 
-static void hosts_copy_data(struct hosts_ent *h, const char *name, int source, time_t age)
+static void hosts_copy_data(struct hosts_ent *h, const char *name, int source, time_t age, int ttl)
 {
    h->source = source;
    h->age = age;
+   h->ttl = ttl;
    if (strcmp(h->name, name))
    {
       strlcpy(h->name, name, NI_MAXHOST);
@@ -324,7 +325,7 @@ static void hosts_copy_data(struct hosts_ent *h, const char *name, int source, t
 /*! Add an entry to the hosts memory database.
  * @return Returns the index in the database or -1 on error.
  */
-int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, hsrc_t source, time_t age)
+int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, hsrc_t source, time_t age, int ttl)
 {
    struct hosts_ent *h;
    int n;
@@ -349,12 +350,12 @@ int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, hsrc
       hosts_.hosts_ent[n].addr = *addr;
 
       // copy data to new entry
-      hosts_copy_data(&hosts_.hosts_ent[n], name, source, age);
+      hosts_copy_data(&hosts_.hosts_ent[n], name, source, age, ttl);
    }
    else if (hosts_.hosts_ent[n].source >= source)
    {
       log_debug("overwriting old.source = %d, new.source = %d", hosts_.hosts_ent[n].source, source);
-      hosts_copy_data(&hosts_.hosts_ent[n], name, source, age);
+      hosts_copy_data(&hosts_.hosts_ent[n], name, source, age, ttl);
    }
    else
    {
@@ -365,12 +366,12 @@ int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, hsrc
 }
 
 
-int hosts_add_entry(const struct in6_addr *addr, const char *name, hsrc_t source, time_t age)
+int hosts_add_entry(const struct in6_addr *addr, const char *name, hsrc_t source, time_t age, int ttl)
 {
    int n;
 
    pthread_mutex_lock(&hosts_mutex_);
-   n = hosts_add_entry_unlocked(addr, name, source, age);
+   n = hosts_add_entry_unlocked(addr, name, source, age, ttl);
    pthread_mutex_unlock(&hosts_mutex_);
    return n;
 }
@@ -444,7 +445,7 @@ int sn_hosts_list(char *buf, int len)
          log_msg(LOG_ERR, "inet_ntop() failed: %s", strerror(errno));
          continue;
       }
-      if ((plen = snprintf(buf, len, "%s %s # age = %ld, src = %d\n", in6, h->name, h->age, h->source)) == -1)
+      if ((plen = snprintf(buf, len, "%s %s # age = %ld, ttl = %d, src = %d\n", in6, h->name, h->age, h->ttl, h->source)) == -1)
       {
          log_msg(LOG_CRIT, "snprintf() failed");
          wlen = -1;

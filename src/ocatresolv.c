@@ -525,7 +525,7 @@ int oc_proc_response(const char *buf, int msglen, uint16_t org_id, const struct 
       return -1;
    }
 
-   if (hosts_add_entry(org_addr, name, dh->aa ? HSRC_NET_AA : HSRC_NET, time(NULL)) == -1)
+   if (hosts_add_entry(org_addr, name, dh->aa ? HSRC_NET_AA : HSRC_NET, time(NULL), ttl) == -1)
    {
       log_msg(LOG_WARNING, "could not add new hosts entry: %s", name);
       return -1;

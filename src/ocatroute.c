@@ -301,7 +301,7 @@ int handle_keepalive(const struct ip6_hdr *i6h)
    // make sure it is \0-terminated
    buf[len] = '\0';
 
-   hosts_add_entry(&i6h->ip6_src, buf, HSRC_KPLV, time(NULL));
+   hosts_add_entry(&i6h->ip6_src, buf, HSRC_KPLV, time(NULL), HOSTS_KPLV_TTL);
    return 0;
 }
 

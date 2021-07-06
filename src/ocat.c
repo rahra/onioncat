@@ -640,7 +640,7 @@ int main(int argc, char *argv[])
    {
       char hname[300];
       snprintf(hname, sizeof(hname), "%s%s", CNF(onion3_url), CNF(domain));
-      hosts_add_entry(&CNF(ocat_addr), hname, HSRC_SELF, time(NULL));
+      hosts_add_entry(&CNF(ocat_addr), hname, HSRC_SELF, time(NULL), -1);
    }
 
    log_msg(LOG_INFO, "%s", CNF(version));
