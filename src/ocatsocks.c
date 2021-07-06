@@ -539,7 +539,7 @@ int socks_dns_req(SocksQueue_t *sq)
 #endif
    sq->ns_addr.sin6_port = htons(CNF(ocat_dest_port));
 
-   len = oc_mk_ptrquery((char*) &sq->addr, buf, sizeof(buf));
+   len = oc_mk_ptrquery((char*) &sq->addr, buf, sizeof(buf), sq->id);
 
    if ((n = sendto(sq->fd, buf, len, 0, (struct sockaddr*) &sq->ns_addr, slen)) == -1)
    {
@@ -558,7 +558,7 @@ int socks_dns_req(SocksQueue_t *sq)
 int socks_dns_recv(SocksQueue_t *sq)
 {
    struct sockaddr_in6 saddr;
-   char buf[PACKETSZ + 1];
+   char buf[PACKETSZ];
    socklen_t slen;
    int n, len;
 
@@ -577,7 +577,7 @@ int socks_dns_recv(SocksQueue_t *sq)
       return -1;
    }
 
-   return 0;
+   return oc_proc_response(buf, sizeof(buf), sq->id, &sq->addr);
 }
 #endif
 
@@ -639,6 +639,7 @@ void *socks_connector_sel(void *UNUSED(p))
                   {
                      log_debug("created UDP fd %d for DNS lookup", squeue->fd);
                      set_nonblock(squeue->fd);
+                     squeue->id = rand();
 
                      if (socks_dns_req(squeue) != -1)
                      {
@@ -728,6 +729,7 @@ void *socks_connector_sel(void *UNUSED(p))
                   log_msg(LOG_INFO, "trying request with V2 hostname");
                   oe_close(squeue->fd);
                   squeue->state = SOCKS_NEW;
+                  squeue->restart_time = 0;
                }
                break;
 #endif
@@ -892,6 +894,22 @@ void *socks_connector_sel(void *UNUSED(p))
 #ifdef WITH_DNS_LOOKUP
                case SOCKS_DNS_SENT:
                   log_debug("received UDP response");
+
+                  // handle response
+                  if (socks_dns_recv(squeue) != -1)
+                  {
+                     log_msg(LOG_NOTICE, "got valid DNS response, now reconnecting");
+                     oe_close(squeue->fd);
+                     squeue->state = SOCKS_NEW;
+                     squeue->retry = 0;
+                     squeue->restart_time = 0;
+                  }
+                  else
+                  {
+                     log_debug("closing UDP fd %d", squeue->fd);
+                     oe_close(squeue->fd);
+                     squeue->state = SOCKS_DELETE;
+                  }
                   break;
 #endif
                default:

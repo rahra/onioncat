@@ -799,8 +799,9 @@ int win_write_tun(const char *, int);
 #endif
 
 /* ocatresolv.c */
-int oc_mk_ptrquery(const char *, char *, int);
+int oc_mk_ptrquery(const char *, char *, int, uint16_t);
 void *oc_nameserver(void *);
+int oc_proc_response(const char *, int, uint16_t, const struct in6_addr *);
 
 
 #endif
