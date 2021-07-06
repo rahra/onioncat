@@ -631,8 +631,8 @@ void *socks_connector_sel(void *UNUSED(p))
                }
 
 #ifdef WITH_DNS_LOOKUP
-               // send a DNS lookup if configured and no hostname in DB yet
-               if (CNF(dns_lookup) && get_hostname(squeue, NULL, 0) == -1 && squeue->retry < SOCKS_DNS_RETRY)
+               // send a DNS lookup if configured and no hostname in DB yet and it is the first try
+               if (CNF(dns_lookup) && get_hostname(squeue, NULL, 0) == -1 && squeue->retry <= 1)
                {
                   // create anonymous UDP socket
                   if ((squeue->fd = socket(AF_INET6, SOCK_DGRAM, 0)) != -1)
@@ -735,7 +735,7 @@ void *socks_connector_sel(void *UNUSED(p))
                   oe_close(squeue->fd);
                   squeue->state = SOCKS_NEW;
                   squeue->restart_time = 0;
-                  squeue->retry = SOCKS_DNS_RETRY;    // do this to get lookup skipped in ´case SOCKS_NEW´.
+                  squeue->retry = 1;                  // do this to get lookup skipped in ´case SOCKS_NEW´.
                }
                break;
 #endif

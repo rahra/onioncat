@@ -275,7 +275,7 @@
 //! maximum number of SOCKS retries before becoming deleted
 #define SOCKS_MAX_RETRY 3
 //! maximum numner of DNS retries
-#define SOCKS_DNS_RETRY 3
+#define SOCKS_DNS_RETRY 5
 //! retry time for DNS request
 #define SOCKS_DNS_RETRY_TIMEOUT 5
 

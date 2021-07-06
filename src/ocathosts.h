@@ -46,6 +46,7 @@ struct hosts_ent
    char name[NI_MAXHOST];
    time_t age;
    hsrc_t source;
+   int ttl;
 };
 
 struct hosts_info
