@@ -33,7 +33,7 @@ const struct NetDesc netdesc_[2] =
       TOR_OCAT_CONNECT_LOG,
       TOR_PID_FILE,
       "ocat.conf",
-      0,
+      1,
       TOR_HS_NAMELEN
    },
    {

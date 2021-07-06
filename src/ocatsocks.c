@@ -524,11 +524,9 @@ int socks_dns_req(SocksQueue_t *sq)
    int n, len;
 
    memset(&sq->ns_addr, 0, sizeof(sq->ns_addr));
-
-   if ((n = hosts_get_addr(sq->retry, &sq->ns_addr.sin6_addr)) == -1)
+   if (hosts_get_ns(&sq->ns_addr.sin6_addr) == -1)
    {
       log_msg(LOG_WARNING, "no DNS server available");
-      oe_close(sq->fd);
       return -1;
    }
 
@@ -544,13 +542,13 @@ int socks_dns_req(SocksQueue_t *sq)
    if ((n = sendto(sq->fd, buf, len, 0, (struct sockaddr*) &sq->ns_addr, slen)) == -1)
    {
       log_msg(LOG_ERR, "sendto() failed: %s", strerror(errno));
-      oe_close(sq->fd);
       return -1;
    }
 
    if (n < len)
       log_msg(LOG_WARNING, "message was truncated: %d < %d", n, len);
 
+   log_msg(LOG_INFO, "DNS request sent to nameserver %s", inet_ntop(AF_INET6, &sq->ns_addr.sin6_addr, buf, sizeof(buf)));
    return n;
 }
 

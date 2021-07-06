@@ -36,13 +36,13 @@ void usage(const char *s)
          "   -b                    daemonize (default = %d)\n"
          "   -B                    do not daemonize (default = %d)\n"
          "   -h                    display usage message\n"
-         "   -H                    toggle hosts lookup (default = %d, see also option -g)\n"
+         "   -H                    Disable hosts lookup (default = %d, see also option -g)\n"
          "   -C                    disable local controller interface\n"
          "   -d <n>                set debug level to n, default = %d\n"
-         "   -D                    Do OnionCat DNS lookups, default = %d. This option implicitly activates -H.\n"
+         "   -D                    Disable OnionCat DNS lookups, default = %d. This option implicitly activates -H.\n"
          "   -e <ifup-script>      execute ifup-script after opening interface\n"
          "   -f <config_file>      read config from config_file (default = %s)\n"
-         "   -g <hosts_path>       set path to hosts file for hosts lookup, defaults to system hosts file, if not set.\n"
+         "   -g <hosts_path>       set path to hosts file for hosts lookup (default  = \"%s\").\n"
          "                         This option implicitly activates -H.\n"
          "   -i                    convert onion hostname to IPv6 and exit\n"
          "   -I                    GarliCat mode, use I2P instead of Tor\n"
@@ -55,20 +55,22 @@ void usage(const char *s)
          "   -r                    run as root, i.e. do not change uid/gid\n"
          "   -R                    generate a random local onion URL\n"
          "   -s <port>             set hidden service virtual port, default = %d\n"
-         "   -S                    Run OnionCat name service, default = %d\n"
+         "   -S                    Disable OnionCat name service, default = %d\n"
          "   -t [<ip>:]<port>      set Tor SOCKS address and port, default = 127.0.0.1:%d\n"
 #ifndef WITHOUT_TUN
          "   -T <tun_device>       path to tun character device, default = \"%s\"\n"
 #endif
          "   -U                    disable unidirectional mode\n"
          "   -u <user>             change UID to user, default = \"%s\"\n"
+         "   -2                    Enable OnionCat3 backwards compatibility options. This is the same as\n"
+         "                         setting options -D -H -S.\n"
          "   -4                    enable IPv4 support (default = %d)\n"
          "   -5 [socks5|direct]    use SOCKS5 or direct connections instead of SOCKS4A (default = %d)\n"
          , CNF(version), s,
          // option defaults start here
          OCAT_DIR, NDESC(clog_file), CNF(create_clog), 
          CNF(daemon), CNF(daemon) ^ 1, CNF(hosts_lookup),
-         CNF(debug_level), CNF(dns_lookup), CNF(config_file), NDESC(listen_port),
+         CNF(debug_level), CNF(dns_lookup), CNF(config_file), CNF(hosts_path), NDESC(listen_port),
          CNF(pid_file),
          CNF(ocat_dest_port), CNF(dns_server), ntohs(CNF(socks_dst)->sin_port), 
 #ifndef WITHOUT_TUN
@@ -348,11 +350,18 @@ int parse_opt(int argc, char *argv[])
    log_debug("parse_opt_early()");
    opterr = 1;
    optind = 1;
-   while ((c = getopt(argc, argv, "f:IabBCd:De:g:hHrRiopl:t:T:s:SUu:45:L:P:n:")) != -1)
+   while ((c = getopt(argc, argv, "f:IabBCd:De:g:hHrRiopl:t:T:s:SUu:245:L:P:n:")) != -1)
    {
       log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, SSTR(optarg));
       switch (c)
       {
+         // Activate options for OnionCat3 for HSv2. This is a compatibility switch.
+         case '2':
+            CNF(hosts_lookup) = 0;
+            CNF(dns_lookup) = 0;
+            CNF(dns_server) = 0;
+            break;
+
          // use SOCKS5 instead of SOCKS4A
          case '5':
             if (!strcasecmp(optarg, "socks5"))
@@ -393,8 +402,8 @@ int parse_opt(int argc, char *argv[])
             break;
 
          case 'D':
-            CNF(dns_lookup) = 1;
-            CNF(hosts_lookup) = 1;
+            CNF(dns_lookup) = 0;
+            //CNF(hosts_lookup) = 1;
             break;
 
          case 'e':
@@ -403,8 +412,8 @@ int parse_opt(int argc, char *argv[])
 
          case 'g':
             CNF(hosts_path) = optarg;
-            hosts_set_path(CNF(hosts_path));
-            CNF(hosts_lookup) = 1;
+            //hosts_set_path(CNF(hosts_path));
+            //CNF(hosts_lookup) = 1;
             break;
 
          case 'i':
@@ -416,7 +425,7 @@ int parse_opt(int argc, char *argv[])
             exit(1);
 
          case 'H':
-            CNF(hosts_lookup) = 1;
+            CNF(hosts_lookup) = 0;
             break;
 
          case 'l':
@@ -466,7 +475,7 @@ int parse_opt(int argc, char *argv[])
             break;
 
          case 'S':
-            CNF(dns_server) = 1;
+            CNF(dns_server) = 0;
             break;
 
          case 't':

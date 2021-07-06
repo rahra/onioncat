@@ -126,16 +126,16 @@ struct OcatSetup setup_ =
    0, 0,
    // unidirectional
    1,
-   // hosts_lookup
+   // hosts_lookup, default is value set by ocat_netdesc.c
    0,
    // hosts_path
-   NULL,
+   SYSCONFDIR"/tor/onioncat.hosts",
    // domain
    "",
    // dns_loopup
-   0,
+   1,
    // dns_server
-   0
+   1
 };
 
 
@@ -297,6 +297,7 @@ void print_setup_struct(FILE *f)
          "hosts_path             = %s\n"
          "domain                 = \"%s\"\n"
          "dns_lookup             = %d\n"
+         "dns_server             = %d\n"
          "----------------------\n"
          ,
          IPV4_KEY, ntohl(setup_.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup_.fhd_key[IPV6_KEY]),
@@ -344,7 +345,8 @@ void print_setup_struct(FILE *f)
          setup_.hosts_lookup,
          SSTR(setup_.hosts_path),
          setup_.domain,
-         setup_.dns_lookup
+         setup_.dns_lookup,
+         setup_.dns_server
          );
 
    if (inet_ntops((struct sockaddr*) setup_.socks_dst, &sas))

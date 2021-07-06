@@ -219,6 +219,8 @@ int hosts_check(void)
 
    if (path_hosts_ == NULL)
    {
+      path_hosts_ = CNF(hosts_path);
+#if 0
 #ifdef __CYGWIN__
       if ((s = getenv("WINDIR")) != NULL)
       {
@@ -227,6 +229,7 @@ int hosts_check(void)
       }
 #else
       path_hosts_ = _PATH_HOSTS;
+#endif
 #endif
    }
 
@@ -287,6 +290,32 @@ int hosts_get_name(const struct in6_addr *addr, char *buf, int s)
 }
 
 
+/*! Get address of a name server.
+ * FIXME: Currently this always returns the first entry in the list.
+ * @param addr Pointer to memory which will receive the address.
+ * @return The function returns the index in the hosts table of the entry which
+ * is always >= 0. On error, -1 is returned.
+ */
+int hosts_get_ns(struct in6_addr *addr)
+{
+   int n;
+
+   // safety check
+   if (addr == NULL)
+      return -1;
+
+   pthread_mutex_lock(&hosts_mutex_);
+   for (n = 0; n < hosts_.hosts_ent_cnt; n++)
+      if (hosts_.hosts_ent[n].source > HSRC_SELF)
+      {
+         IN6_ADDR_COPY(addr, &hosts_.hosts_ent[n].addr);
+         break;
+      }
+   pthread_mutex_unlock(&hosts_mutex_);
+   return n < hosts_.hosts_ent_cnt ? n : -1;
+}
+
+
 /*! Get address of ith hosts entry.
  * @param n Index to hosts table.
  * @param addr Pointer to adress which will receive address.
@@ -299,6 +328,7 @@ int hosts_get_addr(int n, struct in6_addr *addr)
       return -1;
 
    pthread_mutex_lock(&hosts_mutex_);
+   log_debug("hosts_get_addr(%d), hosts_ent_cnt = %d", n, hosts_.hosts_ent_cnt);
    if (n < hosts_.hosts_ent_cnt)
       IN6_ADDR_COPY(addr, &hosts_.hosts_ent[n].addr);
    else
