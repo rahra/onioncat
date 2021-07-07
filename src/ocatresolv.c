@@ -118,7 +118,7 @@ void oc_ip6_ptr(const char *in6addr, char *dst)
       *dst++ = 1;
       *dst++ = _dh[(in6addr[i] >> 4) & 0xf];
    }
-   strcat(dst, "\003ip6\004arpa");
+   strcpy(dst, "\003ip6\004arpa");
 }
 
 
