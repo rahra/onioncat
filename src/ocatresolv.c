@@ -571,6 +571,9 @@ void *oc_nameserver(void *UNUSED(p))
    s6addr.sin6_port = htons(CNF(ocat_dest_port));
    IN6_ADDR_COPY(&s6addr.sin6_addr, &CNF(ocat_addr));
 
+   // cannot bind before address was assigned in the main thread
+   wait_thread_by_name_ready("main");
+
    // bind socket to address
    if (bind(fd, (struct sockaddr*) &s6addr, slen) == -1)
    {

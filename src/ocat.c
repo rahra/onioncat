@@ -759,6 +759,9 @@ int main(int argc, char *argv[])
    // install signal handler
    install_sig();
 
+   // all initialization is done
+   set_thread_ready();
+
    // start forwarding packets from tunnel
    log_msg(LOG_INFO, "starting packet forwarder");
    packet_forwarder();
