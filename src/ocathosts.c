@@ -125,9 +125,37 @@ int hosts_file_modified_r(struct timespec *ts)
 }
 
 
+/*! Remove all elements from hosts db where ttl expired (== 0).
+ */
+void hosts_cleanup(void)
+{
+   int i;
+
+   pthread_mutex_lock(&hosts_mutex_);
+   for (i = 0; i < hosts_.hosts_ent_cnt; i++)
+   {
+      // ignore hosts with ttl not expired
+      if (hosts_.hosts_ent[i].ttl)
+         continue;
+
+      log_debug("removing host %s", hosts_.hosts_ent[i].name);
+      // if ith element is not the last element in the list...
+      if (i < hosts_.hosts_ent_cnt - 1)
+         // copy last element to ith position
+         memcpy(&hosts_.hosts_ent[i], &hosts_.hosts_ent[hosts_.hosts_ent_cnt - 1], sizeof(hosts_.hosts_ent[i]));
+
+      // dec length of list
+      hosts_.hosts_ent_cnt--;
+      // restart again on same position (undo i++ of for loop)
+      i--;
+   }
+   pthread_mutex_unlock(&hosts_mutex_);
+}
+
+
 int hosts_read(time_t age)
 {
-   int e, n = hosts_.hosts_ent_cnt, o = 0, c, rem;
+   int e, n, o = 0, c, rem;
    char buf[HOSTS_LINE_LENGTH + 1], *s;
    struct addrinfo hints, *res;
    FILE *f;
@@ -139,6 +167,11 @@ int hosts_read(time_t age)
    }
 
    pthread_mutex_lock(&hosts_mutex_);
+   // expire all hosts file entries in memory DB
+   for (n = 0; n < hosts_.hosts_ent_cnt; n++)
+      if (hosts_.hosts_ent[n].source == HSRC_HOSTS)
+         hosts_.hosts_ent[n].ttl = 0;
+
    memset(&hints, 0, sizeof(hints));
    hints.ai_family = AF_INET6;
    hints.ai_flags = AI_NUMERICHOST;
@@ -201,7 +234,8 @@ int hosts_read(time_t age)
    pthread_mutex_unlock(&hosts_mutex_);
    (void) fclose(f);
 
-   log_debug("found %d valid IPv6 records in %s (total %d)", o, path_hosts_, n);
+   hosts_cleanup();
+   log_debug("found %d valid IPv6 records in %s (total %d)", o, path_hosts_, hosts_.hosts_ent_cnt);
 
    return n;
 }
