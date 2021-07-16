@@ -357,8 +357,17 @@ static void hosts_copy_data(struct hosts_ent *h, const char *name, int source, t
  */
 int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, hsrc_t source, time_t age, int ttl)
 {
+   struct in6_addr taddr;
    struct hosts_ent *h;
    int n;
+
+   // check if hostname is valid
+   if (validate_onionname(name, &taddr) == -1)
+      return -1;
+
+   // check if ip address is a valid OnionCat address
+   if (!IN6_ARE_ADDR_EQUAL(addr, &taddr))
+      return -1;
 
    // check if entry already exists
    if ((n = hosts_get_name_unlocked(addr, NULL, 0)) == -1)

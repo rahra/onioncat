@@ -672,6 +672,7 @@ int oniontipv4(const char *, struct in_addr *, int);
 int has_tor_prefix(const struct in6_addr *);
 void rand_onion(char *);
 const char *inet_ntops(const struct sockaddr *, struct sockaddr_str *);
+int validate_onionname(const char *, struct in6_addr *);
 /*
 #define IN6_HAS_TOR_PREFIX(a) ((((__const uint32_t *) (a))[0] == ((__const uint32_t*)(TOR_PREFIX))[0]) \
       && (((__const uint16_t*)(a))[2] == ((__const uint16_t*)(TOR_PREFIX))[2]))

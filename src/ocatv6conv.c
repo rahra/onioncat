@@ -28,7 +28,7 @@
 #include "ocat.h"
 #include "ocat_netdesc.h"
 
-static const char BASE32[] = "abcdefghijklmnopqrstuvwxyz234567";
+static const char BASE32[] = "abcdefghijklmnopqrstuvwxyz234567ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 //! array contains inverse mapping of base32 starting with '2'.
 static const char deBASE32_[] = {
    /*          2   3   4   5   6   7   8   9   
@@ -178,5 +178,76 @@ const char *inet_ntops(const struct sockaddr *saddr, struct sockaddr_str *sas)
 
    sas->sstr_family = saddr->sa_family;
    return inet_ntop(saddr->sa_family, src, sas->sstr_addr, sizeof(sas->sstr_addr));
+}
+
+
+void strtolower(char *s)
+{
+   // safety check
+   if (s == NULL)
+      return;
+
+   for (; *s != '\0'; s++)
+      *s = tolower(*s);
+}
+
+
+/*! This function validates of a given hostname is a valid onionhostname. It
+ * checks the domain, the length, and the charset.
+ * @param name Pointer to \0-terminated string containing a hostname.
+ * @param addr If this parameter contains a valid (non-NULL) pointer to a
+ * struct in6_addr structure it will receive the converted IPv6 address.
+ * @return On success, the function returns the length of the first label of
+ * the hostname which is either 16 or CNF(l_hs_namelen). On error, -1 is
+ * returned.
+ */
+int validate_onionname(const char *name, struct in6_addr *addr)
+{
+   char *pp;
+   int len;
+
+   // safety check
+   if (name == NULL)
+   {
+      log_msg(LOG_CRIT, "null pointer caught in validate_onionname()");
+      return -1;
+   }
+
+   // get position of the 1st label separator
+   if ((pp = strchr(name, '.')) == NULL)
+   {
+      log_msg(LOG_ERR, "no domain in hostname");
+      return -1;
+   }
+
+   // calculate length of first part of string
+   len = pp - name;
+
+   // check length
+   if (len != 16 && len != CNF(l_hs_namelen))
+   {
+      log_msg(LOG_ERR, "incorrect length of hostname");
+      return -1;
+   }
+
+   // check domain
+   if (strcmp(pp, CNF(domain)))
+   {
+      log_msg(LOG_ERR, "incorrect domain");
+      return -1;
+   }
+
+   // check charset
+   if ((int) strspn(name, BASE32) != len)
+   {
+      log_msg(LOG_ERR, "ill chars in hostname");
+      return -1;
+   }
+
+   // convert to IPv6 address
+   if (addr != NULL)
+      (void) oniontipv6(name + len -16, addr);
+
+   return len;
 }
 
