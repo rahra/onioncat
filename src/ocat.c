@@ -347,7 +347,7 @@ int parse_opt(int argc, char *argv[])
 {
    int c, urlconv = 0;
 
-   log_debug("parse_opt_early()");
+   log_debug("parse_opt()");
    opterr = 1;
    optind = 1;
    while ((c = getopt(argc, argv, "f:IabBCd:De:g:hHrRiopl:t:T:s:SUu:245:L:P:n:")) != -1)
