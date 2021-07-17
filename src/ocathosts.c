@@ -153,6 +153,15 @@ void hosts_cleanup(void)
 }
 
 
+/*! Read and parse hosts file and add new elements to the internal hosts db.
+ * Entries which were removed from the hosts file are removed by expiring the
+ * ttl. The age of the new entries are set to ´age´ which typically is the
+ * modification time of the file. The ttl of the entries are set to -1 which
+ * means that they never expire.
+ * @param age Age to be set for new entries. This is a Unix timestamp.
+ * @return The function returns the total number of entries in the internal
+ * hosts db. On error, -1 is returned.
+ */
 int hosts_read(time_t age)
 {
    int e, n, o = 0, c, rem;
@@ -395,13 +404,16 @@ int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, hsrc
    struct hosts_ent *h;
    int n;
 
-   // check if hostname is valid
-   if (validate_onionname(name, &taddr) == -1)
-      return -1;
+   if (CNF(validate_remnames) && source > HSRC_HOSTS)
+   {
+      // check if hostname is valid
+      if (validate_onionname(name, &taddr) == -1)
+         return -1;
 
-   // check if ip address is a valid OnionCat address
-   if (!IN6_ARE_ADDR_EQUAL(addr, &taddr))
-      return -1;
+      // check if ip address is a valid OnionCat address
+      if (!IN6_ARE_ADDR_EQUAL(addr, &taddr))
+         return -1;
+   }
 
    // check if entry already exists
    if ((n = hosts_get_name_unlocked(addr, NULL, 0)) == -1)

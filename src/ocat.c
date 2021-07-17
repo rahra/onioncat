@@ -46,6 +46,7 @@ void usage(const char *s)
          "                         This option implicitly activates -H.\n"
          "   -i                    convert onion hostname to IPv6 and exit\n"
          "   -I                    GarliCat mode, use I2P instead of Tor\n"
+         "   -J                    Disable remote hostname validation.\n"
          "   -l [<ip>:]<port>      set ocat listen address and port, default = 127.0.0.1:%d\n"
          "   -L <log_file>         log output to <log_file> (default = stderr)\n"
          "   -n <tunname>          set the tun device name, may contain format string (e.g. tun%%d)\n"
@@ -350,7 +351,7 @@ int parse_opt(int argc, char *argv[])
    log_debug("parse_opt()");
    opterr = 1;
    optind = 1;
-   while ((c = getopt(argc, argv, "f:IabBCd:De:g:hHrRiopl:t:T:s:SUu:245:L:P:n:")) != -1)
+   while ((c = getopt(argc, argv, "f:IabBCd:De:g:hHrRiJopl:t:T:s:SUu:245:L:P:n:")) != -1)
    {
       log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, SSTR(optarg));
       switch (c)
@@ -370,6 +371,7 @@ int parse_opt(int argc, char *argv[])
             {
                CNF(socks5) = CONNTYPE_DIRECT;
                CNF(hosts_lookup) = 1;
+               CNF(validate_remnames) = 0;
                hosts_init("");
             }
             else
@@ -418,6 +420,10 @@ int parse_opt(int argc, char *argv[])
 
          case 'i':
             urlconv = 1;
+            break;
+
+         case 'J':
+            CNF(validate_remnames) = 0;
             break;
 
          case 'h':

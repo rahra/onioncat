@@ -454,6 +454,7 @@ struct OcatSetup
    const char *domain;     //!< domain name appended to network host name
    int dns_lookup;         //!< do OnionCat DNS reverse queries
    int dns_server;         //!< run OnionCat DNS server
+   int validate_remnames;  //!< validate hostnames from remote OnionCats
 };
 
 #ifdef PACKET_QUEUE
