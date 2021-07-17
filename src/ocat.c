@@ -39,7 +39,7 @@ void usage(const char *s)
          "   -H                    Disable hosts lookup (default = %d, see also option -g)\n"
          "   -C                    disable local controller interface\n"
          "   -d <n>                set debug level to n, default = %d\n"
-         "   -D                    Disable OnionCat DNS lookups, default = %d. This option implicitly activates -H.\n"
+         "   -D                    Disable OnionCat DNS lookups, default = %d.\n"
          "   -e <ifup-script>      execute ifup-script after opening interface\n"
          "   -f <config_file>      read config from config_file (default = %s)\n"
          "   -g <hosts_path>       set path to hosts file for hosts lookup (default  = \"%s\").\n"
