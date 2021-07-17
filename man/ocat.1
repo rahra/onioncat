@@ -14,7 +14,7 @@
 .\" You should have received a copy of the GNU General Public License
 .\" along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
 .\"
-.TH OCAT 1 2021-02-10 "ocat" "OnionCat User's Manual"
+.TH OCAT 1 2021-07-17 "ocat" "OnionCat User's Manual"
 .SH NAME
 ocat \- OnionCat creates a transparent IPv6 layer on top of Tor's or I2P hidden
 services.
@@ -63,6 +63,11 @@ OnionCat and Tor itself works, hidden service correctly configured and enabled.
 
 .SS OPTIONS
 .TP
+\fB\-2\fP
+This option is here only for simplicity. With this option OnionCat behaves like
+OnionCat3 (version < 0.4.0). Actually it is a short form for using the options
+\fB\-D \-H \-S\fP.
+.TP
 \fB\-4\fP
 Enable IPv4 forwarding. See http://www.cypherpunk.at/onioncat_trac/wiki/IPv4
 .br
@@ -85,6 +90,11 @@ mechanism (see option \fB\-H\fP).
 This feature is experimental and turns OnionCat into a distributed virtual switch
 based on regular Internet transport instead of Tor. It is a useful feature for
 a lab setup.
+.br
+This option also disables the remote hostname validation (option \fB\-J\fP).
+.br
+Please note that OnionCat does not implement any encryption technique! It is a
+plain tunneling through TCP sessions.
 .TP
 \fB\-a\fP
 OnionCat creates a log file at $HOME/.ocat/connect_log. All incoming connects are
@@ -109,6 +119,12 @@ in production environments.
 Set debug level to \fIn\fP. Default = 7 which is maximum. Debug output will
 only be created if OnionCat was compiled with option DEBUG (i.e. configure was
 run with option \-\-enable\-debug).
+.TP
+\fB\-D\fP
+Disable OnionCat's DNS lookup. If OnionCat hast to make an outgoing connection
+but no suitable entry is found in the internal hosts db, OnionCat will do a DNS
+query at the hosts found in the internal hosts db. This option deactivates this
+feature.
 .TP
 \fB\-e\fP \fIifup\fP
 Execute script \fIifup\fP to bring up the tunnel interface.
@@ -170,12 +186,10 @@ Set the path to the hosts file. This option automatically enables option \-H
 which typically is /etc/hosts on Un*x systems.
 .TP
 \fB\-H\fP
-This option enables the hosts reverse lookup. If OnionCat receives a packet to
-a destination IPv6 address within the OnionCat prefix, it translates it
-directly to a .onion hostname by default. If option \-H is enabled, OnionCat
-instead looks up the hostname in the hosts file (see also \-g). This option is
-always enabled when OnionCat is used in GarliCat mode for I2P and it is required
-with V3 hidden services of Tor (see below).
+This option disables the hosts reverse lookup in the internal hosts db. Host
+lookups are required for Tor's hidden services V3 as well as for I2P. Thus,
+disabling the lookup function by using this options does only make sense when
+using Tor's hidden services V2.
 .TP
 \fB\-h\fP
 Display short usage message and shows options.
@@ -185,6 +199,16 @@ Convert \fIonion_id\fP to IPv6 address and exit.
 .TP
 \fB\-I\fP
 Run OnionCat in GarliCat (I2P) mode.
+.TP
+\fB\-J\fP
+Disable remote hostname validation. OnionCat is able to receive remote
+hostnames from keepalive messages and DNS queries. OnionCat validates if these
+names "make sense", i.e. it checks if the name is a valid onion name, and it
+checks if the name translates to the right IP.
+.br
+This is a security feature. Rogue OnionCats could send special crafted
+keepalives are DNS answers which may trick OnionCat into connecting somewhere
+else instead outside of the Tor network or to a fake hidden service.
 .TP
 \fB\-l\fP \fI[ip:]port\fP
 Bind OnionCat to specific \fIip \fP and/or \fIport\fP number for incoming
@@ -227,6 +251,12 @@ OnionCat on the command line.
 Please note that this option does only work if the remote OC does not run in
 unidirectional mode which is default since SVN version 555 (see option
 \fB\-U\fP).
+.TP
+\fB\-S\fP
+OnionCat runs a lightweight DNS services to respond to DNS queries from other
+OnionCats (see also option \fB\-D\fP). This option disables this DNS service.
+It responds only to reverse lookups within the Tor (FD87:D87E:EB43::/48) or I2P
+(FD60:DB4D:DDB5::/48) prefix.
 .TP
 \fB\-s\fP \fIport\fP
 Set OnionCat's virtual hidden service port to \fIport\fP. This should usually
@@ -320,6 +350,11 @@ In the versions of OnionCat up to 0.3.7 a symlink named gcat was created.
 OnionCat internally handled this as GarliCat which is equal to running ocat
 with the option \fB-I\fP. The symlink was removed due to a name conflict with a
 different binary (see BSD coreutils).
+.br
+The default settings changed since OnionCat4 (versions >= 0.4.0). Actually
+hosts-lookup is now on by default and the meaning of option \fB-H\fP was
+inverted. This is because OnionCat4 is specifically configured to better match
+the necessities for Tor's hidden services V3.
 
 .SH FILES
 $HOME/.ocat/connect_log
