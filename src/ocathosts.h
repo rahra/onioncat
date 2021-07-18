@@ -39,7 +39,7 @@
 #define HOSTS_LINE_LENGTH_OUT 256
 #define HOSTS_KPLV_TTL 3600
 
-typedef enum {HSRC_SELF, HSRC_HOSTS, HSRC_KPLV, HSRC_NET_AA, HSRC_NET} hsrc_t;
+typedef enum {HSRC_SELF, HSRC_CLI, HSRC_HOSTS, HSRC_KPLV, HSRC_NET_AA, HSRC_NET} hsrc_t;
 
 struct hosts_ent
 {

@@ -32,6 +32,7 @@ void usage(const char *s)
    fprintf(stderr, 
          "%s\n"
          "usage: %s [OPTIONS] <onion_hostname>\n"
+         "   -A <ipv6>/<hostname>  Add the IPv6/hostname pair to the internal hosts db.\n"
          "   -a                    create connect log at \"$HOME/%s/%s\" (default = %d)\n"
          "   -b                    daemonize (default = %d)\n"
          "   -B                    do not daemonize (default = %d)\n"
@@ -344,6 +345,42 @@ void parse_opt_early(int argc, char *argv_orig[])
 }
 
  
+/*! Parse string of the form "<IPv6 address>/<hostname>" and add it to the
+ * internal hosts db.
+ * @param kv Pointer to the string of the desired format.
+ * @return The function returns 0 on sucess. On error, -1 is returned.
+ */
+int parse_addr_host(char *kv)
+{
+   struct in6_addr addr;
+   char *s;
+
+   if ((s = strtok(kv, "/")) == NULL)
+   {
+      return -1;
+   }
+
+   if (inet_pton(AF_INET6, s, &addr) != 1)
+   {
+      log_msg(LOG_ERR, "%s is not a valid address");
+      return -1;
+   }
+
+   if ((s = strtok(NULL, "/")) == NULL)
+   {
+      log_msg(LOG_ERR, "no second token in parameter");
+      return -1;
+   }
+
+   if (hosts_add_entry(&addr, s, HSRC_CLI, time(NULL), -1) == -1)
+   {
+      log_msg(LOG_ERR, "hosts_add_entry() failed");
+      return -1;
+   }
+   return 0;
+}
+
+
 int parse_opt(int argc, char *argv[])
 {
    int c, urlconv = 0;
@@ -351,7 +388,7 @@ int parse_opt(int argc, char *argv[])
    log_debug("parse_opt()");
    opterr = 1;
    optind = 1;
-   while ((c = getopt(argc, argv, "f:IabBCd:De:g:hHrRiJopl:t:T:s:SUu:245:L:P:n:")) != -1)
+   while ((c = getopt(argc, argv, "f:IA:abBCd:De:g:hHrRiJopl:t:T:s:SUu:245:L:P:n:")) != -1)
    {
       log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, SSTR(optarg));
       switch (c)
@@ -381,6 +418,10 @@ int parse_opt(int argc, char *argv[])
          // those options are parsed in parse_opt_early()
          case 'f':
          case 'I':
+            break;
+
+         case 'A':
+            parse_addr_host(optarg);
             break;
 
          case 'a':
@@ -736,6 +777,10 @@ int main(int argc, char *argv[])
          log_msg(LOG_ERR, "could not change uid: \"%d\"", strerror(errno)), exit(1);
    }
    log_debug("uid/gid = %d/%d", getuid(), getgid());
+
+   // read hosts file if enabled
+   if (CNF(hosts_lookup))
+      hosts_check();
 
    if (CNF(create_clog))
       open_connect_log(pwd->pw_dir);
