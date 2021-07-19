@@ -316,6 +316,7 @@ void parse_opt_early(int argc, char *argv_orig[])
    log_debug("parse_opt_early()");
    // argv array is copied to prevent the original one from being modified by
    // getopt(). This behavior is at least true for Linux.
+   // FIXME: not sure if this is really necessary...I guess not...
    memcpy(&argv, argv_orig, sizeof(char*) * (argc + 1));
    opterr = 0;
    while ((c = getopt(argc, argv, "f:I")) != -1)
@@ -381,6 +382,30 @@ int parse_addr_host(char *kv)
 }
 
 
+/*! This is an option parser. It's purpose it to parse CLI option -A. It is
+ * done separately because other options (-5 direct and -J) may influence its
+ * behavior.
+ */
+void parse_opt_late(int argc, char *argv[])
+{
+   int c;
+
+   log_debug("parse_opt_late()");
+   opterr = 0;
+   optind = 1;
+   while ((c = getopt(argc, argv, "A:")) != -1)
+   {
+      log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, SSTR(optarg));
+      switch (c)
+      {
+         case 'A':
+            parse_addr_host(optarg);
+            break;
+      }
+   }
+}
+
+
 int parse_opt(int argc, char *argv[])
 {
    int c, urlconv = 0;
@@ -415,13 +440,10 @@ int parse_opt(int argc, char *argv[])
                log_msg(LOG_ERR, "unknown type \"%s\", ignoring", optarg);
             break;
 
-         // those options are parsed in parse_opt_early()
+         // those options are parsed in parse_opt_early() and parse_opt_late()
+         case 'A':
          case 'f':
          case 'I':
-            break;
-
-         case 'A':
-            parse_addr_host(optarg);
             break;
 
          case 'a':
@@ -607,9 +629,6 @@ int main(int argc, char *argv[])
    else
       ctrl_handler((void*) (long) c);
  
-#ifdef DEBUG
-   for (c = 0; c < argc; c++) log_debug("argv[%d] = \"%s\"", c, argv[c]);
-#endif
    urlconv = parse_opt(argc, argv);
 
    // usage output must be after mode detection (Tor/I2P)
@@ -780,7 +799,10 @@ int main(int argc, char *argv[])
 
    // read hosts file if enabled
    if (CNF(hosts_lookup))
+   {
+      parse_opt_late(argc, argv);
       hosts_check();
+   }
 
    if (CNF(create_clog))
       open_connect_log(pwd->pw_dir);
