@@ -137,7 +137,9 @@ struct OcatSetup setup_ =
    // dns_server
    1,
    // validate_remnames
-   1
+   1,
+   // ocat_ns_port
+   OCAT_NS_PORT
 };
 
 
@@ -301,6 +303,7 @@ void print_setup_struct(FILE *f)
          "dns_lookup             = %d\n"
          "dns_server             = %d\n"
          "validate_remnames      = %d\n"
+         "ocat_ns_port           = %d\n"
          "----------------------\n"
          ,
          IPV4_KEY, ntohl(setup_.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup_.fhd_key[IPV6_KEY]),
@@ -350,7 +353,8 @@ void print_setup_struct(FILE *f)
          setup_.domain,
          setup_.dns_lookup,
          setup_.dns_server,
-         setup_.validate_remnames
+         setup_.validate_remnames,
+         setup_.ocat_ns_port
          );
 
    if (inet_ntops((struct sockaddr*) setup_.socks_dst, &sas))

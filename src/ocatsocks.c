@@ -535,7 +535,7 @@ int socks_dns_req(SocksQueue_t *sq)
 #ifdef HAVE_SIN_LEN
    sq->ns_addr.sin6_len = slen;
 #endif
-   sq->ns_addr.sin6_port = htons(CNF(ocat_dest_port));
+   sq->ns_addr.sin6_port = htons(CNF(ocat_ns_port));
 
    len = oc_mk_ptrquery((char*) &sq->addr, buf, sizeof(buf), sq->id);
 

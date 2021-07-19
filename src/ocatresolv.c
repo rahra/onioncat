@@ -536,6 +536,45 @@ int oc_proc_response(const char *buf, int msglen, uint16_t org_id, const struct 
 }
 
 
+int oc_ns_socket(void)
+{
+   struct sockaddr_in6 s6addr;
+   socklen_t slen;
+   int fd;
+
+   // create UDP socket
+   if ((fd = socket(AF_INET6, SOCK_DGRAM, 0)) == -1)
+   {
+      log_msg(LOG_ERR, "could not create nameserver socket");
+      return -1;
+   }
+   log_debug("created DNS socket on fd %d", fd);
+
+   // init sockaddr structure for socket address
+   slen = sizeof(s6addr);
+   memset(&s6addr, 0, slen);
+   s6addr.sin6_family = AF_INET6;
+#ifdef HAVE_SIN_LEN
+   s6addr.sin6_len = slen;
+#endif
+   s6addr.sin6_port = htons(CNF(ocat_ns_port));
+   IN6_ADDR_COPY(&s6addr.sin6_addr, &CNF(ocat_addr));
+
+   // cannot bind before address was assigned in the main thread
+   //wait_thread_by_name_ready("main");
+
+   // bind socket to address
+   if (bind(fd, (struct sockaddr*) &s6addr, slen) == -1)
+   {
+      log_msg(LOG_ERR, "could not bind DNS socket: %s", strerror(errno));
+      oe_close(fd);
+      return -1;
+   }
+
+   return fd;
+}
+
+
 /*! This is the nameserver main loop. It waits for incoming packets, receives
  * on after the other end processes the requests. If the requests are valid,
  * answers are sent dependent if the names in the queries are found in the
@@ -553,35 +592,8 @@ void *oc_nameserver(void *UNUSED(p))
 
    detach_thread();
 
-   // create UDP socket
-   if ((fd = socket(AF_INET6, SOCK_DGRAM, 0)) == -1)
-   {
-      log_msg(LOG_ERR, "could not create nameserver socket");
+   if ((fd = oc_ns_socket()) == -1)
       return NULL;
-   }
-   log_debug("created DNS socket on fd %d", fd);
-
-   // init sockaddr structure for socket address
-   slen = sizeof(s6addr);
-   memset(&s6addr, 0, slen);
-   s6addr.sin6_family = AF_INET6;
-#ifdef HAVE_SIN_LEN
-   s6addr.sin6_len = slen;
-#endif
-   s6addr.sin6_port = htons(CNF(ocat_dest_port));
-   IN6_ADDR_COPY(&s6addr.sin6_addr, &CNF(ocat_addr));
-
-   // cannot bind before address was assigned in the main thread
-   wait_thread_by_name_ready("main");
-
-   // bind socket to address
-   if (bind(fd, (struct sockaddr*) &s6addr, slen) == -1)
-   {
-      log_msg(LOG_ERR, "could not bind DNS socket: %s", strerror(errno));
-      oe_close(fd);
-      return NULL;
-   }
-   log_debug("bound dns socket %d", fd);
 
    set_thread_ready();
 
@@ -596,7 +608,7 @@ void *oc_nameserver(void *UNUSED(p))
       set_select_timeout(&tv);
       if ((n = select(fd + 1, &rset, NULL, NULL, &tv)) == -1)
       {
-         log_msg(LOG_EMERG, "select encountered error: \"%s\", restarting", strerror(errno));
+         log_msg(LOG_ERR, "select encountered error: \"%s\", restarting", strerror(errno));
          continue;
       }
 

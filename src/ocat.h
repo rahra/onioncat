@@ -196,6 +196,8 @@
 #define PID_FILE "/var/run/ocat.pid"
 //! Name of the author of OnionCat.
 #define OCAT_AUTHOR "Bernhard R. Fischer"
+//! Default port number for DNS service
+#define OCAT_NS_PORT 8060
 
 //! Maximum frame (packet) size, should be able to keep one maximum size ipv6-packet: 2^16 + 40 + 4
 #define FRAME_SIZE 65580
@@ -455,6 +457,7 @@ struct OcatSetup
    int dns_lookup;         //!< do OnionCat DNS reverse queries
    int dns_server;         //!< run OnionCat DNS server
    int validate_remnames;  //!< validate hostnames from remote OnionCats
+   uint16_t ocat_ns_port;  //!< default port number of name server
 };
 
 #ifdef PACKET_QUEUE
