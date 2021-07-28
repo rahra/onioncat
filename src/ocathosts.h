@@ -63,6 +63,7 @@ char *hosts_set_path(char *);
 int hosts_check(void);
 int hosts_get_name(const struct in6_addr*, char*, int);
 int hosts_get_name_ext(const struct in6_addr *, char *, int, int *, time_t *);
+int hosts_get_ns_rr(struct in6_addr *, int *);
 int hosts_get_ns(struct in6_addr *);
 int hosts_get_addr(int n, struct in6_addr *addr);
 int hosts_add_entry(const struct in6_addr *, const char *, hsrc_t, time_t, int);

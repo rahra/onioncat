@@ -35,16 +35,22 @@
 #include "ocat.h"
 #include "ocat_netdesc.h"
 #include "ocathosts.h"
+#include "ocatresolv.h"
 
-#ifdef HAVE_RESOLV_H
+/*#ifdef HAVE_RESOLV_H
 #include <resolv.h>
-#endif
+#endif*/
 #ifdef HAVE_ARPA_NAMESER_H
 #include <arpa/nameser.h>
 #endif
 
 
 #define IP6REVLEN 74
+
+
+static ocres_state_t *orstate_ = NULL;
+static pthread_mutex_t orstate_mutex_ = PTHREAD_MUTEX_INITIALIZER;
+static int ocres_pipe_fd_[2];
 
 
 /*! This function returns the length (number of bytes) of raw dns name in a dns
@@ -453,7 +459,7 @@ int oc_proc_response(const char *buf, int msglen, uint16_t org_id, const struct 
 
    // safety check
    if (buf == NULL || msglen < (int) sizeof(*dh))
-      return -1;
+      return OCRES_EPARAM;
 
    // init pointers
    dh = (HEADER*) buf;
@@ -465,25 +471,31 @@ int oc_proc_response(const char *buf, int msglen, uint16_t org_id, const struct 
    if (dh->id != org_id)
    {
       log_msg(LOG_ERR, "DNS response id does not match request");
-      return -1;
+      return OCRES_EID;
    }
 
    if (!dh->qr || dh->opcode != QUERY || ntohs(dh->qdcount) != 1)
    {
       log_msg(LOG_ERR, "DNS response format error");
-      return -1;
+      return OCRES_EFORMAT;
+   }
+
+   if (dh->rcode == NXDOMAIN)
+   {
+      log_msg(LOG_INFO, "DNS server replied with NXDOMAIN");
+      return OCRES_ENXDOMAIN;
    }
 
    if (dh->rcode != NOERROR)
    {
-      log_msg(LOG_ERR, "DNS server replied error: %d", dh->rcode);
-      return -1;
+      log_msg(LOG_INFO, "DNS server replied error: %d", dh->rcode);
+      return OCRES_ERCODE;
    }
 
    if (ntohs(dh->ancount) != 1)
    {
       log_msg(LOG_ERR, "DNS reply has unexpected number of answers: %d", ntohs(dh->ancount));
-      return -1;
+      return OCRES_EFORMAT;
    }
 
    n = oc_dn_len(buf, msglen);
@@ -491,20 +503,20 @@ int oc_proc_response(const char *buf, int msglen, uint16_t org_id, const struct 
    if (n != IP6REVLEN || *((uint16_t*) &buf[n]) != htons(T_PTR) || *((uint16_t*) &buf[n + 2]) != htons(C_IN))
    {
       log_debug("no ptr query");
-      return -1;
+      return OCRES_EFORMAT;
    }
 
    // convert reverse name to address
    if (oc_rev6ptr_addr(buf, (char*) &in6) == -1)
    {
       log_debug("name error");
-      return -1;
+      return OCRES_EFORMAT;
    }
 
    if (!IN6_ARE_ADDR_EQUAL(&in6, org_addr))
    {
       log_msg(LOG_ERR, "query name does not match expected query name");
-      return -1;
+      return OCRES_EFORMAT;
    }
 
    // advance buffer to answer section
@@ -515,7 +527,7 @@ int oc_proc_response(const char *buf, int msglen, uint16_t org_id, const struct 
    if (*((uint16_t*) &buf[n]) != htons(T_PTR) || *((uint16_t*) &buf[n + 2]) != htons(C_IN))
    {
       log_msg(LOG_ERR, "malformed answer");
-      return -1;
+      return OCRES_EFORMAT;
    }
 
    ttl = ntohl(*((uint32_t*) &buf[n + 4]));
@@ -523,13 +535,13 @@ int oc_proc_response(const char *buf, int msglen, uint16_t org_id, const struct 
    if (oc_dn_name((char*) dh, omsglen, buf + n + 10, name, sizeof(name)) == -1)
    {
       log_msg(LOG_WARNING, "could not decode name");
-      return -1;
+      return OCRES_EFORMAT;
    }
 
    if (hosts_add_entry(org_addr, name, dh->aa ? HSRC_NET_AA : HSRC_NET, time(NULL), ttl) == -1)
    {
       log_msg(LOG_WARNING, "could not add new hosts entry: %s", name);
-      return -1;
+      return OCRES_EHDB;
    }
 
    return 0;
@@ -648,3 +660,285 @@ void *oc_nameserver(void *UNUSED(p))
    return NULL;
 }
 
+
+#ifdef WITH_DNS_LOOKUP
+/*! This function receives a DNS response to one of the queries on orstate. If
+ * a message could successfully be related to a query in orstate, the orstate
+ * counter is decreased on the state of the query is set to OCRES_UNUSED.
+ * @param orstate Pointer to the orstate struct which should receive a message.
+ * @return The function returnes the index of the query within orstate, which
+ * is 0 <= index < MAX_CONCURRENT_Q. In case of error, -1 is returned.
+ */
+int ocres_recv(ocres_state_t *orstate)
+{
+   struct sockaddr_in6 saddr;
+   char buf[PACKETSZ];
+   socklen_t slen;
+   int i, len;
+
+   slen = sizeof(saddr);
+   if ((len = recvfrom(orstate->fd, buf, sizeof(buf), 0, (struct sockaddr*) &saddr, &slen)) == -1)
+   {
+      log_msg(LOG_ERR, "failed to receive DNS data on fd %d: %s", orstate->fd, strerror(errno));
+      return -1;
+   }
+
+   log_debug("received %d bytes on fd %d, checking identity", len, orstate->fd);
+
+   for (i = 0; i < MAX_CONCURRENT_Q; i++)
+   {
+      // ignore unused entries
+      if (orstate->qry[i].retry > DNS_MAX_RETRY)
+         continue;
+
+      // check if sender socket address matches nameserver
+      if (saddr.sin6_port != orstate->qry[i].ns.sin6_port || !IN6_ARE_ADDR_EQUAL(&saddr.sin6_addr, &orstate->qry[i].ns.sin6_addr))
+         continue;
+
+      // check if id of DNS message matches
+      if (((HEADER*) buf)->id != orstate->qry[i].id)
+         continue;
+
+      // process response
+      (void) oc_proc_response(buf, sizeof(buf), orstate->qry[i].id, &orstate->addr);
+      orstate->qry[i].retry = DNS_MAX_RETRY + 1;
+      orstate->cnt--;
+      break;
+   }
+
+   return i >= MAX_CONCURRENT_Q ? -1 : i;
+}
+
+
+/*! This function queues new reverse queries for address addr. There will be
+ * MAX_CONCURRENT_Q queries or less if there are not enough available
+ * nameservers.
+ * @param addr Pointer to IPv6 address to do query for.
+ * @return The function returns the number of queued queries which is 0 <=
+ * queries <= MAX_CONCURRENT_Q. In case of error, -1 is returned.
+ */
+int ocres_query(const struct in6_addr *addr)
+{
+   ocres_state_t *orstate;
+   int i, n, on, ret;
+
+   if ((orstate = malloc(sizeof(*orstate))) == NULL)
+   {
+      log_msg(LOG_ERR, "malloc() failed: %s", strerror(errno));
+      return -1;
+   }
+
+   orstate->cnt = 0;
+
+   if ((orstate->fd = socket(AF_INET6, SOCK_DGRAM, 0)) == -1)
+   {
+      log_msg(LOG_ERR, "could not create resolver socket: %s", strerror(errno));
+      free(orstate);
+      return -1;
+   }
+
+   for (i = 0, n = 0; i < MAX_CONCURRENT_Q; i++)
+   {
+      // get next nameserver address
+      on = n;
+      ret = hosts_get_ns_rr(&orstate->qry[i].ns.sin6_addr, &n);
+
+      // check if there aren't any potential nameservers
+      if (!i && ret == -1)
+      {
+         log_msg(LOG_ERR, "no nameservers available");
+         oe_close(orstate->fd);
+         free(orstate);
+         return -1;
+      }
+
+      // check if round robin list repeated
+      if (i && ret <= on)
+         break;
+
+      // init other fields of sockaddr struct
+      orstate->qry[i].ns.sin6_family = AF_INET6;
+      orstate->qry[i].ns.sin6_port = htons(CNF(ocat_ns_port));
+#ifdef HAVE_SIN_LEN
+      orstate->qry[i].ns.sin6_len = sizeof(orstate->qry[i].ns);
+#endif
+
+      // init other fields of this query
+      orstate->qry[i].id = rand() & 0xffff;
+      orstate->qry[i].retry = 0;
+      orstate->qry[i].restart_time = 0;
+      orstate->cnt++;
+   }
+
+   // mark remaining entries as 'unused
+   for (; i < MAX_CONCURRENT_Q; i++)
+      orstate->qry[i].retry = DNS_MAX_RETRY + 1;
+
+   IN6_ADDR_COPY(&orstate->addr, addr);
+   orstate->msg_len = oc_mk_ptrquery((char*) addr, orstate->msg, sizeof(orstate->msg), 0);
+
+   // safe return value
+   n = orstate->cnt;
+   // queue new entry
+   pthread_mutex_lock(&orstate_mutex_);
+   orstate->next = orstate_;
+   orstate_ = orstate;
+   pthread_mutex_unlock(&orstate_mutex_);
+
+   on = 1;
+   if (write(ocres_pipe_fd_[1], &on, sizeof(on)) == -1)
+      log_msg(LOG_ERR, "could not write to resolver pipe: %s", strerror(errno));
+
+   return n;
+}
+
+
+/*! This function removes elements to delete from lookup queue.
+ */
+static void ocres_cleanup(ocres_state_t **osp)
+{
+   ocres_state_t *orstate;
+
+   pthread_mutex_lock(&orstate_mutex_);
+   for (; *osp != NULL;)
+   {
+      if (!(*osp)->cnt)
+      {
+         orstate = *osp;
+         *osp = (*osp)->next;
+         oe_close(orstate->fd);
+         free(orstate);
+         continue;
+      }
+      osp = &(*osp)->next;
+   }
+   pthread_mutex_unlock(&orstate_mutex_);
+}
+
+
+/*! This is the resolver main loop. It works on the resolver queue, (re-)sends
+ * queries and revceives and processes the responses.
+ */
+void *oc_resolver(void *UNUSED(p))
+{
+   ocres_state_t *orstate;
+   struct timeval tv;
+   int i, n, maxfd, len;
+   fd_set rset;
+   time_t tm;
+
+   detach_thread();
+
+   // init communication pipe
+   if (pipe(ocres_pipe_fd_) == -1)
+   {
+      log_msg(LOG_ERR, "could not create resolver pipe: %s", strerror(errno));
+      return NULL;
+   }
+
+   set_thread_ready();
+
+   while (!term_req())
+   {
+      ocres_cleanup(&orstate_);
+
+      FD_ZERO(&rset);
+      FD_SET(ocres_pipe_fd_[0], &rset);
+      maxfd = ocres_pipe_fd_[0];
+
+      tm = time(NULL);
+
+      pthread_mutex_lock(&orstate_mutex_);
+      for (orstate = orstate_; orstate != NULL; orstate = orstate->next)
+      {
+         if (!orstate->cnt)
+            continue;
+
+         for (i = 0, n = 0; i < MAX_CONCURRENT_Q && n < orstate->cnt; i++)
+         {
+            // ignore those which already exeeded retry limit
+            if (orstate->qry[i].retry > DNS_MAX_RETRY)
+               continue;
+
+            // ignore if restart time did not elapse yet
+            if (orstate->qry[i].restart_time > tm)
+               continue;
+
+            // prepare for sending query
+            n++;
+            orstate->qry[i].restart_time = tm + DNS_RETRY_TIMEOUT;
+            orstate->qry[i].retry++;
+            ((HEADER*) orstate->msg)->id = orstate->qry[i].id;
+
+            // send query
+            len = sendto(orstate->fd, orstate->msg, orstate->msg_len, 0, (struct sockaddr*) &orstate->qry[i].ns, sizeof(orstate->qry[i].ns));
+            if (len == -1)
+            {
+               log_msg(LOG_ERR, "could not send dns query: %s", strerror(errno));
+               break;
+            }
+
+            if (len < orstate->msg_len)
+               log_msg(LOG_ERR, "truncated write on fd %d: %d < %d", orstate->fd, len, orstate->msg_len);
+         }
+
+         MFD_SET(orstate->fd, &rset, maxfd);
+      }
+      pthread_mutex_unlock(&orstate_mutex_);
+
+      set_select_timeout0(&tv, DNS_RETRY_TIMEOUT);
+      if ((n = select(maxfd + 1, &rset, NULL, NULL, &tv)) == -1)
+      {
+         log_msg(LOG_ERR, "select encountered error: \"%s\", restarting", strerror(errno));
+         continue;
+      }
+
+      // check if resolver pipe is ready
+      if (FD_ISSET(ocres_pipe_fd_[0], &rset))
+      {
+         n--;
+         len = read(ocres_pipe_fd_[0], &maxfd, sizeof(maxfd));
+         if (len == -1)
+         {
+            log_msg(LOG_ERR, "could not read from resolver pipe: %s", strerror(errno));
+         }
+         else if (!len)
+         {
+            log_msg(LOG_NOTICE, "resolver pipe was closed");
+            break;
+         }
+         else
+         {
+            log_debug("received %d on resolver pipe", maxfd);
+         }
+      }
+
+      // receive messages on sockets that are ready
+      pthread_mutex_lock(&orstate_mutex_);
+      for (orstate = orstate_; orstate != NULL && n > 0; orstate = orstate->next)
+      {
+         if (FD_ISSET(orstate->fd, &rset))
+         {
+            n--;
+            (void) ocres_recv(orstate);
+         }
+      }
+      pthread_mutex_unlock(&orstate_mutex_);
+   }
+
+   // close pipe
+   oe_close(ocres_pipe_fd_[0]);
+   oe_close(ocres_pipe_fd_[1]);
+
+   // set active query counters to 0
+   pthread_mutex_lock(&orstate_mutex_);
+   for (orstate = orstate_; orstate != NULL; orstate = orstate->next)
+      orstate->cnt = 0;
+   pthread_mutex_unlock(&orstate_mutex_);
+
+   // cleanup (close & free) all remaining queries
+   ocres_cleanup(&orstate_);
+
+   return NULL;
+}
+#endif

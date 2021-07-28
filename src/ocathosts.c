@@ -333,29 +333,45 @@ int hosts_get_name(const struct in6_addr *addr, char *buf, int s)
 }
 
 
-/*! Get address of a name server.
- * FIXME: Currently this always returns the first entry in the list.
+/*! Get address of a name server from the hosts db in round robin order.
  * @param addr Pointer to memory which will receive the address.
  * @return The function returns the index in the hosts table of the entry which
  * is always >= 0. On error, -1 is returned.
  */
-int hosts_get_ns(struct in6_addr *addr)
+int hosts_get_ns_rr(struct in6_addr *addr, int *nptr)
 {
    int n;
 
    // safety check
-   if (addr == NULL)
+   if (addr == NULL || nptr == NULL)
       return -1;
 
+   n = *nptr;
+   n++;
+
    pthread_mutex_lock(&hosts_mutex_);
-   for (n = 0; n < hosts_.hosts_ent_cnt; n++)
+
+   // make sure n is smaller than table num of entries (i.e. if length of list decreased since the last call)
+   if (n >= hosts_.hosts_ent_cnt)
+      n = 0;
+
+   for (; n < hosts_.hosts_ent_cnt; n++)
       if (hosts_.hosts_ent[n].source > HSRC_SELF)
       {
          IN6_ADDR_COPY(addr, &hosts_.hosts_ent[n].addr);
          break;
       }
    pthread_mutex_unlock(&hosts_mutex_);
+
+   *nptr = n;
    return n < hosts_.hosts_ent_cnt ? n : -1;
+}
+
+
+int hosts_get_ns(struct in6_addr *addr)
+{
+   static int n = 0;
+   return hosts_get_ns_rr(addr, &n);
 }
 
 
