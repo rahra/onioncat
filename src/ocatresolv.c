@@ -195,7 +195,7 @@ int oc_rev6ptr_addr(const char *buf, char *in6)
 }
 
 
-/*! Determine the lenght of a label, i.e. the number of characters until a '.'
+/*! Determine the length of a label, i.e. the number of characters until a '.'
  * or '\0' character is found. The separating character is not included in the
  * result.
  * @param s Pointer to a \0-terminated string.
@@ -449,6 +449,17 @@ int oc_proc_request(char *buf, int msglen, int buflen)
 }
 
 
+/*! This function processes the response message of a DNS query and adds the
+ * answer to the internal hosts db if the message was correct. A thourough
+ * error checking of the message is done.
+ * @param buf Pointer to the received message.
+ * @param msglen Length of the message in bytes.
+ * @param orig_id Expected id (which was set in the original query).
+ * @param org_addr Address which was queried.
+ * @return On success, the function returned 0. On error a negative value is
+ * returned which allows to distinguish the kind of error. The error is one of
+ * OCRES_Exxx which are defined in ocatresolv.h (see their for description).
+ */
 int oc_proc_response(const char *buf, int msglen, uint16_t org_id, const struct in6_addr *org_addr)
 {
    char name[SIZE_256];
@@ -548,6 +559,11 @@ int oc_proc_response(const char *buf, int msglen, uint16_t org_id, const struct 
 }
 
 
+/*! This function creates a DGRAM socket suitable to receive OnionCat DNS
+ * queries.
+ * @return On success the function returns a valid filedescriptor. On error, -1
+ * is returned.
+ */
 int oc_ns_socket(void)
 {
    struct sockaddr_in6 s6addr;
@@ -793,7 +809,7 @@ int ocres_query(const struct in6_addr *addr)
 }
 
 
-/*! This function removes elements to delete from lookup queue.
+/*! This function removes elements ready for deletion from lookup queue.
  */
 static void ocres_cleanup(ocres_state_t **osp)
 {
@@ -817,7 +833,7 @@ static void ocres_cleanup(ocres_state_t **osp)
 
 
 /*! This is the resolver main loop. It works on the resolver queue, (re-)sends
- * queries and revceives and processes the responses.
+ * queries and receives and processes the responses.
  */
 void *oc_resolver(void *UNUSED(p))
 {
@@ -840,20 +856,25 @@ void *oc_resolver(void *UNUSED(p))
 
    while (!term_req())
    {
+      // clean queue entries which are ready for deletion
       ocres_cleanup(&orstate_);
 
+      // init read set and add communication pipe
       FD_ZERO(&rset);
       FD_SET(ocres_pipe_fd_[0], &rset);
       maxfd = ocres_pipe_fd_[0];
 
       tm = time(NULL);
 
+      // loop over all entries in the queue
       pthread_mutex_lock(&orstate_mutex_);
       for (orstate = orstate_; orstate != NULL; orstate = orstate->next)
       {
+         // ignore entries which are ready for deletion
          if (!orstate->cnt)
             continue;
 
+         // loop over all queries per entry
          for (i = 0, n = 0; i < MAX_CONCURRENT_Q && n < orstate->cnt; i++)
          {
             // ignore those which already exeeded retry limit
@@ -872,20 +893,22 @@ void *oc_resolver(void *UNUSED(p))
 
             // send query
             len = sendto(orstate->fd, orstate->msg, orstate->msg_len, 0, (struct sockaddr*) &orstate->qry[i].ns, sizeof(orstate->qry[i].ns));
+            // and check for errors
             if (len == -1)
             {
                log_msg(LOG_ERR, "could not send dns query: %s", strerror(errno));
                break;
             }
-
+            // and check if read was truncated (which should never happen...)
             if (len < orstate->msg_len)
                log_msg(LOG_ERR, "truncated write on fd %d: %d < %d", orstate->fd, len, orstate->msg_len);
          }
-
+         // add file descriptor to read set
          MFD_SET(orstate->fd, &rset, maxfd);
       }
       pthread_mutex_unlock(&orstate_mutex_);
 
+      // wait for any fd to get ready
       set_select_timeout0(&tv, DNS_RETRY_TIMEOUT);
       if ((n = select(maxfd + 1, &rset, NULL, NULL, &tv)) == -1)
       {
@@ -921,6 +944,7 @@ void *oc_resolver(void *UNUSED(p))
          {
             n--;
             (void) ocres_recv(orstate);
+            sig_socks_connector();
          }
       }
       pthread_mutex_unlock(&orstate_mutex_);
