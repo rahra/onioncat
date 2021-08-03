@@ -835,6 +835,7 @@ static void ocres_cleanup(ocres_state_t **osp)
    {
       if (!(*osp)->cnt)
       {
+         log_debug("removing entry, fd = %d", (*osp)->fd);
          orstate = *osp;
          *osp = (*osp)->next;
          oe_close(orstate->fd);
@@ -899,6 +900,14 @@ void *oc_resolver(void *UNUSED(p))
             // ignore if restart time did not elapse yet
             if (orstate->qry[i].restart_time > tm)
                continue;
+
+            // after max retries decease counter
+            if (orstate->qry[i].retry == DNS_MAX_RETRY)
+            {
+               orstate->qry[i].retry++;
+               orstate->cnt--;
+               continue;
+            }
 
             // prepare for sending query
             n++;
