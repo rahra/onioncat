@@ -1,14 +1,15 @@
 
 AC_PREREQ(2.62)
 #define([svnversion], esyscmd([sh -c "echo -n $(wc -l <GitLog)"]))dnl
-AC_INIT([onioncat],[[0.4.2]],[bf@abenteuerland.at])
+AC_INIT([onioncat],[[0.4.3]],[bf@abenteuerland.at])
 AM_INIT_AUTOMAKE([-Wall -Werror])
 AC_SUBST([CFLAGS], [["$CFLAGS -Wall -Wextra"]])
 AC_CONFIG_HEADERS([config.h])
 
 AC_DEFINE(SVN_REVISION, "svnversion", [SVN Revision])
 AC_DEFINE([WITH_LOOPBACK_RESPONDER], [1], [Enable loopback_responder().])
-AC_DEFINE([WITH_DNS_LOOKUP], [1], [Enable DNS lookup for v3 names.])
+#AC_DEFINE([WITH_DNS_LOOKUP], [1], [Enable DNS lookup for v3 names.])
+AC_DEFINE([WITH_DNS_RESOLVER], [1], [Enable DNS lookup for v3 names with resolver.])
 
 
 AC_ARG_ENABLE([debug], AS_HELP_STRING([--enable-debug],[enable debugging]), 

@@ -27,6 +27,7 @@
 #include "ocat.h"
 #include "ocat_netdesc.h"
 #include "ocathosts.h"
+#include "ocatresolv.h"
 #include <netdb.h>
 
 
@@ -659,6 +660,21 @@ void *socks_connector_sel(void *UNUSED(p))
                }
 #endif
 
+#ifdef WITH_DNS_RESOLVER
+               // request hostname from resolver if not already available
+               if (CNF(dns_lookup) && get_hostname(squeue, NULL, 0) == -1 && squeue->retry <= 1)
+               {
+                  log_msg(LOG_INFO, "signalling resolver");
+                  if (ocres_query(&squeue->addr) > 0)
+                  {
+                     squeue->state = SOCKS_DNS_SENT;
+                     squeue->retry = 0;
+                     squeue->restart_time = t + SOCKS_DNS_RETRY_TIMEOUT;
+                     continue;
+                  }
+               }
+#endif
+
 #ifdef DIRECT_CONNECTIONS
                if (CNF(socks5) == CONNTYPE_DIRECT)
                {
@@ -737,6 +753,48 @@ void *socks_connector_sel(void *UNUSED(p))
                }
                break;
 #endif
+
+#ifdef WITH_DNS_RESOLVER
+            case SOCKS_DNS_SENT:
+               // do a local lookup anyway
+               if (get_hostname(squeue, NULL, 0) >= 0)
+               {
+                  // hostname found, reinit socksqueue struct
+                  log_debug("hostname found");
+                  squeue->state = SOCKS_NEW;
+                  squeue->restart_time = 0;
+                  squeue->retry = 0;
+
+                  // restart queue search
+                  sq.next = socks_queue_;
+                  squeue = &sq;
+                  continue;
+               }
+
+               // check dns timeout
+               if (t < squeue->restart_time)
+                  continue;
+
+                // wait another period
+               if (squeue->retry < SOCKS_DNS_RETRY)
+               {
+                  squeue->retry++;
+                  squeue->restart_time = t + SOCKS_DNS_RETRY_TIMEOUT;
+               }
+               else
+               {
+                  // FIXME: not sure if this is working, have a look at the retry counters...
+                  log_msg(LOG_INFO, "trying request with V2 hostname");
+                  squeue->state = SOCKS_NEW;
+                  squeue->restart_time = 0;
+                  squeue->retry = 1;                  // do this to get lookup skipped in ´case SOCKS_NEW´.
+               }
+               break;
+#endif
+
+            default:
+               log_msg(LOG_CRIT, "unknown state %d", squeue->state);
+               exit(EXIT_FAILURE);
          }
       }
 
@@ -770,7 +828,7 @@ void *socks_connector_sel(void *UNUSED(p))
             }
             else if (IN6_IS_ADDR_UNSPECIFIED(&sq.addr))
             {
-               log_debug("termination request on SOCKS request queue received");
+               log_debug("wakeup request on SOCKS request pipe received");
             }
             else
             {

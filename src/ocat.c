@@ -25,6 +25,7 @@
 #include "ocat.h"
 #include "ocat_netdesc.h"
 #include "ocathosts.h"
+#include "ocatresolv.h"
 
 
 void usage(const char *s)
@@ -803,6 +804,12 @@ int main(int argc, char *argv[])
       parse_opt_late(argc, argv);
       hosts_check();
    }
+
+#ifdef WITH_DNS_RESOLVER
+   // run resolver if enabled
+   if (CNF(dns_lookup))
+      run_ocat_thread("resolver", oc_resolver, NULL);
+#endif
 
    if (CNF(create_clog))
       open_connect_log(pwd->pw_dir);

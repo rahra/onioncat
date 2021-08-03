@@ -48,9 +48,11 @@
 #define IP6REVLEN 74
 
 
+#ifdef WITH_DNS_RESOLVER
 static ocres_state_t *orstate_ = NULL;
 static pthread_mutex_t orstate_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static int ocres_pipe_fd_[2];
+#endif
 
 
 /*! This function returns the length (number of bytes) of raw dns name in a dns
@@ -687,7 +689,7 @@ void *oc_nameserver(void *UNUSED(p))
 }
 
 
-#ifdef WITH_DNS_LOOKUP
+#ifdef WITH_DNS_RESOLVER
 /*! This function receives a DNS response to one of the queries on orstate. If
  * a message could successfully be related to a query in orstate, the orstate
  * counter is decreased on the state of the query is set to OCRES_UNUSED.
@@ -740,8 +742,9 @@ int ocres_recv(ocres_state_t *orstate)
  * MAX_CONCURRENT_Q queries or less if there are not enough available
  * nameservers.
  * @param addr Pointer to IPv6 address to do query for.
- * @return The function returns the number of queued queries which is 0 <=
- * queries <= MAX_CONCURRENT_Q. In case of error, -1 is returned.
+ * @return The function returns the number of queued queries which is 0 <
+ * queries <= MAX_CONCURRENT_Q. If no suitable nameserver is found, 0 is
+ * returned. In case of error, -1 is returned.
  */
 int ocres_query(const struct in6_addr *addr)
 {
@@ -775,7 +778,7 @@ int ocres_query(const struct in6_addr *addr)
          log_msg(LOG_ERR, "no nameservers available");
          oe_close(orstate->fd);
          free(orstate);
-         return -1;
+         return 0;
       }
 
       // check if round robin list repeated

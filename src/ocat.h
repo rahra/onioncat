@@ -135,6 +135,10 @@
 #include "cygwin/ocat_cygwin.h"
 #endif
 
+#if defined(WITH_DNS_LOOKUP) && defined(WITH_DNS_RESOLVER)
+#error "WITH_DNS_LOOKUP and WITH_DNS_RESOLVER cannot both be defined at the same time."
+#endif
+
 #ifdef UNUSED
 #elif defined(__GNUC__)
 # define UNUSED(x) UNUSED_ ## x __attribute__((unused))
