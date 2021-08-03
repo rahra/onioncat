@@ -70,7 +70,7 @@ typedef struct ocres_state
    struct in6_addr addr;
    ocres_query_t qry[MAX_CONCURRENT_Q];
    int msg_len;
-   char msg[NS_PACKETSZ];
+   char msg[PACKETSZ];
 } ocres_state_t;
 
 
