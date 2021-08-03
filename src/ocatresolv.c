@@ -317,14 +317,24 @@ static int oc_dn_name0(int level, const char *msg, int msglen, const char *dn, c
       }
 
       // if it is a compressed label, recurse
-      if (c == 0xc0)
-         return oc_dn_name0(level + 1, msg, msglen, msg + *((unsigned char*) dn), buf, len);
+      if ((c & 0xc0) == 0xc0)
+         return oc_dn_name0(level + 1, msg, msglen, msg + *((unsigned char*) dn) + ((c & 0x3f) << 8), buf, len);
    }
 
    return -1;
 }
 
 
+/*! This function decodes a name as found in a dns message into a regular dns
+ * name aaa.bbb.tld.
+ * @param msg Pointer to the beginning of the message.
+ * @param msglen Length of the message in bytes.
+ * @param dn Pointer to name within the message to decoded.
+ * @param buf Pointer to the destination buffer.
+ * @param len Size of the destination buffer.
+ * @return The function returns the length of the decoded string or -1 in case
+ * of error.
+ */
 int oc_dn_name(const char *msg, int msglen, const char *dn, char *buf, int len)
 {
    return oc_dn_name0(0, msg, msglen, dn, buf, len);
