@@ -525,7 +525,7 @@ int socks_dns_req(SocksQueue_t *sq)
    int n, len;
 
    memset(&sq->ns_addr, 0, sizeof(sq->ns_addr));
-   if (hosts_get_ns(&sq->ns_addr.sin6_addr) == -1)
+   if (hosts_get_ns(&sq->ns_addr.sin6_addr, &sq->ns_src) == -1)
    {
       log_msg(LOG_WARNING, "no DNS server available");
       return -1;
@@ -576,7 +576,7 @@ int socks_dns_recv(SocksQueue_t *sq)
       return -1;
    }
 
-   return oc_proc_response(buf, sizeof(buf), sq->id, &sq->addr);
+   return oc_proc_response(buf, sizeof(buf), sq->id, &sq->addr, sq->ns_src);
 }
 #endif
 

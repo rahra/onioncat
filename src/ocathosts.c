@@ -338,7 +338,7 @@ int hosts_get_name(const struct in6_addr *addr, char *buf, int s)
  * @return The function returns the index in the hosts table of the entry which
  * is always >= 0. On error, -1 is returned.
  */
-int hosts_get_ns_rr(struct in6_addr *addr, int *nptr)
+int hosts_get_ns_rr(struct in6_addr *addr, hsrc_t *ns_src, int *nptr)
 {
    int n;
 
@@ -359,6 +359,8 @@ int hosts_get_ns_rr(struct in6_addr *addr, int *nptr)
       if (hosts_.hosts_ent[n].source > HSRC_SELF)
       {
          IN6_ADDR_COPY(addr, &hosts_.hosts_ent[n].addr);
+         if (ns_src != NULL)
+            *ns_src = hosts_.hosts_ent[n].source;
          break;
       }
    pthread_mutex_unlock(&hosts_mutex_);
@@ -368,10 +370,10 @@ int hosts_get_ns_rr(struct in6_addr *addr, int *nptr)
 }
 
 
-int hosts_get_ns(struct in6_addr *addr)
+int hosts_get_ns(struct in6_addr *addr, hsrc_t *ns_src)
 {
    static int n = 0;
-   return hosts_get_ns_rr(addr, &n);
+   return hosts_get_ns_rr(addr, ns_src, &n);
 }
 
 

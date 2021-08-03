@@ -468,11 +468,12 @@ int oc_proc_request(char *buf, int msglen, int buflen)
  * @param msglen Length of the message in bytes.
  * @param orig_id Expected id (which was set in the original query).
  * @param org_addr Address which was queried.
+ * @param ns_src Source of the name server which was queried.
  * @return On success, the function returned 0. On error a negative value is
  * returned which allows to distinguish the kind of error. The error is one of
  * OCRES_Exxx which are defined in ocatresolv.h (see their for description).
  */
-int oc_proc_response(const char *buf, int msglen, uint16_t org_id, const struct in6_addr *org_addr)
+int oc_proc_response(const char *buf, int msglen, uint16_t org_id, const struct in6_addr *org_addr, hsrc_t ns_src)
 {
    char name[SIZE_256];
    struct in6_addr in6;
@@ -561,7 +562,8 @@ int oc_proc_response(const char *buf, int msglen, uint16_t org_id, const struct 
       return OCRES_EFORMAT;
    }
 
-   if (hosts_add_entry(org_addr, name, dh->aa ? HSRC_NET_AA : HSRC_NET, time(NULL), ttl) == -1)
+   log_msg(LOG_INFO, "DNS server replied name: %s", name);
+   if (hosts_add_entry(org_addr, name, dh->aa && ns_src <= HSRC_HOSTS ? HSRC_NET_AA : HSRC_NET, time(NULL), ttl) == -1)
    {
       log_msg(LOG_WARNING, "could not add new hosts entry: %s", name);
       return OCRES_EHDB;
@@ -728,7 +730,7 @@ int ocres_recv(ocres_state_t *orstate)
          continue;
 
       // process response
-      (void) oc_proc_response(buf, sizeof(buf), orstate->qry[i].id, &orstate->addr);
+      (void) oc_proc_response(buf, sizeof(buf), orstate->qry[i].id, &orstate->addr, orstate->qry[i].ns_src);
       orstate->qry[i].retry = DNS_MAX_RETRY + 1;
       orstate->cnt--;
       break;
@@ -770,7 +772,7 @@ int ocres_query(const struct in6_addr *addr)
    {
       // get next nameserver address
       on = n;
-      ret = hosts_get_ns_rr(&orstate->qry[i].ns.sin6_addr, &n);
+      ret = hosts_get_ns_rr(&orstate->qry[i].ns.sin6_addr, &orstate->qry[i].ns_src, &n);
 
       // check if there aren't any potential nameservers
       if (!i && ret == -1)

@@ -130,10 +130,10 @@
 #ifdef HAVE_NET_TUN_IF_TUN_H
 #include <net/tun/if_tun.h>
 #endif
-
 #ifdef __CYGWIN__
 #include "cygwin/ocat_cygwin.h"
 #endif
+#include "ocatresolv.h"
 
 #if defined(WITH_DNS_LOOKUP) && defined(WITH_DNS_RESOLVER)
 #error "WITH_DNS_LOOKUP and WITH_DNS_RESOLVER cannot both be defined at the same time."
@@ -550,6 +550,7 @@ typedef struct SocksQueue
 #ifdef WITH_DNS_LOOKUP
    struct sockaddr_in6 ns_addr;
    uint16_t id;
+   hsrc_t ns_src;
 #endif
 } SocksQueue_t;
 
@@ -812,12 +813,6 @@ int win_write_tun(const char *, int);
 #define tun_read(x,y,z) read(x,y,z)
 #define tun_write(x,y,z) write(x,y,z)
 #endif
-
-/* ocatresolv.c */
-int oc_mk_ptrquery(const char *, char *, int, uint16_t);
-void *oc_nameserver(void *);
-int oc_proc_response(const char *, int, uint16_t, const struct in6_addr *);
-
 
 #endif
 

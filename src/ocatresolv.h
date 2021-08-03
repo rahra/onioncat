@@ -31,6 +31,7 @@
 #ifdef HAVE_ARPA_NAMESER_H
 #include <arpa/nameser.h>
 #endif
+#include "ocathosts.h"
 
 
 #define DNS_MAX_RETRY 5
@@ -58,6 +59,7 @@ typedef struct ocres_query
    int retry;
    int id;
    struct sockaddr_in6 ns;
+   hsrc_t ns_src;
 } ocres_query_t;
 
 typedef struct ocres_state
@@ -72,6 +74,8 @@ typedef struct ocres_state
 } ocres_state_t;
 
 
+int oc_mk_ptrquery(const char *, char *, int, uint16_t);
+int oc_proc_response(const char *, int , uint16_t , const struct in6_addr *, hsrc_t );
 void *oc_nameserver(void *);
 void *oc_resolver(void *);
 int ocres_query(const struct in6_addr *);
