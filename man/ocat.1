@@ -121,7 +121,7 @@ only be created if OnionCat was compiled with option DEBUG (i.e. configure was
 run with option \-\-enable\-debug).
 .TP
 \fB\-D\fP
-Disable OnionCat's DNS lookup. If OnionCat hast to make an outgoing connection
+Disable OnionCat's DNS lookup. If OnionCat has to make an outgoing connection
 but no suitable entry is found in the internal hosts db, OnionCat will do a DNS
 query at the hosts found in the internal hosts db. This option deactivates this
 feature.
@@ -182,8 +182,9 @@ Read initial configuration from \fIconfig file\fP.
 .TP
 \fB\-g\fP \fIhosts_path\fP
 Set the path to the hosts file. This option automatically enables option \-H
-(see there). If \-g is not set, the path defaults to the system hosts file
-which typically is /etc/hosts on Un*x systems.
+(see there). If \-g is not set, the path defaults to
+SYSCONFDIR/tor/onioncat.hosts where SYSCONFDIR typically is /etc or
+/usr/local/etc.
 .TP
 \fB\-H\fP
 This option disables the hosts reverse lookup in the internal hosts db. Host
@@ -207,7 +208,7 @@ names "make sense", i.e. it checks if the name is a valid onion name, and it
 checks if the name translates to the right IP.
 .br
 This is a security feature. Rogue OnionCats could send special crafted
-keepalives are DNS answers which may trick OnionCat into connecting somewhere
+keepalives or DNS answers which may trick OnionCat into connecting somewhere
 else instead outside of the Tor network or to a fake hidden service.
 .TP
 \fB\-l\fP \fI[ip:]port\fP
@@ -228,13 +229,14 @@ log file.
 Convert \fIIPv6 address\fP to \fIonion_id\fP and exit program.
 .TP
 \fB\-p\fP
-Use TAP device instead of TUN device. There are a view differences. See \fBTAP
+Use TAP device instead of TUN device. There are a few differences. See \fBTAP
 DEVICE\fP later.
 .TP
 \fB\-P\fP \fI[pid file]\fP
-Create \fIpid file\fP at \fIpid_file\fP. If the option parameter is omitted OC
-will create a pid file at \fB/var/run/ocat.pid\fP. In the latter case it MUST
-NOT be the last option in the list of options.
+Create \fIpid file\fP at \fIpid_file\fP. If the option parameter is omitted
+OnionCat will create a pid file at \fB/var/run/ocat.pid\fP. In the latter case
+it must not be the last option in the list of options or the options list is
+terminated with a "--".
 .TP
 \fB\-r\fP
 Run OnionCat as root and do not change user id (see option \fB\-u\fP).
@@ -248,9 +250,10 @@ connections. If you plan to also receive connections (e.g.  because you provide
 a service or you use software which opens sockets for incoming connections
 like Bitorrent) you MUST configure a hidden service and supply its hostname to
 OnionCat on the command line.
-Please note that this option does only work if the remote OC does not run in
-unidirectional mode which is default since SVN version 555 (see option
+Please note that this option does only work if the remote OnionCat does NOT run
+in unidirectional mode which is default since SVN version 555 (see option
 \fB\-U\fP).
+So usually you will not use this option.
 .TP
 \fB\-S\fP
 OnionCat runs a lightweight DNS services to respond to DNS queries from other
@@ -264,8 +267,10 @@ not be changed.
 .TP
 \fB\-t\fP \fI(IP|[IP:]port)\fP
 Set Tor SOCKS \fIIP\fP and/or \fIport\fP. If no \fIIP\fP is specified 127.0.0.1
-will be used, if no \fIport\fP is specified 9050 will be used as defaults. IPv6
-addresses must be escaped by square brackets.
+will be used, if no \fIport\fP is specified, 9050 will be used as default. If
+compiled on Windows with Cygwin 9150 will be used because this is the default
+for the Tor browser bundle. In GarliCat mode it defaults to 9051.
+IPv6 addresses must be escaped by square brackets.
 .br
 The special parameter \fI"none"\fP disables OnionCat from making outbound
 connections. This shall be used only in special test scenarios.
@@ -274,7 +279,7 @@ connections. This shall be used only in special test scenarios.
 TUN device file to open for creation of TUN interface. It defaults to
 /dev/net/tun on Linux and /dev/tun0 on most other OSes, or /dev/tap0 if TAP
 mode is in use. Setup of a TUN device needs root permissions. OnionCat
-automatically changes userid after the TUN device is set up correctly.
+automatically changes its uid and gid after the TUN device is set up correctly.
 .TP
 \fB\-U\fP
 Deactivate unidirectional mode. Before SVN version 555 OnionCat ran only in
@@ -282,8 +287,13 @@ bidirectional mode. This is that a connection to another OC was used for
 outgoing \fIand\fP incoming packets. Since this could be a security risk under
 certain conditions, unidirectional mode was implemented in SVN r555 and set to
 default. With this option bidirectional mode can be enabled again. Please note
-that this does not interoperate with option \fB\-R\fP if the remote OC is
-working in unidirectional mode.
+that the unidirectional mode does not interoperate with option \fB\-R\fP if the
+remote OC is working in unidirectional mode.
+If option \fB\-R\fP is not used (which is the regular case), unidirectional und
+bidirectional OnionCats can be mixed.
+Please note that the only advantage of bidirectional mode is that it has a
+lower setup time since it needs only one Tor circuit. Unidirectional mode needs
+two circuits, one for each direction.
 .TP
 \fB\-u\fP \fIusername\fP
 \fIusername\fP under which OnionCat should run. The uid is changed as soon as
