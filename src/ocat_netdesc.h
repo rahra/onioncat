@@ -78,8 +78,13 @@ extern const struct NetDesc netdesc_[2];
 #define TOR_OCAT_CTRL_PORT 8066
 //! Virtual destination port for hidden services
 #define TOR_OCAT_DEST_PORT 8060
+#ifndef __CYGWIN__
 //! SOCKS port of TOR proxy
 #define TOR_SOCKS_PORT 9050
+#else
+//! SOCKS port of TOR proxy on Windows with the Tor browser bundle
+#define TOR_SOCKS_PORT 9150
+#endif
 #define TOR_OCAT_CONNECT_LOG "ocat_connect_log"
 #define TOR_PID_FILE "/var/run/ocat.pid"
 //! length of HSv3 names
