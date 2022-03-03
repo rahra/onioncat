@@ -344,7 +344,7 @@ int oc_dn_name(const char *msg, int msglen, const char *dn, char *buf, int len)
 
 
 /*! This function processes a DNS request and constructs the answer directly
- * into the same buffer. If the request contains a value PTR request and the
+ * into the same buffer. If the request contains a valid PTR request and the
  * name is found in the local database, a valid reply message is formed. If the
  * request contains any valid query or the name of the PTR request is not
  * found, a NXDOMAIN message is formed. If a format error in the request is
@@ -433,7 +433,7 @@ int oc_proc_request(char *buf, int msglen, int buflen)
    }
 
    // set authorative answer for hosts file entries
-   if (source == HSRC_HOSTS)
+   if (source <= HSRC_HOSTS)
       dh->aa = 1;
 
    // advance buf pointer to section befind question
