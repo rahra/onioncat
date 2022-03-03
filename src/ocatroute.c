@@ -1013,7 +1013,8 @@ void packet_forwarder(void)
          if (!has_tor_prefix(dest))
          {
             char abuf[INET6_ADDRSTRLEN];
-            log_msg(LOG_ERR, "no route to destination %s, dropping frame.", inet_ntop(AF_INET6, &destbuf, abuf, INET6_ADDRSTRLEN));
+            if (!IN6_IS_ADDR_MULTICAST(&destbuf))
+               log_msg(LOG_ERR, "no route to destination %s, dropping frame.", inet_ntop(AF_INET6, &destbuf, abuf, INET6_ADDRSTRLEN));
             continue;
          }
       }
