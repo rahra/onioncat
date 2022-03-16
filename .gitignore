@@ -14,3 +14,9 @@ config.log
 config.status
 stamp-h1
 ocat
+compile
+config.guess
+config.sub
+depcomp
+install-sh
+missing
