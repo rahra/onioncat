@@ -1,4 +1,4 @@
-/* Copyright 2008 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2022 Bernhard R. Fischer
  *
  * This file is part of OnionCat.
  *
@@ -15,12 +15,12 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*! ocatpeer.c
+/*! \file ocatpeer.c
  *  This file contains function on managing the peer list, i.e.
  *  adding, removing peers and thread locking mechanism.
  *
- *  @author Bernhard R. Fischer <rahra _at_ cypherpunk at>
- *  @version 2008/02/03-01
+ *  \author Bernhard R. Fischer <bf@abenteuerland.at>
+ *  \date 2022/03/16
  */
 
 
@@ -65,6 +65,8 @@ int unlock_peers(void)
  *  maybe unlock directly after lock_peer(). */
 int lock_peer(OcatPeer_t *peer)
 {
+   // safety check
+   if (peer == NULL) return -1;
    return pthread_mutex_lock(&peer->mutex);
 }
 
@@ -73,6 +75,8 @@ int lock_peer(OcatPeer_t *peer)
  *  calling lock_peers() before! */
 int unlock_peer(OcatPeer_t *peer)
 {
+   // safety check
+   if (peer == NULL) return -1;
    return pthread_mutex_unlock(&peer->mutex);
 }
 

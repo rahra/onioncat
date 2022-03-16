@@ -1,4 +1,4 @@
-/* Copyright 2008-2019 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2022 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -19,8 +19,8 @@
  *  Contains functions for managing both kind of TCP peers.
  *  Those are active SOCKS4A and passive TCP-LISTEN.
  *
- *  @author Bernhard Fischer <rahra _at_ cypherpunk at>
- *  \date 2019/09/08
+ *  \author Bernhard Fischer <bf@abenteuerland.at>
+ *  \date 2022/03/16
  */
 
 
@@ -439,6 +439,12 @@ void *socket_receiver(void *UNUSED(p))
          }
          lock_peer(peer);
          unlock_peers();
+
+         if (peer == NULL)
+         {
+            log_msg(LOG_CRIT, "peer = NULL, this should never happen");
+            break;
+         }
 
          if (peer->state != PEER_ACTIVE)
          {
