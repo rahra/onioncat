@@ -1,5 +1,5 @@
 
-AC_PREREQ([2.71])
+AC_PREREQ([2.62])
 #define([svnversion], esyscmd([sh -c "echo -n $(wc -l <GitLog)"]))dnl
 AC_INIT([onioncat],[[0.4.3]],[bf@abenteuerland.at])
 AM_INIT_AUTOMAKE([-Wall -Werror])
