@@ -430,7 +430,14 @@ void *socket_receiver(void *UNUSED(p))
          // to write this as a for loop but it's necessary for thread locking!
          lock_peers();
          if (!peer)
+         {
             peer = get_first_peer();
+            if (peer == NULL)
+            {
+               log_msg(LOG_INFO, "no peers, looks like program exiting");
+               break;
+            }
+         }
          else if (!(peer = peer->next))
          {
             log_msg(LOG_EMERG, "fd %d ready but no peer found");
@@ -439,12 +446,6 @@ void *socket_receiver(void *UNUSED(p))
          }
          lock_peer(peer);
          unlock_peers();
-
-         if (peer == NULL)
-         {
-            log_msg(LOG_CRIT, "peer = NULL, this should never happen");
-            break;
-         }
 
          if (peer->state != PEER_ACTIVE)
          {
