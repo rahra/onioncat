@@ -435,6 +435,7 @@ void *socket_receiver(void *UNUSED(p))
             if (peer == NULL)
             {
                log_msg(LOG_INFO, "no peers, looks like program exiting");
+               unlock_peers();
                break;
             }
          }
