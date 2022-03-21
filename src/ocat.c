@@ -299,6 +299,8 @@ void cleanup_system(void)
       sleep(SELECT_TIMEOUT);
    }
 
+   hosts_save(OCAT_HOSTS_STATE);
+
    delete_listeners(CNF(oc_listen), CNF(oc_listen_fd), CNF(oc_listen_cnt));
 
    if (CNF(create_pid_file) && (CNF(pid_fd[1]) != -1))
@@ -788,6 +790,9 @@ int main(int argc, char *argv[])
       CNF(create_clog) = 0;
    }
 
+   if (!getuid())
+      mk_cache_dir(STATEDIR, pwd->pw_uid, pwd->pw_gid);
+
    if (!CNF(runasroot) && !getuid())
    {
       log_msg(LOG_INFO, "running as root, changing uid/gid to %s (uid %d/gid %d)", CNF(usrname), pwd->pw_uid, pwd->pw_gid);
@@ -802,6 +807,9 @@ int main(int argc, char *argv[])
    if (CNF(hosts_lookup))
    {
       parse_opt_late(argc, argv);
+      // pull in cached hosts file
+      hosts_read(time(NULL), OCAT_HOSTS_STATE);
+      // pull in static hosts file
       hosts_check();
    }
 

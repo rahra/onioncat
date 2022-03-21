@@ -60,6 +60,7 @@ struct hosts_info
 };
 
 char *hosts_set_path(char *);
+int hosts_read(time_t , const char *);
 int hosts_check(void);
 int hosts_get_name(const struct in6_addr*, char*, int);
 int hosts_get_name_ext(const struct in6_addr *, char *, int, int *, time_t *);
@@ -71,6 +72,8 @@ void hosts_init(const char*);
 int hosts_list(FILE *);
 int sn_hosts_list(char*, int);
 time_t hosts_time(void);
+int hosts_save(const char *);
+int mk_cache_dir(const char *, uid_t , gid_t );
 
 
 #endif

@@ -202,6 +202,8 @@
 #define OCAT_AUTHOR "Bernhard R. Fischer"
 //! Default port number for DNS service
 #define OCAT_NS_PORT 8060
+//! Local state dir for cached hosts file
+#define OCAT_HOSTS_STATE STATEDIR "/hosts.cached"
 
 //! Maximum frame (packet) size, should be able to keep one maximum size ipv6-packet: 2^16 + 40 + 4
 #define FRAME_SIZE 65580
