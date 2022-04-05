@@ -62,13 +62,7 @@ AC_SEARCH_LIBS([inet_ntop], [nsl])
 #AC_SEARCH_LIBS([__dn_comp], [resolv])
 
 # Checks for header files.
-#m4_warn([obsolete],
-#[The preprocessor macro `STDC_HEADERS' is obsolete.
-#  Except in unusual embedded environments, you can safely include all
-#  ISO C90 headers unconditionally.])dnl
-# Autoupdate added the next two lines to ensure that your configure
-# script's behavior did not change.  They are probably safe to remove.
-AC_CHECK_INCLUDES_DEFAULT
+AC_HEADER_STDC
 AC_PROG_EGREP
 
 AC_CHECK_HEADERS([sys/types.h sys/wait.h sys/socket.h sys/stat.h netdb.h arpa/nameser.h netinet/in.h netinet/in_systm.h netinet/ip.h netinet/ip6.h netinet/in6.h net/if.h net/if_tun.h net/tun/if_tun.h linux/if_tun.h linux/sockios.h linux/ipv6.h endian.h sys/endian.h netinet/icmp6.h net/ethernet.h netinet/if_ether.h netinet/ether.h netinet/udp.h sys/ethernet.h fcntl.h time.h netinet6/in6_var.h netinet6/nd6.h pwd.h syslog.h resolv.h], [], [],
