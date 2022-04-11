@@ -790,6 +790,9 @@ int main(int argc, char *argv[])
       CNF(create_clog) = 0;
    }
 
+   mode_t u = umask(0022);
+   log_debug("umask set to 0%03o (was 0%03o)", 0022, u);
+
    if (!getuid())
       mk_cache_dir(STATEDIR, pwd->pw_uid, pwd->pw_gid);
 
