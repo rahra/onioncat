@@ -68,6 +68,7 @@
 static struct hosts_info hosts_ = {{0, 0}, -1, NULL, 0, ""};
 static char *path_hosts_ = NULL;
 static pthread_mutex_t hosts_mutex_ = PTHREAD_MUTEX_INITIALIZER;
+static int hosts_db_modified_ = 0;
 
 
 int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, hsrc_t source, time_t age, int ttl);
@@ -146,6 +147,8 @@ void hosts_cleanup(void)
 
       // dec length of list
       hosts_.hosts_ent_cnt--;
+      // mark db as modified
+      hosts_db_modified_ = 1;
       // restart again on same position (undo i++ of for loop)
       i--;
    }
@@ -472,11 +475,15 @@ int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, hsrc
 
       // copy data to new entry
       hosts_copy_data(&hosts_.hosts_ent[n], name, source, age, ttl);
+      // mark db as modified
+      hosts_db_modified_ = 1;
    }
    else if (hosts_.hosts_ent[n].source >= source)
    {
       log_debug("overwriting old.source = %d, new.source = %d", hosts_.hosts_ent[n].source, source);
       hosts_copy_data(&hosts_.hosts_ent[n], name, source, age, ttl);
+      // mark db as modified
+      hosts_db_modified_ = 1;
    }
    else
    {
@@ -630,6 +637,10 @@ int hosts_save(const char *name)
 
    fclose(f);
 
+   pthread_mutex_lock(&hosts_mutex_);
+   hosts_db_modified_ = 0;
+   pthread_mutex_unlock(&hosts_mutex_);
+
    return 0;
 }
 
@@ -656,6 +667,18 @@ int mk_cache_dir(const char *dir, uid_t uid, gid_t gid)
    }
 
    return 0;
+}
+
+
+int is_hosts_db_modified(void)
+{
+   int m;
+
+   pthread_mutex_lock(&hosts_mutex_);
+   m = hosts_db_modified_;
+   pthread_mutex_unlock(&hosts_mutex_);
+
+   return m;
 }
 
 

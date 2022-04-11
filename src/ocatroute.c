@@ -1109,11 +1109,14 @@ int send_keepalive(OcatPeer_t *peer)
 }
 
 
+/*! This thread wakes up every CLEANER_WAKUP seconds and does some house
+ * keeping.
+ */
 void *socket_cleaner(void *UNUSED(ptr))
 {
    OcatPeer_t *peer, **p;
    int stat_wup = 0;
-   time_t act_time;
+   time_t act_time, saved_time = time(NULL);
 
    for (;;)
    {
@@ -1125,6 +1128,13 @@ void *socket_cleaner(void *UNUSED(ptr))
       log_debug2("wakeup");
 
       act_time = time(NULL);
+
+      // save cached hosts
+      if (is_hosts_db_modified() && act_time - saved_time > HOSTS_TIME)
+      {
+         saved_time = act_time;
+         hosts_save(OCAT_HOSTS_STATE);
+      }
 
       // stats output
       if (act_time - stat_wup >= STAT_WAKEUP)

@@ -38,6 +38,8 @@
 #define HOSTS_LINE_LENGTH 1024
 #define HOSTS_LINE_LENGTH_OUT 256
 #define HOSTS_KPLV_TTL 3600
+#define HOSTS_TIME 300
+
 
 typedef enum {HSRC_SELF, HSRC_CLI, HSRC_HOSTS, HSRC_NET_AA, HSRC_KPLV, HSRC_NET} hsrc_t;
 
@@ -74,6 +76,7 @@ int sn_hosts_list(char*, int);
 time_t hosts_time(void);
 int hosts_save(const char *);
 int mk_cache_dir(const char *, uid_t , gid_t );
+int is_hosts_db_modified(void);
 
 
 #endif

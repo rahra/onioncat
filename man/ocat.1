@@ -185,6 +185,14 @@ Set the path to the hosts file. This option automatically enables option \-H
 (see there). If \-g is not set, the path defaults to
 SYSCONFDIR/tor/onioncat.hosts where SYSCONFDIR typically is /etc or
 /usr/local/etc.
+.br
+On exit, OnionCat saves all collected hosts entries to
+DATADIR/onioncat/hosts.cached. This file is pulled in automatically at the next
+startup again. The entries are also save regularly every 5 minutes. This is
+only done if the internal hosts db was modified, i.e. if new entries where
+collected during the period of the last save to prevent unnecessary storage
+interaction. Please note that if you manually delete the file on the command
+line, it will not be recreated if no new entries where collected afterwards.
 .TP
 \fB\-H\fP
 This option disables the hosts reverse lookup in the internal hosts db. Host
