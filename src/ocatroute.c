@@ -441,7 +441,7 @@ void *socket_receiver(void *UNUSED(p))
          }
          else if (!(peer = peer->next))
          {
-            log_msg(LOG_EMERG, "fd %d ready but no peer found");
+            log_msg(LOG_DEBUG, "fd ready but no peer found, probably cleaned");
             unlock_peers();
             break;
          }
