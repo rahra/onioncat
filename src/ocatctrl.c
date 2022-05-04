@@ -28,6 +28,42 @@
 #include "ocathosts.h"
 
 
+#ifdef WITH_DNS_RESOLVER
+static const char *code_str(int code)
+{
+   switch (code)
+   {
+      case 0:
+         return "OK";
+      case OCRES_ENXDOMAIN:
+         return "NXDOMAIN";
+      default:
+         return "ERROR";
+   }
+}
+
+
+void ctrl_ns_response(void *p, struct in6_addr addr, int code)
+{
+   char buf[256], name[128], in6[INET6_ADDRSTRLEN];
+   int source;
+   time_t age;
+   if (!code)
+   {
+      if (hosts_get_name_ext(&addr, name, sizeof(name), &source, &age) == -1)
+         snprintf(buf, sizeof(buf), "response received, code = %s (%d), hosts_get_name_ext() failed!\n", code_str(code), code);
+      else
+         snprintf(buf, sizeof(buf), "%s %s # age = %ld, src = %d\n", inet_ntop(AF_INET6, &addr, in6, sizeof(in6)), name, age, source);
+   }
+   else
+   {
+      snprintf(buf, sizeof(buf), "response received, code = %s (%d)\n", code_str(code), code);
+   }
+   write((long) p, buf, strlen(buf));
+}
+#endif
+
+
 /*! ctrl_handler handles connections to local control port.
  *  @param p void* typcasted to int contains fd of connected socket.
  *  @return Currently always returns NULL.
@@ -182,6 +218,26 @@ void *ctrl_handler(void *p)
          }
          unlock_peers();
       }
+#ifdef WITH_DNS_RESOLVER
+      else if (!strcmp(bufp, "dig"))
+      {
+         if ((s = strtok_r(NULL, " \t\r\n", &tokbuf)) != NULL)
+         {
+            if (inet_pton(AF_INET6, s, &in6) == 1)
+            {
+               int n = ocres_query_callback(&in6, ctrl_ns_response, (void*)(long) fd);
+               if (n >= 0)
+                  fprintf(ff, "PTR query sent to %d nameservers\n", n);
+               else
+                  fprintf(ff, "ERR ocres_query() failed\n");
+            }
+            else
+               fprintf(ff, "ERR param is no valid IPv6 address\n");
+         }
+         else
+            fprintf(ff, "ERR missing args\n");
+      }
+#endif
       else if (!strcmp(bufp, "threads"))
       {
          print_threads(ff);
@@ -285,6 +341,9 @@ void *ctrl_handler(void *p)
                "exit | quit .... exit from control interface\n"
                "terminate ...... terminate OnionCat\n"
                "close <n> ...... close file descriptor <n> of a peer\n"
+#ifdef WITH_DNS_RESOLVER
+               "dig <ipv6> ..... Do a hostname lookup.\n"
+#endif
                "hosts .......... list hosts database\n"
                "hreload ........ reload hosts database\n"
                "status ......... list peer status\n"
