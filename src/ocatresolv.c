@@ -730,9 +730,11 @@ int ocres_recv(ocres_state_t *orstate)
          continue;
 
       // process response
-      (void) oc_proc_response(buf, sizeof(buf), orstate->qry[i].id, &orstate->addr, orstate->qry[i].ns_src);
+      orstate->qry[i].code = oc_proc_response(buf, sizeof(buf), orstate->qry[i].id, &orstate->addr, orstate->qry[i].ns_src);
       orstate->qry[i].retry = DNS_MAX_RETRY + 1;
       orstate->cnt--;
+      if (orstate->callback != NULL)
+         orstate->callback(orstate->p, orstate->addr, orstate->qry[i].code);
       break;
    }
 
@@ -744,11 +746,15 @@ int ocres_recv(ocres_state_t *orstate)
  * MAX_CONCURRENT_Q queries or less if there are not enough available
  * nameservers.
  * @param addr Pointer to IPv6 address to do query for.
+ * @param callback Pointer to callback function. If not NULL, this function is
+ * called after a response was received. The function will receive the IPv6
+ * address of the query and parameter p is directly passed to it.
+ * @param p This argument is passed directly to the callback function.
  * @return The function returns the number of queued queries which is 0 <
  * queries <= MAX_CONCURRENT_Q. If no suitable nameserver is found, 0 is
  * returned. In case of error, -1 is returned.
  */
-int ocres_query(const struct in6_addr *addr)
+int ocres_query_callback(const struct in6_addr *addr, void (callback)(void *, struct in6_addr, int), void *p)
 {
    ocres_state_t *orstate;
    int i, n, on, ret;
@@ -760,6 +766,8 @@ int ocres_query(const struct in6_addr *addr)
    }
 
    orstate->cnt = 0;
+   orstate->p = p;
+   orstate->callback = callback;
 
    if ((orstate->fd = socket(AF_INET6, SOCK_DGRAM, 0)) == -1)
    {
@@ -821,6 +829,16 @@ int ocres_query(const struct in6_addr *addr)
       log_msg(LOG_ERR, "could not write to resolver pipe: %s", strerror(errno));
 
    return n;
+}
+
+
+/*! This function queues a new PTR query. It directly calls
+ * ocres_query_callback() without a calback function. See
+ * ocres_query_callback() for further function details.
+ */
+int ocres_query(const struct in6_addr *addr)
+{
+   return ocres_query_callback(addr, NULL, NULL);
 }
 
 

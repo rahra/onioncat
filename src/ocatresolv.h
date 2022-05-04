@@ -58,6 +58,7 @@ typedef struct ocres_query
    time_t restart_time;
    int retry;
    int id;
+   int code;
    struct sockaddr_in6 ns;
    hsrc_t ns_src;
 } ocres_query_t;
@@ -68,6 +69,8 @@ typedef struct ocres_state
    int fd;
    int cnt;
    struct in6_addr addr;
+   void *p;
+   void (*callback)(void *, struct in6_addr, int);
    ocres_query_t qry[MAX_CONCURRENT_Q];
    int msg_len;
    char msg[PACKETSZ];
@@ -78,6 +81,7 @@ int oc_mk_ptrquery(const char *, char *, int, uint16_t);
 int oc_proc_response(const char *, int , uint16_t , const struct in6_addr *, hsrc_t );
 void *oc_nameserver(void *);
 void *oc_resolver(void *);
+int ocres_query_callback(const struct in6_addr *, void (*)(void *, struct in6_addr, int), void *);
 int ocres_query(const struct in6_addr *);
 
 
