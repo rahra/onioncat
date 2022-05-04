@@ -618,9 +618,9 @@ int oc_ns_socket(void)
 
 
 /*! This is the nameserver main loop. It waits for incoming packets, receives
- * on after the other end processes the requests. If the requests are valid,
+ * one after the other, and processes the requests. If the requests are valid,
  * answers are sent dependent if the names in the queries are found in the
- * local DB, or not. In the latter case NXDOMAIN is relied.
+ * local DB, or not. In the latter case NXDOMAIN is replied.
  */
 void *oc_nameserver(void *UNUSED(p))
 {
@@ -692,9 +692,9 @@ void *oc_nameserver(void *UNUSED(p))
 
 
 #ifdef WITH_DNS_RESOLVER
-/*! This function receives a DNS response to one of the queries on orstate. If
+/*! This function receives a DNS response to one of the queries in orstate. If
  * a message could successfully be related to a query in orstate, the orstate
- * counter is decreased on the state of the query is set to OCRES_UNUSED.
+ * counter is decreased and the state of the query is set to OCRES_UNUSED.
  * @param orstate Pointer to the orstate struct which should receive a message.
  * @return The function returnes the index of the query within orstate, which
  * is 0 <= index < MAX_CONCURRENT_Q. In case of error, -1 is returned.

@@ -356,6 +356,9 @@ int hosts_get_name(const struct in6_addr *addr, char *buf, int s)
 
 /*! Get address of a name server from the hosts db in round robin order.
  * @param addr Pointer to memory which will receive the address.
+ * @param ns_src Pointer will receive the NS source (hsrc_t).
+ * @param nptr Pointer to index in hosts DB to get NS from. This will be
+ * increased by 1 on each call (and set back to 0 at the end of the list).
  * @return The function returns the index in the hosts table of the entry which
  * is always >= 0. On error, -1 is returned.
  */
@@ -369,6 +372,9 @@ int hosts_get_ns_rr(struct in6_addr *addr, hsrc_t *ns_src, int *nptr)
 
    n = *nptr;
    n++;
+
+   // safety check
+   if (n < 0) n = 0;
 
    pthread_mutex_lock(&hosts_mutex_);
 
@@ -434,7 +440,15 @@ static void hosts_copy_data(struct hosts_ent *h, const char *name, int source, t
 }
 
 
-/*! Add an entry to the hosts memory database.
+/*! Add an entry to the hosts memory database. If the entry (based on addr)
+ * does already exist, it is updated accordingly if the source is less or equal
+ * the source value in the hosts db.
+ * @param addr Pointer to IPv6 address of hostame.
+ * @param name Pointer to hostname.
+ * @param source Source of entry of type hsrc_t (see ocathosts.h).
+ * @param age Time when the entry was created/updated. This typically is the
+ * current time.
+ * @param ttl TTL of the entry. If set to -1 it will never expire.
  * @return Returns the index in the database or -1 on error.
  */
 int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, hsrc_t source, time_t age, int ttl)
