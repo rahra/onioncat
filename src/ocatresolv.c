@@ -866,6 +866,18 @@ static void ocres_cleanup(ocres_state_t **osp)
 }
 
 
+/*! Just a debug logging function.
+ */
+static void log_query(const ocres_state_t *os, int n)
+{
+   char astr[INET6_ADDRSTRLEN], nstr[INET6_ADDRSTRLEN];
+
+   inet_ntop(AF_INET6, &os->addr, astr, INET6_ADDRSTRLEN);
+   inet_ntop(AF_INET6, &os->qry[n].ns.sin6_addr, nstr, INET6_ADDRSTRLEN);
+   log_msg(LOG_INFO, "sending query for %s to NS %s", astr, nstr);
+}
+
+
 /*! This is the resolver main loop. It works on the resolver queue, (re-)sends
  * queries and receives and processes the responses.
  */
@@ -934,6 +946,7 @@ void *oc_resolver(void *UNUSED(p))
             ((HEADER*) orstate->msg)->id = orstate->qry[i].id;
 
             // send query
+            log_query(orstate, i);
             len = sendto(orstate->fd, orstate->msg, orstate->msg_len, 0, (struct sockaddr*) &orstate->qry[i].ns, sizeof(orstate->qry[i].ns));
             // and check for errors
             if (len == -1)
@@ -957,6 +970,7 @@ void *oc_resolver(void *UNUSED(p))
          log_msg(LOG_ERR, "select encountered error: \"%s\", restarting", strerror(errno));
          continue;
       }
+      log_debug2("select returned %d", n);
 
       // check if resolver pipe is ready
       if (FD_ISSET(ocres_pipe_fd_[0], &rset))
@@ -986,7 +1000,6 @@ void *oc_resolver(void *UNUSED(p))
          {
             n--;
             (void) ocres_recv(orstate);
-            sig_socks_connector();
          }
       }
       pthread_mutex_unlock(&orstate_mutex_);

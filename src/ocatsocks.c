@@ -237,12 +237,25 @@ void socks_pipe_request(const SocksQueue_t *sq)
 }
 
 
+/*! Send a wakeup request to the connector thread.
+ */
 void sig_socks_connector(void)
 {
    SocksQueue_t sq;
 
    memset(&sq, 0, sizeof(sq));
    socks_pipe_request(&sq);
+}
+
+
+/*! This is a wrapper function for sig_socks_connector() to be suitable for the
+ * DNS query callback.
+ */
+void socks_query_callback(void *UNUSED(p), struct in6_addr in6, int code)
+{
+   char astr[INET6_ADDRSTRLEN];
+   log_debug("query callback received for %s, code = %d", inet_ntop(AF_INET6, &in6, astr, sizeof(astr)), code);
+   sig_socks_connector();
 }
 
 
@@ -665,7 +678,7 @@ void *socks_connector_sel(void *UNUSED(p))
                if (CNF(dns_lookup) && get_hostname(squeue, NULL, 0) == -1 && squeue->retry <= 1)
                {
                   log_msg(LOG_INFO, "signalling resolver");
-                  if (ocres_query(&squeue->addr) > 0)
+                  if (ocres_query_callback(&squeue->addr, socks_query_callback, NULL) > 0)
                   {
                      squeue->state = SOCKS_DNS_SENT;
                      squeue->retry = 0;
