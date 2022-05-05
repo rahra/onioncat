@@ -266,6 +266,13 @@ uint32_t get_tunheader(char *buf)
 }
 
 
+/*! This function parses the keepalive packet. If it is valid, a new hosts
+ * entry is added to the hosts DB.
+ * FIXME: Does this work properly with HSv2?
+ * @param i6h Pointer to IPv6 packet.
+ * @return The function returns 0 on success, i.e. packet was valid. In case of
+ * error -1 is returned.
+ */
 int handle_keepalive(const struct ip6_hdr *i6h)
 {
    // FIXME: should that be activated only if lookup is enabled?
@@ -571,7 +578,20 @@ void *socket_receiver(void *UNUSED(p))
                   peer->state = PEER_DELETE;
                }
                else
-                  handle_keepalive((struct ip6_hdr*)peer->fragbuf);
+               {
+                  if (!handle_keepalive((struct ip6_hdr*)peer->fragbuf))
+                  {
+                     OcatPeer_t *rpeer;
+                     lock_peers();
+                     rpeer = search_peer(&((struct ip6_hdr*)peer->fragbuf)->ip6_src);
+                     unlock_peers();
+                     if (rpeer == NULL)
+                     {
+                        log_msg(LOG_INFO, "creating immediate return peer");
+                        socks_queue(((struct ip6_hdr*)peer->fragbuf)->ip6_src, 0);
+                     }
+                  }
+               }
             }
 
             // set IP address if it is not set yet and frame is valid and in bidirectional mode
