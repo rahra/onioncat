@@ -20,7 +20,7 @@
  *  Those are active SOCKS4A and passive TCP-LISTEN.
  *
  *  \author Bernhard Fischer <bf@abenteuerland.at>
- *  \date 2022/03/16
+ *  \date 2022/05/06
  */
 
 
@@ -268,10 +268,11 @@ uint32_t get_tunheader(char *buf)
 
 /*! This function parses the keepalive packet. If it is valid, a new hosts
  * entry is added to the hosts DB.
- * FIXME: Does this work properly with HSv2?
  * @param i6h Pointer to IPv6 packet.
- * @return The function returns 0 on success, i.e. packet was valid. In case of
- * error -1 is returned.
+ * @return The function returns 0 on success if a valid OC4 keepalive was
+ * found. 1 is returned if the keepalive contains no data. This may be the case
+ * for pre OC4 keepalives. They are sufficient for HSv2. In case of error -1 is
+ * returned.
  */
 int handle_keepalive(const struct ip6_hdr *i6h)
 {
@@ -285,6 +286,15 @@ int handle_keepalive(const struct ip6_hdr *i6h)
 
    // extract payload data
    len = ntohs(i6h->ip6_plen);
+
+#if 0
+   if (!len)
+   {
+      log_msg(LOG_INFO, "may be v2 keepalive");
+      return 1;
+   }
+#endif
+
    if (len < 2)
    {
       log_debug("not enough data for hostname in keepalive");
@@ -301,7 +311,7 @@ int handle_keepalive(const struct ip6_hdr *i6h)
       return -1;
    }
 
-   log_msg(LOG_INFO, "seems to be foreign keepalive");
+   log_msg(LOG_INFO, "seems to be OC4 keepalive");
    // advance pointer to hostname
    buf++;
    len--;
@@ -313,6 +323,14 @@ int handle_keepalive(const struct ip6_hdr *i6h)
 }
 
 
+/*! Try to identify own incoming loopback peer. This is if it is a keepalive
+ * (i.e. nextheader == IPPROTO_NONE (59)) and the flow label matches. The flow
+ * label is set to random number when it sends keepalives.
+ * @param peer Pointer to peer on which the packet was received.
+ * @param i6h Pointer to IPv6 packet.
+ * @return The function returns 0 if it was its own loopback keepalive,
+ * otherwise -1 is returned.
+ */
 int ident_loopback(OcatPeer_t *peer, const struct ip6_hdr *i6h)
 {
    OcatPeer_t *lpeer;
@@ -342,7 +360,7 @@ int ident_loopback(OcatPeer_t *peer, const struct ip6_hdr *i6h)
 
    if (lpeer == NULL)
    {
-      log_msg(LOG_ERR, "peer not found");
+      log_debug("ident_loopback: peer not found");
       return -1;
    }
 
@@ -579,7 +597,7 @@ void *socket_receiver(void *UNUSED(p))
                }
                else
                {
-                  if (!handle_keepalive((struct ip6_hdr*)peer->fragbuf))
+                  if (handle_keepalive((struct ip6_hdr*)peer->fragbuf) >= 0 && CNF(unidirectional))
                   {
                      OcatPeer_t *rpeer;
                      lock_peers();
@@ -587,7 +605,7 @@ void *socket_receiver(void *UNUSED(p))
                      unlock_peers();
                      if (rpeer == NULL)
                      {
-                        log_msg(LOG_INFO, "creating immediate return peer");
+                        log_msg(LOG_INFO, "creating immediate return peer to %s", inet_ntop(AF_INET6, &((struct ip6_hdr*)peer->fragbuf)->ip6_src, addr, INET6_ADDRSTRLEN));
                         socks_queue(((struct ip6_hdr*)peer->fragbuf)->ip6_src, 0);
                      }
                   }
@@ -1085,36 +1103,58 @@ void packet_forwarder(void)
 }
 
 
-int send_keepalive(OcatPeer_t *peer)
+int make_keepalive(const struct in6_addr *src, const struct in6_addr *dst, int flowlabel, const char *hostname, char *buf, int buflen)
 {
-   char buf[512];
    struct ip6_hdr *hdr;
    int len, slen;
 
-   memset(buf, 0, sizeof(buf));
+   // safety check
+   if (src == NULL || dst == NULL || buf == NULL)
+   {
+      log_msg(LOG_CRIT, "NULL pointer caught in make_keepalive()");
+      return -1;
+   }
+
    hdr = (struct ip6_hdr*) buf;
-   IN6_ADDR_COPY(&hdr->ip6_dst, &peer->addr);
-   IN6_ADDR_COPY(&hdr->ip6_src, &CNF(ocat_addr));
-   hdr->ip6_flow = htonl(peer->rand & 0xfffff);
+
+   memset(buf, 0, buflen);
+   IN6_ADDR_COPY(&hdr->ip6_dst, dst);
+   IN6_ADDR_COPY(&hdr->ip6_src, src);
+   hdr->ip6_flow = htonl(flowlabel & 0xfffff);
    hdr->ip6_vfc = 0x60;
    hdr->ip6_nxt = IPPROTO_NONE;
    hdr->ip6_hops = 1;
    slen = sizeof(*hdr);
 
-   if (CNF(onion3_url)[0] != '\0')
+   if (hostname != NULL && *hostname != '\0')
    {
-      len = snprintf(buf + slen, sizeof(buf) - slen, "%c%s%s", 1, CNF(onion3_url), CNF(domain));
-      if (len != -1 && len < (int) sizeof(buf) - slen)
+      len = snprintf(buf + slen, buflen - slen, "%c%s%s", 1, hostname, CNF(domain));
+      if (len != -1 && len < buflen - slen)
       {
          len++;
          hdr->ip6_plen = htons(len);
          slen += len;
       }
+      else
+      {
+         log_msg(LOG_CRIT, "keepalive truncated, this should never happen");
+      }
    }
+
+   return slen;
+}
+
+
+int send_keepalive(OcatPeer_t *peer)
+{
+   char buf[512];
+   int len, slen;
+
+   slen = make_keepalive(&CNF(ocat_addr), &peer->addr, peer->rand, CNF(onion3_url), buf, sizeof(buf));
 
    log_debug("sending %d bytes keepalive to fd %d", slen, peer->tcpfd);
 
-   if ((len = send(peer->tcpfd, hdr, slen, MSG_DONTWAIT)) == -1)
+   if ((len = send(peer->tcpfd, buf, slen, MSG_DONTWAIT)) == -1)
    {
       log_msg(LOG_ERR, "could not send keepalive: %s", strerror(errno));
       return -1;
@@ -1315,23 +1355,16 @@ int loopback_loop(int fd)
 int loopback_handler(int fd, const struct in6_addr *laddr)
 {
    char buf[FRAME_SIZE];
-   struct ip6_hdr *ip6h = (struct ip6_hdr*) buf;
    int len, wlen, uni;
    OcatPeer_t *peer;
 
    log_debug("starting loopback_handler");
-   memset(ip6h, 0, sizeof(*ip6h));
-   ip6h->ip6_src = *laddr;
-   ip6h->ip6_dst = CNF(ocat_addr);
-   ip6h->ip6_vfc = 0x60;
-   ip6h->ip6_nxt = IPPROTO_NONE;
-   ip6h->ip6_hops = 1;
-   wlen = sizeof(*ip6h);
+   wlen = make_keepalive(laddr, &CNF(ocat_addr), 0, NULL, buf, sizeof(buf));
 
    log_debug("clearing unidirectional mode and sending packet");
    uni = CNF(unidirectional);
    CNF(unidirectional) = 0;
-   len = write(fd, ip6h, wlen);
+   len = write(fd, buf, wlen);
    log_debug("sent %d of %d bytes to fd %d", len, wlen, fd);
 
    for (peer = NULL; peer == NULL; )
