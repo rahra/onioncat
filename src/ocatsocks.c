@@ -989,6 +989,10 @@ void *socks_connector_sel(void *UNUSED(p))
                   }
                   break;
 #endif
+               case SOCKS_DELETE:
+                  log_debug("element was marked for deletion");
+                  break;
+
                default:
                   log_debug("unknown state %d in read set", squeue->state);
             }
