@@ -437,6 +437,18 @@ int ident_packet(const char *buf, int len, uint32_t *tunhdr)
 }
 
 
+int is_ipv6(const OcatPeer_t *peer)
+{
+   return *peer->tunhdr == CNF(fhd_key[IPV6_KEY]);
+}
+
+
+int is_ipv4(const OcatPeer_t *peer)
+{
+   return *peer->tunhdr == CNF(fhd_key[IPV4_KEY]);
+}
+
+
 void *socket_receiver(void *UNUSED(p))
 {
    int maxfd, len;
@@ -591,9 +603,8 @@ void *socket_receiver(void *UNUSED(p))
                break;
             }
 
-            // FIXME: the following if should check if it is IPv6 and "drop" may be unnecessary
             // identify remote loopback
-            if (!drop && IN6_IS_ADDR_UNSPECIFIED(&peer->addr))
+            if (is_ipv6(peer) && IN6_IS_ADDR_UNSPECIFIED(&peer->addr))
             {
                if (!ident_loopback(peer, (struct ip6_hdr*)peer->fragbuf))
                {
@@ -621,15 +632,15 @@ void *socket_receiver(void *UNUSED(p))
             }
 
             // set IP address if it is not set yet and frame is valid and in bidirectional mode
-            if (!CNF(unidirectional) && !drop && IN6_IS_ADDR_UNSPECIFIED(&peer->addr))
+            if (!CNF(unidirectional) && IN6_IS_ADDR_UNSPECIFIED(&peer->addr))
             {
-               if (*peer->tunhdr == CNF(fhd_key[IPV6_KEY]))
+               if (is_ipv6(peer))
                {
                   //memcpy(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src, sizeof(struct in6_addr));
                   if (set_peer_dest(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src))
                      drop = 1;
                }
-               else if (*peer->tunhdr == CNF(fhd_key[IPV4_KEY]))
+               else if (is_ipv4(peer))
                {
                   // check if there is a route back
 #ifdef HAVE_STRUCT_IPHDR
