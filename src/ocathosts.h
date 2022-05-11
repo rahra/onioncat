@@ -43,14 +43,22 @@
 
 typedef enum {HSRC_SELF, HSRC_CLI, HSRC_HOSTS, HSRC_NET_AA, HSRC_KPLV, HSRC_NET} hsrc_t;
 
-struct hosts_ent
+typedef struct ns_stats
+{
+   int q_cnt;     //!< number of DNS queries sent to host
+   int ans_cnt;   //!< number of positive replies
+   int nx_cnt;    //!< number of NX replies
+} ns_stats_t;
+
+typedef struct hosts_ent
 {
    struct in6_addr addr;
    char name[NI_MAXHOST];
    time_t age;
    hsrc_t source;
    int ttl;
-};
+   ns_stats_t stat;
+} host_ent_t;
 
 struct hosts_info
 {
@@ -77,6 +85,9 @@ time_t hosts_time(void);
 int hosts_save(const char *);
 int mk_cache_dir(const char *, uid_t , gid_t );
 int is_hosts_db_modified(void);
+int host_metric(const host_ent_t *);
+void host_stats_inc_q(const struct in6_addr *);
+void host_stats_inc_ans(const struct in6_addr *, int );
 
 
 #endif

@@ -327,8 +327,7 @@ int hosts_get_name_unlocked(const struct in6_addr *addr, char *buf, int s)
 
 
 /*! Return name for IPv6 address.
- *  @return On success it returns index >= 0 within host_ent array. If not
- *  found, -1 on error.
+ *  @return On success it returns a value >= 0. If not found, -1 is returned.
  **/
 int hosts_get_name_ext(const struct in6_addr *addr, char *buf, int s, int *source, time_t *age)
 {
@@ -404,29 +403,6 @@ int hosts_get_ns(struct in6_addr *addr, hsrc_t *ns_src)
 }
 
 
-/*! Get address of ith hosts entry.
- * @param n Index to hosts table.
- * @param addr Pointer to adress which will receive address.
- * @return On success n is returned, on error -1 is returned.
- */
-int hosts_get_addr(int n, struct in6_addr *addr)
-{
-   // safety check
-   if (addr == NULL)
-      return -1;
-
-   pthread_mutex_lock(&hosts_mutex_);
-   log_debug("hosts_get_addr(%d), hosts_ent_cnt = %d", n, hosts_.hosts_ent_cnt);
-   if (n < hosts_.hosts_ent_cnt)
-      IN6_ADDR_COPY(addr, &hosts_.hosts_ent[n].addr);
-   else
-      n = -1;
-   pthread_mutex_unlock(&hosts_mutex_);
-
-   return n;
-}
-
-
 static void hosts_copy_data(struct hosts_ent *h, const char *name, int source, time_t age, int ttl)
 {
    h->source = source;
@@ -484,6 +460,9 @@ int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, hsrc
       hosts_.hosts_ent_cnt++;
       log_debug("created new hosts entry, cnt = %d", hosts_.hosts_ent_cnt);
 
+      // clear new memory area
+      memset(&hosts_.hosts_ent[n], 0, sizeof(hosts_.hosts_ent[n]));
+
       // copy address to new entry
       hosts_.hosts_ent[n].addr = *addr;
 
@@ -508,6 +487,78 @@ int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, hsrc
 }
 
 
+/*! Calculate metric of host.
+ * The metric depends on source of the entry and the query stats. This is the
+ * number of queries sent out and the postive responses that came back. The
+ * metric gets higher with a lower source and a higher number of positive
+ * responses.
+ * A higher metric is better than a lower.
+ * @param hent Pointer to entry in hosts db.
+ * @return Returns the metric of the host which is a positive integer number. 0
+ * is the worst and should be interpreted as "do not use". The current maximum
+ * value is 2000.
+ */
+int host_metric(const host_ent_t *hent)
+{
+   int m;
+
+   if (hent->source <= 0)
+      return 0;
+
+   m = 1000 / hent->source;
+
+   if (hent->stat.q_cnt > 0)
+      m += hent->stat.ans_cnt * 1000 / hent->stat.q_cnt;
+
+   return m;
+}
+
+
+/*! Increase query counter in host stats.
+ **/
+void host_stats_inc_q(const struct in6_addr *addr)
+{
+   int i;
+
+   pthread_mutex_lock(&hosts_mutex_);
+   if ((i = hosts_get_name_unlocked(addr, NULL, 0)) != -1)
+      hosts_.hosts_ent[i].stat.q_cnt++;
+   pthread_mutex_unlock(&hosts_mutex_);
+}
+
+
+/*! Increase answer counter(s) in host stats.
+ **/
+void host_stats_inc_ans(const struct in6_addr *addr, int code)
+{
+   int i;
+
+   pthread_mutex_lock(&hosts_mutex_);
+   if ((i = hosts_get_name_unlocked(addr, NULL, 0)) != -1)
+   {
+      switch (code)
+      {
+         case 0:
+            hosts_.hosts_ent[i].stat.ans_cnt++;
+            break;
+         case OCRES_ENXDOMAIN:
+            hosts_.hosts_ent[i].stat.nx_cnt++;
+            break;
+      }
+   }
+   pthread_mutex_unlock(&hosts_mutex_);
+}
+
+
+/*! Add or update hosts db entry.
+ * @param addr Pointer to IPv6 address of hostame.
+ * @param name Pointer to hostname.
+ * @param source Source of entry of type hsrc_t (see ocathosts.h).
+ * @param age Time when the entry was created/updated. This typically is the
+ * current time.
+ * @param ttl TTL of the entry. If set to -1 it will never expire.
+ * @return On error -1 is returned, otherwise a value >= 0.
+ */
 int hosts_add_entry(const struct in6_addr *addr, const char *name, hsrc_t source, time_t age, int ttl)
 {
    int n;
@@ -587,7 +638,8 @@ int sn_hosts_list(char *buf, int len)
          log_msg(LOG_ERR, "inet_ntop() failed: %s", strerror(errno));
          continue;
       }
-      if ((plen = snprintf(buf, len, "%s %s # age = %ld, ttl = %d, src = %d\n", in6, h->name, h->age, h->ttl, h->source)) == -1)
+      if ((plen = snprintf(buf, len, "%s %s # age = %ld, ttl = %d, src = %d, qcnt = %d, anscnt = %d, nxcnt = %d, metric = %d\n",
+                  in6, h->name, h->age, h->ttl, h->source, h->stat.q_cnt, h->stat.ans_cnt, h->stat.nx_cnt, host_metric(h))) == -1)
       {
          log_msg(LOG_CRIT, "snprintf() failed");
          wlen = -1;

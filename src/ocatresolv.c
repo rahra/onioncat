@@ -731,6 +731,7 @@ int ocres_recv(ocres_state_t *orstate)
 
       // process response
       orstate->qry[i].code = oc_proc_response(buf, sizeof(buf), orstate->qry[i].id, &orstate->addr, orstate->qry[i].ns_src);
+      host_stats_inc_ans(&orstate->qry[i].ns.sin6_addr, orstate->qry[i].code);
       orstate->qry[i].retry = DNS_MAX_RETRY + 1;
       orstate->cnt--;
       if (orstate->callback != NULL)
@@ -954,6 +955,7 @@ void *oc_resolver(void *UNUSED(p))
                log_msg(LOG_ERR, "could not send dns query: %s", strerror(errno));
                break;
             }
+            host_stats_inc_q(&orstate->qry[i].ns.sin6_addr);
             // and check if read was truncated (which should never happen...)
             if (len < orstate->msg_len)
                log_msg(LOG_ERR, "truncated write on fd %d: %d < %d", orstate->fd, len, orstate->msg_len);
