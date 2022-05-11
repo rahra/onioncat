@@ -574,14 +574,19 @@ void *socket_receiver(void *UNUSED(p))
             }
             else
             {
-               /*
+#if 1
+               /* Some testing showed that resetting the fragment buffer
+                * completely works better that trying to find new packets by
+                * moving forward byte-by-byte. */
                log_debug("fragment buffer reset");
                peer->fraglen = 0;
-               */
+               break;
+#else
                log_debug("fragment buffer resynchronization");
                len = 1;
                drop = 1;
-               break;
+               //break;   // FIXME: this break may have been wrong
+#endif
             }
 
             // identify remote loopback
@@ -703,8 +708,7 @@ void *socket_receiver(void *UNUSED(p))
             {
                log_debug("fragbuf empty");
             }
-
-        } // while (peer->fraglen)
+         } // while (peer->fraglen)
 
          if (peer->state == PEER_DELETE)
          {
