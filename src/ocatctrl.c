@@ -64,6 +64,41 @@ void ctrl_ns_response(void *p, struct in6_addr addr, int code)
 #endif
 
 
+void random_write(FILE *ff, int fd, int n)
+{
+   char buf[2048];
+   int i;
+
+   if (fd < 0)
+   {
+      fprintf(ff, "ERR fd must be >= 0\n");
+      return;
+   }
+   if (n < 1)
+   {
+      fprintf(ff, "ERR n must be > 0\n");
+      return;
+   }
+
+   if (n > (int) sizeof(buf))
+      n = sizeof(buf);
+
+   for (i = 0; i < n; i++)
+      buf[i] = rand();
+
+   log_debug("writing %d random bytes to fd %d", n, fd);
+   fprintf(ff, "writing %d random bytes to fd %d\n", n, fd);
+   n = write(fd, buf, n);
+   if (n == -1)
+   {
+      fprintf(ff, "write failed: %s\n", strerror(errno));
+      log_debug("write failed: %s", strerror(errno));
+   }
+   fprintf(ff, "%d bytes written\n", n);
+   log_debug("%d bytes written", n);
+}
+
+
 /*! ctrl_handler handles connections to local control port.
  *  @param p void* typcasted to int contains fd of connected socket.
  *  @return Currently always returns NULL.
@@ -72,7 +107,7 @@ void ctrl_ns_response(void *p, struct in6_addr addr, int code)
  */
 void *ctrl_handler(void *p)
 {
-   int fd, c;
+   int fd, a, b, c;
    FILE *ff, *fo;
    char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[NDESC(name_size)], timestr[32], *s, *tokbuf, *bufp;
    int rlen, cfd;
@@ -238,6 +273,22 @@ void *ctrl_handler(void *p)
             fprintf(ff, "ERR missing args\n");
       }
 #endif
+      else if (!strcmp(bufp, "write"))
+      {
+         if ((s = strtok_r(NULL, " \t\r\n", &tokbuf)) != NULL)
+         {
+            a = atoi(s);
+            if ((s = strtok_r(NULL, " \t\r\n", &tokbuf)) != NULL)
+            {
+               b = atoi(s);
+               random_write(ff, a, b);
+            }
+            else
+               fprintf(ff, "ERR missing args\n");
+         }
+         else
+            fprintf(ff, "ERR missing args\n");
+      }
       else if (!strcmp(bufp, "threads"))
       {
          print_threads(ff);
@@ -358,6 +409,7 @@ void *ctrl_handler(void *p)
                "queue .......... list pending SOCKS connections\n"
                "setup .......... show internal setup struct\n"
                "version ........ show version\n"
+               "write <f> <n> .. write n random bytes to fd f\n"
                );
       }
       else
