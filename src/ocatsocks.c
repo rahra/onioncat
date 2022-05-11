@@ -805,9 +805,12 @@ void *socks_connector_sel(void *UNUSED(p))
                break;
 #endif
 
+            case SOCKS_DELETE:
+               log_debug("ignoring queued element marked for deletion");
+               break;
+
             default:
-               log_msg(LOG_CRIT, "unknown state %d", squeue->state);
-               exit(EXIT_FAILURE);
+               log_msg(LOG_CRIT, "ignoring unknown state %d", squeue->state);
          }
       }
 
