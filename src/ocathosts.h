@@ -39,9 +39,18 @@
 #define HOSTS_LINE_LENGTH_OUT 256
 #define HOSTS_KPLV_TTL 3600
 #define HOSTS_TIME 300
+#define MAX_NS 5
+#define NS_UPDATE_TIME 5
 
 
 typedef enum {HSRC_SELF, HSRC_CLI, HSRC_HOSTS, HSRC_NET_AA, HSRC_KPLV, HSRC_NET} hsrc_t;
+
+typedef struct ns_ent
+{
+   struct in6_addr addr;
+   int metric;
+   hsrc_t source;
+} ns_ent_t;
 
 typedef struct ns_stats
 {
@@ -74,6 +83,7 @@ int hosts_read(time_t , const char *);
 int hosts_check(void);
 int hosts_get_name(const struct in6_addr*, char*, int);
 int hosts_get_name_ext(const struct in6_addr *, char *, int, int *, time_t *);
+int hosts_get_ns_rr_metric(struct in6_addr *, hsrc_t *, int *);
 int hosts_get_ns_rr(struct in6_addr *, hsrc_t *, int *);
 int hosts_get_ns(struct in6_addr *, hsrc_t *);
 int hosts_get_addr(int n, struct in6_addr *addr);
@@ -85,7 +95,7 @@ time_t hosts_time(void);
 int hosts_save(const char *);
 int mk_cache_dir(const char *, uid_t , gid_t );
 int is_hosts_db_modified(void);
-int host_metric(const host_ent_t *);
+int hosts_metric(const host_ent_t *);
 void host_stats_inc_q(const struct in6_addr *);
 void host_stats_inc_ans(const struct in6_addr *, int );
 

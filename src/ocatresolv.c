@@ -781,7 +781,7 @@ int ocres_query_callback(const struct in6_addr *addr, void (callback)(void *, st
    {
       // get next nameserver address
       on = n;
-      ret = hosts_get_ns_rr(&orstate->qry[i].ns.sin6_addr, &orstate->qry[i].ns_src, &n);
+      ret = hosts_get_ns_rr_metric(&orstate->qry[i].ns.sin6_addr, &orstate->qry[i].ns_src, &n);
 
       // check if there aren't any potential nameservers
       if (!i && ret == -1)

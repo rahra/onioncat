@@ -69,6 +69,7 @@ static struct hosts_info hosts_ = {{0, 0}, -1, NULL, 0, ""};
 static char *path_hosts_ = NULL;
 static pthread_mutex_t hosts_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static int hosts_db_modified_ = 0;
+static ns_ent_t ns_[MAX_NS];
 
 
 int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, hsrc_t source, time_t age, int ttl);
@@ -353,6 +354,194 @@ int hosts_get_name(const struct in6_addr *addr, char *buf, int s)
 }
 
 
+/*! Search for slot with lower metric than m.
+ * @return Returns index of an empty slot which is 0 <= index < MAX_NS. If not
+ * empty slot was found, MAX_NS is returned.
+ */
+int hosts_search_ns_metric_lt(int m)
+{
+   int i;
+
+   for (i = 0; i < MAX_NS; i++)
+      if (ns_[i].metric < m)
+         break;
+   return i;
+}
+
+
+/*! Search for empty slot in NS list.
+ * @return Returns index of an empty slot which is 0 <= index < MAX_NS. If not
+ * empty slot was found, MAX_NS is returned.
+ */
+int hosts_search_ns_empty(void)
+{
+   int i;
+
+   for (i = 0; i < MAX_NS; i++)
+      if (!ns_[i].metric)
+         break;
+   return i;
+}
+
+
+/*! Search address in NS list.
+ * @param addr Adress to search for.
+ * @return Returns index in NS list which is 0 <= index < MAX_NS. If the
+ * address is not found, MAX_NS is returned.
+ */
+int hosts_search_ns(const struct in6_addr *addr)
+{
+   int i;
+
+   for (i = 0; i < MAX_NS; i++)
+      if (ns_[i].metric && IN6_ARE_ADDR_EQUAL(addr, &ns_[i].addr))
+         break;
+   return i;
+}
+
+
+/*! Compare two ns_ent_t structures by its metric.
+ */
+static int cmp_ns(const void *a, const void *b)
+{
+   if (((ns_ent_t*) a)->metric == ((ns_ent_t*) b)->metric)
+      return 0;
+   return ((ns_ent_t*) a)->metric < ((ns_ent_t*) b)->metric ? -1 : 1;
+
+}
+
+
+/*! Update NS list.
+ */
+static int hosts_update_ns0(void)
+{
+   int mod[MAX_NS];
+   int i, j, m;
+
+   log_debug("updating NS list");
+   memset(mod, 0, sizeof(mod));
+   j = -1;
+
+   pthread_mutex_lock(&hosts_mutex_);
+   for (i = 0; i < hosts_.hosts_ent_cnt; i++)
+   {
+      // ignore self and empty entries
+      if (hosts_.hosts_ent[i].source <= HSRC_SELF)
+         continue;
+
+      // look of NS entry was already in the list
+      if ((j = hosts_search_ns(&hosts_.hosts_ent[i].addr)) < MAX_NS)
+      {
+         // just update the metric
+         ns_[j].metric = hosts_metric(&hosts_.hosts_ent[i]);
+         ns_[j].source = hosts_.hosts_ent[i].source;
+         mod[j] = 1;
+      }
+      // else if NS entry was not found
+      else
+      {
+         // look for empty slot in NS list
+         if ((j = hosts_search_ns_empty()) < MAX_NS)
+         {
+            ns_[j].metric = hosts_metric(&hosts_.hosts_ent[i]);
+            ns_[j].source = hosts_.hosts_ent[i].source;
+            IN6_ADDR_COPY(&ns_[j].addr, &hosts_.hosts_ent[i].addr);
+            mod[j] = 1;
+         }
+         // no empty slot was found
+         else
+         {
+            m = hosts_metric(&hosts_.hosts_ent[i]);
+            // search for slot with smaller metric
+            if ((j = hosts_search_ns_metric_lt(m)) < MAX_NS)
+            {
+               ns_[j].metric = hosts_metric(&hosts_.hosts_ent[i]);
+               ns_[j].source = hosts_.hosts_ent[i].source;
+               IN6_ADDR_COPY(&ns_[j].addr, &hosts_.hosts_ent[i].addr);
+               mod[j] = 1;
+            }
+         }
+      }
+   }
+
+   // finally cleanup now unused NS slots
+   for (i = 0; i < MAX_NS; i++)
+      if (!mod[j])
+         ns_[j].metric = 0;
+
+   // sort list
+   qsort(ns_, MAX_NS, sizeof(ns_[0]), cmp_ns);
+
+   pthread_mutex_unlock(&hosts_mutex_);
+
+   return 0;
+}
+
+
+int hosts_update_ns(void)
+{
+   static time_t _t = 0;
+
+   if (_t > time(NULL))
+      return 0;
+
+   _t = time(NULL) + NS_UPDATE_TIME;
+   return hosts_update_ns0();
+}
+
+
+/*! Get nameserver of the list of nameservers in round robin order. The list of
+ * nameservers is a subset of hosts db. It contains not more than MAX_NS
+ * entries with the highest metrics of the hosts db. the nameserver list is
+ * sorted descendingly by the metic, i.e. the best nameserver is found on index
+ * 0.
+ * @param addr If not NULL the address of the nameserver will be copied here.
+ * @param ns_src If not NULL, the source of nameserver address will be copied
+ * here.
+ * @param nptr If not NULL, the index to the next entry will be copied here.
+ * Start calling with 0 and then repeatedly call with the same variable to
+ * round robin over the list. It will automatically wrap back to 0. So be
+ * carefull detecting the end!
+ * @return On success the function returns a value >= 0 which is the same as
+ * stored in nptr. If no nameservers are found in the list -1 is returned.
+ */
+int hosts_get_ns_rr_metric(struct in6_addr *addr, hsrc_t *ns_src, int *nptr)
+{
+   int i, j, n;
+
+   // update ns list
+   hosts_update_ns();
+
+   n = nptr == NULL ? -1 : *nptr;
+
+   // safety check
+   if (n < 0) n = 0;
+
+   pthread_mutex_lock(&hosts_mutex_);
+   for (i = 0; i < MAX_NS; i++)
+   {
+      j = (i + n) % MAX_NS;
+      if (ns_[j].metric)
+      {
+         if (addr != NULL)
+            IN6_ADDR_COPY(addr, &ns_[j].addr);
+         if (ns_src != NULL)
+            *ns_src = ns_[j].source;
+         break;
+      }
+   }
+   pthread_mutex_unlock(&hosts_mutex_);
+
+   if (i >= MAX_NS)
+      return -1;
+
+   if (nptr != NULL)
+      *nptr = j + 1;
+
+   return j + 1;
+}
+
+
 /*! Get address of a name server from the hosts db in round robin order.
  * @param addr Pointer to memory which will receive the address.
  * @param ns_src Pointer will receive the NS source (hsrc_t).
@@ -498,7 +687,7 @@ int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, hsrc
  * is the worst and should be interpreted as "do not use". The current maximum
  * value is 2000.
  */
-int host_metric(const host_ent_t *hent)
+int hosts_metric(const host_ent_t *hent)
 {
    int m;
 
@@ -639,7 +828,7 @@ int sn_hosts_list(char *buf, int len)
          continue;
       }
       if ((plen = snprintf(buf, len, "%s %s # age = %ld, ttl = %d, src = %d, qcnt = %d, anscnt = %d, nxcnt = %d, metric = %d\n",
-                  in6, h->name, h->age, h->ttl, h->source, h->stat.q_cnt, h->stat.ans_cnt, h->stat.nx_cnt, host_metric(h))) == -1)
+                  in6, h->name, h->age, h->ttl, h->source, h->stat.q_cnt, h->stat.ans_cnt, h->stat.nx_cnt, hosts_metric(h))) == -1)
       {
          log_msg(LOG_CRIT, "snprintf() failed");
          wlen = -1;
@@ -665,6 +854,7 @@ int sn_hosts_list(char *buf, int len)
 void hosts_init(const char *dom)
 {
    hosts_.hdom = dom;
+   memset(ns_, 0, sizeof(ns_));
 }
 
 
