@@ -386,6 +386,57 @@ int ident_loopback(OcatPeer_t *peer, const struct ip6_hdr *i6h)
 }
 
 
+/*! This function tries to identify if data in a buffer is either IPv6 or IPv4.
+ * It does not fully check everything just as much as necessary. If the
+ * function returns 0 it is for sure neither IPv4 nor IPv6. Otherwise it may be
+ * right or may be wrong. Since the packet gets forwarded to the OS further
+ * checking is left over to it.
+ * @param buf Pointer to the buffer.
+ * @param len Bytes available in the buffer.
+ * @param tunhdr Pointer to a variable which will receiver either
+ * CNF(fhd_key[IPV6_KEY]) or CNF(fhd_key[IPV4_KEY]) if a packet was identified.
+ * @return On success the function returnes the length of the packet (>0) and
+ * sets tunhdr accordingly. If the data may be a partial IPv6 packet -6 is
+ * returned, if it may be a partial IPv4 packet -4 is returned. If the data is
+ * neither IPv6 nor IPv4, 0 is returned and the data should be dropped
+ * subsequently.
+ */
+int ident_packet(const char *buf, int len, uint32_t *tunhdr)
+{
+   // incoming packet seems to be IPv6
+   if ((buf[0] & 0xf0) == 0x60)
+   {
+      log_debug("identified IPv6 packet");
+      if ((len < (int) IP6HLEN) || (len < ntohs(((struct ip6_hdr*) buf)->ip6_plen) + (int) IP6HLEN))
+      {
+         log_debug("keeping %d bytes frag", len);
+         return -6;
+      }
+      *tunhdr = CNF(fhd_key[IPV6_KEY]);
+      return ntohs(((struct ip6_hdr*) buf)->ip6_plen) + IP6HLEN;
+   }
+
+   // incoming packet seems to be IPv4
+   if ((buf[0] & 0xf0) == 0x40)
+   {
+      if ((buf[0] & 0x0f) >= 5)
+      {
+         log_debug("identified IPv4 packet");
+         if ((len < (int) IPHDLEN) || (len < IPPKTLEN(buf)))
+         {
+            log_debug("keeping %d bytes frag", len);
+            return -4;
+         }
+         *tunhdr = CNF(fhd_key[IPV4_KEY]);
+         return IPPKTLEN(buf);
+      }
+   }
+
+   log_debug("ill data");
+   return 0;
+}
+
+
 void *socket_receiver(void *UNUSED(p))
 {
    int maxfd, len;
@@ -527,68 +578,20 @@ void *socket_receiver(void *UNUSED(p))
 
          while (peer->fraglen)
          {
-            // incoming packet seems to be IPv6
-            if ((peer->fragbuf[0] & 0xf0) == 0x60)
+            if ((len = ident_packet(peer->fragbuf, peer->fraglen, peer->tunhdr)) <= 0)
             {
-               log_debug("identified IPv6 packet");
-               if ((peer->fraglen < (int) IP6HLEN) || (peer->fraglen < ntohs(((struct ip6_hdr*) peer->fragbuf)->ip6_plen) + (int) IP6HLEN))
+               if (!len)
                {
-                  log_debug("keeping %d bytes frag", peer->fraglen);
-                  break;
-               }
-
-               len = ntohs(((struct ip6_hdr*)peer->fragbuf)->ip6_plen) + IP6HLEN;
-               *peer->tunhdr = CNF(fhd_key[IPV6_KEY]);
-            }
-            // incoming packet seems to be IPv4
-            else if ((peer->fragbuf[0] & 0xf0) == 0x40)
-            {
-               if ((peer->fragbuf[0] & 0x0f) < 5)
-               {
-                  log_debug("dropping packet, not IPv4 - resetting fragment buffer");
+                  /* Some testing showed that resetting the fragment buffer
+                   * completely works better that trying to find new packets by
+                   * moving forward byte-by-byte. */
+                  log_debug("fragment buffer reset");
                   peer->fraglen = 0;
-                  break;
                }
-
- #ifdef HANDLE_HTTP
-               if (handle_http(peer))
-               {
-                  log_msg(LOG_INFO | LOG_FCONN, "closing %d due to HTTP", peer->tcpfd);
-                  oe_close(peer->tcpfd);
-                  unlock_peer(peer);
-                  lock_peers();
-                  delete_peer(peer);
-                  unlock_peers();
-               }
-#endif
-              
-               log_debug("identified IPv4 packet");
-               if ((peer->fraglen < (int) IPHDLEN) || (peer->fraglen < IPPKTLEN(peer->fragbuf)))
-               {
-                  log_debug("keeping %d bytes frag", peer->fraglen);
-                  break;
-               }
-
-               len = IPPKTLEN(peer->fragbuf);
-               *peer->tunhdr = CNF(fhd_key[IPV4_KEY]);
-            }
-            else
-            {
-#if 1
-               /* Some testing showed that resetting the fragment buffer
-                * completely works better that trying to find new packets by
-                * moving forward byte-by-byte. */
-               log_debug("fragment buffer reset");
-               peer->fraglen = 0;
                break;
-#else
-               log_debug("fragment buffer resynchronization");
-               len = 1;
-               drop = 1;
-               //break;   // FIXME: this break may have been wrong
-#endif
             }
 
+            // FIXME: the following if should check if it is IPv6 and "drop" may be unnecessary
             // identify remote loopback
             if (!drop && IN6_IS_ADDR_UNSPECIFIED(&peer->addr))
             {
