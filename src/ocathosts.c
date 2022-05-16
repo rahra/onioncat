@@ -627,10 +627,11 @@ static void hosts_copy_data(struct hosts_ent *h, const char *name, int source, t
 
 
 /*! Create a random number dependet of the IPv6 address is lower or greater
- * than the own address. If the own address is greater lower than addr, 0 is
- * returned. If the own address is greater than addr, a random value 10 <= x <=
- * 60 is returned. This is meant to be additional to the TTL in the hosts db to
- * avoid concurrent reconnects for the cache refresh.
+ * than the own address. If the own address is lower than addr, 0 is returned.
+ * If the own address is greater than addr, a random value 10 <= x <= 60 is
+ * returned. This is meant to be additional to the TTL in the hosts db to avoid
+ * concurrent reconnects for the cache refresh. As a result, the OnionCat with
+ * the lower address will refresh first.
  * @param addr Pointer to the IPv6 address of the hosts db to check.
  * @return Returns Either 0, or 10 <= x <= 60.
  */
