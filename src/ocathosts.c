@@ -168,7 +168,7 @@ void hosts_cleanup(void)
  */
 int hosts_read(time_t age, const char *phosts)
 {
-   int e, n, o = 0, c, src;
+   int e, n, o = 0, c, src, ttl;
    char buf[HOSTS_LINE_LENGTH + 1], *s, *nptr, *rem, *host;
    struct addrinfo hints, *res;
    FILE *f;
@@ -237,7 +237,9 @@ int hosts_read(time_t age, const char *phosts)
       }
 
       // parse comment part, split at every ','
-      for (src = HSRC_HOSTS; (s = strtok_r(NULL, ",\r\n", &rem)) != NULL;)
+      ttl = -1;
+      src = HSRC_HOSTS;
+      for (; (s = strtok_r(NULL, ",\r\n", &rem)) != NULL;)
       {
          // split sub portions at '='
          nptr = NULL;
@@ -247,6 +249,7 @@ int hosts_read(time_t age, const char *phosts)
          if ((s = strtok(s, " \t")) == NULL)
             continue;
 
+         // parse source
          if (!strcmp(s, "src"))
          {
             if ((s = strtok_r(NULL, " \t", &nptr)) == NULL)
@@ -254,10 +257,28 @@ int hosts_read(time_t age, const char *phosts)
             if ((c = strtol(s, &nptr, 0)) > HSRC_HOSTS)
                src = c;
          }
+
+         // parse ttl
+         if (!strcmp(s, "ttl"))
+         {
+            if ((s = strtok_r(NULL, " \t", &nptr)) == NULL)
+               continue;
+            if ((c = strtol(s, &nptr, 0)) > HSRC_HOSTS)
+               ttl = c;
+         }
       }
 
       if (host != NULL)
-         hosts_add_entry_unlocked(&((struct sockaddr_in6*) res->ai_addr)->sin6_addr, host, src, age, -1);
+      {
+         // hosts file entry do not expire
+         if (src <= HSRC_HOSTS)
+            ttl = -1;
+         // prevent entry from immediate expiry
+         else if (age + ttl - time(NULL) <= HOSTS_EXP_REFRESH)
+            ttl = time(NULL) - age + HOSTS_EXP_REFRESH;
+
+         hosts_add_entry_unlocked(&((struct sockaddr_in6*) res->ai_addr)->sin6_addr, host, src, age, ttl);
+      }
 
       freeaddrinfo(res);
    }
@@ -840,6 +861,32 @@ void hosts_refresh(void)
 }
 
 
+/*! Return string according to hosts source type.
+ * @param source Hosts source type.
+ * @return Returns a constant string.
+ */
+const char *hosts_source(hsrc_t source)
+{
+   switch (source)
+   {
+      case HSRC_SELF:
+         return "own address";
+      case HSRC_CLI:
+         return "cli";
+      case HSRC_HOSTS:
+         return "hosts file";
+      case HSRC_KPLV:
+         return "keepalive";
+      case HSRC_NET_AA:
+         return "authorative NS response";
+      case HSRC_NET:
+         return "NS response";
+      default:
+         return "unknown";
+   }
+}
+
+
 /*! Output the list of hosts to a memory buffer. The function does not write
  * more then len bytes to the buffer.
  * @param buf Pointer to the memory buffer.
@@ -850,7 +897,8 @@ void hosts_refresh(void)
  **/
 int sn_hosts_list(char *buf, int len)
 {
-   char in6[INET6_ADDRSTRLEN];
+   char in6[INET6_ADDRSTRLEN], tstr[32];
+   struct tm tm;
    int i, plen, wlen = 0;
    struct hosts_ent *h;
 
@@ -870,7 +918,9 @@ int sn_hosts_list(char *buf, int len)
          log_msg(LOG_ERR, "inet_ntop() failed: %s", strerror(errno));
          continue;
       }
-      if ((plen = snprintf(buf, len, "%s %s # age = %ld, ttl = %d, src = %d, qcnt = %d, anscnt = %d, nxcnt = %d, metric = %d\n",
+      strftime(tstr, sizeof(tstr), "%Y-%m-%dT%H:%M:%S%z", localtime_r(&h->age, &tm));
+      if ((plen = snprintf(buf, len, "# hostname =\"%s\", entry_time = \"%s\", source_str = \"%s\"\n%s %s # age = %ld, ttl = %d, src = %d, qcnt = %d, anscnt = %d, nxcnt = %d, metric = %d\n",
+                  h->name, tstr, hosts_source(h->source),
                   in6, h->name, h->age, hosts_ttl(h), h->source, h->stat.q_cnt, h->stat.ans_cnt, h->stat.nx_cnt, hosts_metric(h))) == -1)
       {
          log_msg(LOG_CRIT, "snprintf() failed");

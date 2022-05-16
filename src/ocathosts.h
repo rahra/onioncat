@@ -35,9 +35,13 @@
 #endif
 
 
+//! max line length of input hosts file
 #define HOSTS_LINE_LENGTH 1024
-#define HOSTS_LINE_LENGTH_OUT 256
+//! max record length of hosts entry for outputting hosts file
+#define HOSTS_LINE_LENGTH_OUT 1024
+//! ttl of keepalives
 #define HOSTS_KPLV_TTL 3600
+//! minimum timespan before saving hosts file (to prevent too much disk io)
 #define HOSTS_TIME 300
 //! Seconds before expiry of hosts entry to renew it
 #define HOSTS_EXP_REFRESH 60
