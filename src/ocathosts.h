@@ -39,12 +39,14 @@
 #define HOSTS_LINE_LENGTH 1024
 //! max record length of hosts entry for outputting hosts file
 #define HOSTS_LINE_LENGTH_OUT 1024
-//! ttl of keepalives
-#define HOSTS_KPLV_TTL 3600
+//! ttl of keepalives (2h)
+#define HOSTS_KPLV_TTL 7200
 //! minimum timespan before saving hosts file (to prevent too much disk io)
 #define HOSTS_TIME 300
 //! Seconds before expiry of hosts entry to renew it
 #define HOSTS_EXP_REFRESH 60
+//! Final expiry time of hosts entry (24h)
+#define HOSTS_EXPIRE 86400
 #define MAX_NS 5
 #define NS_UPDATE_TIME 5
 
@@ -97,6 +99,7 @@ int hosts_get_ns(struct in6_addr *, hsrc_t *);
 int hosts_get_addr(int n, struct in6_addr *addr);
 int hosts_add_entry(const struct in6_addr *, const char *, hsrc_t, time_t, int);
 void hosts_refresh(void);
+void hosts_cleanup(void);
 void hosts_init(const char*);
 int hosts_list(FILE *);
 int sn_hosts_list(char*, int);

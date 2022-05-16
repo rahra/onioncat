@@ -1281,6 +1281,8 @@ void *socket_cleaner(void *UNUSED(ptr))
 
       // refresh cached hosts entries
       hosts_refresh();
+      // remove expired entries
+      hosts_cleanup();
    }
    return NULL;
 }

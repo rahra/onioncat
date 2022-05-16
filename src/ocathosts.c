@@ -626,6 +626,23 @@ static void hosts_copy_data(struct hosts_ent *h, const char *name, int source, t
 }
 
 
+/*! Create a random number dependet of the IPv6 address is lower or greater
+ * than the own address. If the own address is greater lower than addr, 0 is
+ * returned. If the own address is greater than addr, a random value 10 <= x <=
+ * 60 is returned. This is meant to be additional to the TTL in the hosts db to
+ * avoid concurrent reconnects for the cache refresh.
+ * @param addr Pointer to the IPv6 address of the hosts db to check.
+ * @return Returns Either 0, or 10 <= x <= 60.
+ */
+int hosts_ttl_delay(const struct in6_addr *addr)
+{
+   if (memcmp(&CNF(ocat_addr), addr, sizeof(*addr)) < 0)
+      return 0;
+
+   return rand() % 50 + 10;
+}
+
+
 /*! Add an entry to the hosts memory database. If the entry (based on addr)
  * does already exist, it is updated accordingly if the source is less or equal
  * the source value in the hosts db.
@@ -653,6 +670,10 @@ int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, hsrc
       if (!IN6_ARE_ADDR_EQUAL(addr, &taddr))
          return -1;
    }
+
+   // add random delay
+   if (ttl > 0)
+      ttl += hosts_ttl_delay(addr);
 
    // check if entry already exists
    if ((n = hosts_get_name_unlocked(addr, NULL, 0)) == -1)
@@ -852,10 +873,19 @@ void hosts_refresh(void)
 
    pthread_mutex_lock(&hosts_mutex_);
    for (i = 0; i < hosts_.hosts_ent_cnt; i++)
-      if (hosts_.hosts_ent[i].source > HSRC_HOSTS && hosts_should_refresh(hosts_ttl(&hosts_.hosts_ent[i])))
+      if (hosts_.hosts_ent[i].source > HSRC_HOSTS)
       {
-         log_debug("refreshing entry");
-         socks_queue(hosts_.hosts_ent[i].addr, 0);
+         if (hosts_.hosts_ent[i].age + HOSTS_EXPIRE < time(NULL))
+         {
+            log_debug("entry expired");
+            hosts_.hosts_ent[i].ttl = 0;
+         }
+         else if (hosts_should_refresh(hosts_ttl(&hosts_.hosts_ent[i])))
+         {
+            log_debug("trying to refresh entry");
+            socks_queue(hosts_.hosts_ent[i].addr, 0);
+            hosts_.hosts_ent[i].ttl = time(NULL) - hosts_.hosts_ent[i].age + HOSTS_KPLV_TTL;
+         }
       }
    pthread_mutex_unlock(&hosts_mutex_);
 }
