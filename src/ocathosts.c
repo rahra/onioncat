@@ -797,6 +797,49 @@ hl_exit:
 }
 
 
+/*! Return current TTL of hosts entry based on age, ttl, and current time. A
+ * ttl of -1 means inifinite ttl.
+ * @param age Time when the entry was added to the hosts db.
+ * @param ttl TTL as set when entry was added.
+ * @return Returns the current TTL.
+ */
+int hosts_ttl(const host_ent_t *h)
+{
+   int ttl;
+
+   if (h->ttl < 0)
+      return h->ttl;
+
+   ttl = h->ttl + h->age - time(NULL);
+
+   return ttl >= 0 ? ttl : 0;
+}
+
+
+static int hosts_should_refresh(int ttl)
+{
+   return ttl >= 0 && ttl <= HOSTS_EXP_REFRESH;
+}
+
+
+/*! Trigger new outgoing connection for all remote hosts entries to refresh
+ * hosts db (because of resulting keepalives).
+ */
+void hosts_refresh(void)
+{
+   int i;
+
+   pthread_mutex_lock(&hosts_mutex_);
+   for (i = 0; i < hosts_.hosts_ent_cnt; i++)
+      if (hosts_.hosts_ent[i].source > HSRC_HOSTS && hosts_should_refresh(hosts_ttl(&hosts_.hosts_ent[i])))
+      {
+         log_debug("refreshing entry");
+         socks_queue(hosts_.hosts_ent[i].addr, 0);
+      }
+   pthread_mutex_unlock(&hosts_mutex_);
+}
+
+
 /*! Output the list of hosts to a memory buffer. The function does not write
  * more then len bytes to the buffer.
  * @param buf Pointer to the memory buffer.
@@ -828,7 +871,7 @@ int sn_hosts_list(char *buf, int len)
          continue;
       }
       if ((plen = snprintf(buf, len, "%s %s # age = %ld, ttl = %d, src = %d, qcnt = %d, anscnt = %d, nxcnt = %d, metric = %d\n",
-                  in6, h->name, h->age, h->ttl, h->source, h->stat.q_cnt, h->stat.ans_cnt, h->stat.nx_cnt, hosts_metric(h))) == -1)
+                  in6, h->name, h->age, hosts_ttl(h), h->source, h->stat.q_cnt, h->stat.ans_cnt, h->stat.nx_cnt, hosts_metric(h))) == -1)
       {
          log_msg(LOG_CRIT, "snprintf() failed");
          wlen = -1;

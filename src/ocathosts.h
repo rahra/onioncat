@@ -39,11 +39,15 @@
 #define HOSTS_LINE_LENGTH_OUT 256
 #define HOSTS_KPLV_TTL 3600
 #define HOSTS_TIME 300
+//! Seconds before expiry of hosts entry to renew it
+#define HOSTS_EXP_REFRESH 60
 #define MAX_NS 5
 #define NS_UPDATE_TIME 5
 
 
-typedef enum {HSRC_SELF, HSRC_CLI, HSRC_HOSTS, HSRC_NET_AA, HSRC_KPLV, HSRC_NET} hsrc_t;
+/*! Priority of hosts sources.  Keepalive must be lower that NS responses,
+ * otherwise the ttl wouldn't be updated with keepalives. */
+typedef enum {HSRC_SELF, HSRC_CLI, HSRC_HOSTS, HSRC_KPLV, HSRC_NET_AA, HSRC_NET} hsrc_t;
 
 typedef struct ns_ent
 {
@@ -88,6 +92,7 @@ int hosts_get_ns_rr(struct in6_addr *, hsrc_t *, int *);
 int hosts_get_ns(struct in6_addr *, hsrc_t *);
 int hosts_get_addr(int n, struct in6_addr *addr);
 int hosts_add_entry(const struct in6_addr *, const char *, hsrc_t, time_t, int);
+void hosts_refresh(void);
 void hosts_init(const char*);
 int hosts_list(FILE *);
 int sn_hosts_list(char*, int);

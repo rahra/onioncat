@@ -1187,12 +1187,55 @@ int send_keepalive(OcatPeer_t *peer)
 }
 
 
+void cleanup_peers(void)
+{
+   OcatPeer_t *peer, **p;
+   time_t act_time = time(NULL);
+
+   // cleanup peers
+   lock_peers();
+   for (p = get_first_peer_ptr(); *p; p = &(*p)->next)
+   {
+      lock_peer(*p);
+
+      // handle permanent connections
+      if ((*p)->perm)
+      {
+         // sending keepalive
+         if (act_time - (*p)->time >= KEEPALIVE_TIME)
+         {
+            send_keepalive(*p);
+            (*p)->time = act_time;
+         }
+         unlock_peer(*p);
+      }
+      // handle temporary connections
+      else if ((*p)->state && act_time - (*p)->time >= MAX_IDLE_TIME)
+      {
+         peer = *p;
+         *p = peer->next;
+         log_msg(LOG_INFO | LOG_FCONN, "peer %d timed out, closing.", peer->tcpfd);
+         oe_close(peer->tcpfd);
+         unlock_peer(peer);
+         delete_peer(peer);
+         if (!(*p))
+         {
+            log_debug("last peer in list deleted, breaking loop");
+            break;
+         }
+      }
+      else
+         unlock_peer(*p);
+   }
+   unlock_peers();
+}
+
+
 /*! This thread wakes up every CLEANER_WAKUP seconds and does some house
  * keeping.
  */
 void *socket_cleaner(void *UNUSED(ptr))
 {
-   OcatPeer_t *peer, **p;
    int stat_wup = 0;
    time_t act_time, saved_time = time(NULL);
 
@@ -1233,42 +1276,11 @@ void *socket_cleaner(void *UNUSED(ptr))
       // cleanup MAC table
       mac_cleanup();
 
-      // cleanup peers
-      lock_peers();
-      for (p = get_first_peer_ptr(); *p; p = &(*p)->next)
-      {
-         lock_peer(*p);
+      // cleanup stale peers
+      cleanup_peers();
 
-         // handle permanent connections
-         if ((*p)->perm)
-         {
-            // sending keepalive
-            if (act_time - (*p)->time >= KEEPALIVE_TIME)
-            {
-               send_keepalive(*p);
-               (*p)->time = act_time;
-            }
-            unlock_peer(*p);
-         }
-         // handle temporary connections
-         else if ((*p)->state && act_time - (*p)->time >= MAX_IDLE_TIME)
-         {
-            peer = *p;
-            *p = peer->next;
-            log_msg(LOG_INFO | LOG_FCONN, "peer %d timed out, closing.", peer->tcpfd);
-            oe_close(peer->tcpfd);
-            unlock_peer(peer);
-            delete_peer(peer);
-            if (!(*p))
-            {
-               log_debug("last peer in list deleted, breaking loop");
-               break;
-            }
-         }
-         else
-            unlock_peer(*p);
-      }
-      unlock_peers();
+      // refresh cached hosts entries
+      hosts_refresh();
    }
    return NULL;
 }
