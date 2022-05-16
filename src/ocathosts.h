@@ -45,8 +45,8 @@
 #define HOSTS_TIME 300
 //! Seconds before expiry of hosts entry to renew it
 #define HOSTS_EXP_REFRESH 60
-//! Final expiry time of hosts entry (24h)
-#define HOSTS_EXPIRE 86400
+//! Final expiry time of hosts entry (7d)
+#define HOSTS_EXPIRE 604800
 #define MAX_NS 5
 #define NS_UPDATE_TIME 5
 

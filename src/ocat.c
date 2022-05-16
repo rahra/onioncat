@@ -43,6 +43,7 @@ void usage(const char *s)
          "   -d <n>                set debug level to n, default = %d\n"
          "   -D                    Disable OnionCat DNS lookups, default = %d.\n"
          "   -e <ifup-script>      execute ifup-script after opening interface\n"
+         "   -E <n>                expire hosts entries after <n> seconds. (default = %d)\n"
          "   -f <config_file>      read config from config_file (default = %s)\n"
          "   -g <hosts_path>       set path to hosts file for hosts lookup (default  = \"%s\").\n"
          "                         This option implicitly activates -H.\n"
@@ -72,10 +73,10 @@ void usage(const char *s)
          , CNF(version), s,
          // option defaults start here
          OCAT_DIR, NDESC(clog_file), CNF(create_clog), 
-         CNF(daemon), CNF(daemon) ^ 1, CNF(hosts_lookup),
-         CNF(debug_level), CNF(dns_lookup), CNF(config_file), CNF(hosts_path), NDESC(listen_port),
-         CNF(pid_file),
-         CNF(ocat_dest_port), CNF(dns_server), ntohs(CNF(socks_dst)->sin_port), 
+         CNF(daemon), CNF(daemon) ^ 1, CNF(hosts_lookup), CNF(debug_level),
+         CNF(dns_lookup), CNF(expire), CNF(config_file), CNF(hosts_path),
+         NDESC(listen_port), CNF(pid_file), CNF(ocat_dest_port),
+         CNF(dns_server), ntohs(CNF(socks_dst)->sin_port),
 #ifndef WITHOUT_TUN
          TUN_DEV,
 #endif
@@ -416,7 +417,7 @@ int parse_opt(int argc, char *argv[])
    log_debug("parse_opt()");
    opterr = 1;
    optind = 1;
-   while ((c = getopt(argc, argv, "f:IA:abBCd:De:g:hHrRiJopl:t:T:s:SUu:245:L:P:n:")) != -1)
+   while ((c = getopt(argc, argv, "f:IA:abBCd:De:E:g:hHrRiJopl:t:T:s:SUu:245:L:P:n:")) != -1)
    {
       log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, SSTR(optarg));
       switch (c)
@@ -476,6 +477,10 @@ int parse_opt(int argc, char *argv[])
 
          case 'e':
             CNF(ifup) = optarg;
+            break;
+
+         case 'E':
+            CNF(expire) = atoi(optarg);
             break;
 
          case 'g':

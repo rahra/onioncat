@@ -876,7 +876,7 @@ void hosts_refresh(void)
    for (i = 0; i < hosts_.hosts_ent_cnt; i++)
       if (hosts_.hosts_ent[i].source > HSRC_HOSTS)
       {
-         if (hosts_.hosts_ent[i].age + HOSTS_EXPIRE < time(NULL))
+         if (CNF(expire) > 0 && hosts_.hosts_ent[i].age + CNF(expire) < time(NULL))
          {
             log_debug("entry expired");
             hosts_.hosts_ent[i].ttl = 0;

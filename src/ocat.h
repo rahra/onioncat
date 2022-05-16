@@ -464,6 +464,7 @@ struct OcatSetup
    int dns_server;         //!< run OnionCat DNS server
    int validate_remnames;  //!< validate hostnames from remote OnionCats
    uint16_t ocat_ns_port;  //!< default port number of name server
+   int expire;             //!< expiry time of remote hosts entries
 };
 
 #ifdef PACKET_QUEUE
