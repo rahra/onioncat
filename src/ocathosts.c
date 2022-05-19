@@ -952,7 +952,7 @@ int sn_hosts_list(char *buf, int len)
       strftime(tstr, sizeof(tstr), "%Y-%m-%dT%H:%M:%S%z", localtime_r(&h->age, &tm));
       if ((plen = snprintf(buf, len, "# hostname =\"%s\", entry_time = \"%s\", source_str = \"%s\"\n%s %s # age = %ld, ttl = %d, src = %d, qcnt = %d, anscnt = %d, nxcnt = %d, metric = %d\n",
                   h->name, tstr, hosts_source(h->source),
-                  in6, h->name, h->age, hosts_ttl(h), h->source, h->stat.q_cnt, h->stat.ans_cnt, h->stat.nx_cnt, hosts_metric(h))) == -1)
+                  in6, h->name, (long) h->age, hosts_ttl(h), h->source, h->stat.q_cnt, h->stat.ans_cnt, h->stat.nx_cnt, hosts_metric(h))) == -1)
       {
          log_msg(LOG_CRIT, "snprintf() failed");
          wlen = -1;

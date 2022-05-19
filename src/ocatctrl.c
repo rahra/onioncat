@@ -53,7 +53,7 @@ void ctrl_ns_response(void *p, struct in6_addr addr, int code)
       if (hosts_get_name_ext(&addr, name, sizeof(name), &source, &age) == -1)
          snprintf(buf, sizeof(buf), "response received, code = %s (%d), hosts_get_name_ext() failed!\n", code_str(code), code);
       else
-         snprintf(buf, sizeof(buf), "%s %s # age = %ld, src = %d\n", inet_ntop(AF_INET6, &addr, in6, sizeof(in6)), name, age, source);
+         snprintf(buf, sizeof(buf), "%s %s # age = %ld, src = %d\n", inet_ntop(AF_INET6, &addr, in6, sizeof(in6)), name, (long) age, source);
    }
    else
    {
