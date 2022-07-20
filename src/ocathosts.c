@@ -841,7 +841,7 @@ hl_exit:
 
 
 /*! Return current TTL of hosts entry based on age, ttl, and current time. A
- * ttl of -1 means inifinite ttl.
+ * ttl of -1 means infinite ttl.
  * @param age Time when the entry was added to the hosts db.
  * @param ttl TTL as set when entry was added.
  * @return Returns the current TTL.

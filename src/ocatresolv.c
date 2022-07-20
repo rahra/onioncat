@@ -21,7 +21,7 @@
  *  There is no portable thread-safe low level resolver interface, thus, I
  *  wrote the code completely new for OnionCat. Although it is not a full
  *  resolver nor a full nameserver. It just implements those parts which are
- *  necessary as far as the conform to the standards, which is manly RFC1034
+ *  necessary as far as the conform to the standards, which is mainly RFC1034
  *  and RFC1035.
  *
  *  Note: The code previously found in this file was deleted since it was never
