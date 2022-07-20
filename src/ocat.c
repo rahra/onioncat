@@ -770,7 +770,11 @@ int main(int argc, char *argv[])
    run_ocat_thread("cleaner", socket_cleaner, NULL);
    // starting dns server thread
    if (CNF(dns_server))
-      run_ocat_thread("nserver", oc_nameserver, NULL);
+   {
+      run_ocat_thread("nserver", oc_nameserver, (void*)(intptr_t) CNF(ocat_ns_port));
+      // 2nd thread is for backwards compatibility, will be removed in future
+      run_ocat_thread("nserver", oc_nameserver, (void*)(intptr_t) 8060);
+   }
 
    // getting passwd info for user
    log_debug("getting user info for \"%s\"", CNF(usrname));

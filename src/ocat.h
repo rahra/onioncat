@@ -201,7 +201,7 @@
 //! Name of the author of OnionCat.
 #define OCAT_AUTHOR "Bernhard R. Fischer"
 //! Default port number for DNS service
-#define OCAT_NS_PORT 8060
+#define OCAT_NS_PORT 53
 //! Local state dir for cached hosts file
 #define OCAT_HOSTS_STATE STATEDIR "/hosts.cached"
 

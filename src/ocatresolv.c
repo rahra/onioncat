@@ -422,7 +422,7 @@ int oc_proc_request(char *buf, int msglen, int buflen)
    inet_ntop(AF_INET6, &in6, name, sizeof(name));
    log_msg(LOG_INFO, "got valid DNS request for address %s", name);
 
-   // make sure to read hosts file
+   // make sure to read hosts file FIXME: this may cause unnecessary load -> socket_cleaner()
    hosts_check();
    // lookup hostname in memory
    if (hosts_get_name_ext(&in6, name, sizeof(name), &source, &age) == -1)
@@ -575,10 +575,11 @@ int oc_proc_response(const char *buf, int msglen, uint16_t org_id, const struct 
 
 /*! This function creates a DGRAM socket suitable to receive OnionCat DNS
  * queries.
+ * @param port Port number of UDP port.
  * @return On success the function returns a valid filedescriptor. On error, -1
  * is returned.
  */
-int oc_ns_socket(void)
+int oc_ns_socket(int port)
 {
    struct sockaddr_in6 s6addr;
    socklen_t slen;
@@ -599,7 +600,7 @@ int oc_ns_socket(void)
 #ifdef HAVE_SIN_LEN
    s6addr.sin6_len = slen;
 #endif
-   s6addr.sin6_port = htons(CNF(ocat_ns_port));
+   s6addr.sin6_port = htons(port);
    IN6_ADDR_COPY(&s6addr.sin6_addr, &CNF(ocat_addr));
 
    // cannot bind before address was assigned in the main thread
@@ -608,7 +609,7 @@ int oc_ns_socket(void)
    // bind socket to address
    if (bind(fd, (struct sockaddr*) &s6addr, slen) == -1)
    {
-      log_msg(LOG_ERR, "could not bind DNS socket: %s", strerror(errno));
+      log_msg(LOG_ERR, "could not bind DNS socket to port %d: %s", port, strerror(errno));
       oe_close(fd);
       return -1;
    }
@@ -622,7 +623,7 @@ int oc_ns_socket(void)
  * answers are sent dependent if the names in the queries are found in the
  * local DB, or not. In the latter case NXDOMAIN is replied.
  */
-void *oc_nameserver(void *UNUSED(p))
+void *oc_nameserver(void *p)
 {
    struct sockaddr_str ssaddr;
    struct sockaddr_in6 s6addr;
@@ -634,7 +635,7 @@ void *oc_nameserver(void *UNUSED(p))
 
    detach_thread();
 
-   if ((fd = oc_ns_socket()) == -1)
+   if ((fd = oc_ns_socket((intptr_t) p)) == -1)
       return NULL;
 
    set_thread_ready();
