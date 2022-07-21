@@ -1,6 +1,6 @@
 # ocat(1) - OnionCat creates a transparent IPv6 layer on top of Tor's or I2P hidden
 
-ocat, 2021-02-10
+ocat, 2022-07-21
 
 services.
 
@@ -53,6 +53,10 @@ OnionCat and Tor itself works, hidden service correctly configured and enabled.
 ### OPTIONS
 
 
+* **-2**  
+  This option is here only for simplicity. With this option OnionCat behaves like
+  OnionCat3 (version &lt; 0.4.0). Actually it is a short form for using the options
+  **-D -H -S**.
 * **-4**  
   Enable IPv4 forwarding. See http://www.cypherpunk.at/onioncat_trac/wiki/IPv4  
   IPv4-througth-IPv6 tunnel through OnionCat is recommended instead of using native
@@ -70,11 +74,18 @@ OnionCat and Tor itself works, hidden service correctly configured and enabled.
   mechanism (see option **-H**).
   This feature is experimental and turns OnionCat into a distributed virtual switch
   based on regular Internet transport instead of Tor. It is a useful feature for
-  a lab setup.
+  a lab setup.  
+  This option also disables the remote hostname validation (option **-J**).  
+  Please note that OnionCat does not implement any encryption technique! It is a
+  plain tunneling through TCP sessions.
 * **-a**  
   OnionCat creates a log file at $HOME/.ocat/connect_log. All incoming connects are
   logged to that file. $HOME is determined from the user under which OnionCat runs
   (see option -u).
+* **-A** _ipv6_/_hostname_  
+  This option lets you add an IP address hostname pair to the internal hosts db.
+  This option may be specified multple times. Alternatively you could put the
+  IP/hostname pairs into the OnionCat hosts file (see option -g).
 * **-b**  
   Run OnionCat in background. This is default. OnionCat will detach from a running
   shell and close standard IO if no log file is given with option -L.
@@ -90,6 +101,12 @@ OnionCat and Tor itself works, hidden service correctly configured and enabled.
   Set debug level to _n_. Default = 7 which is maximum. Debug output will
   only be created if OnionCat was compiled with option DEBUG (i.e. configure was
   run with option --enable-debug).
+* **-D**  
+  Disable OnionCat's DNS lookup. If OnionCat has to make an outgoing connection
+  but no suitable entry is found in the internal hosts db, OnionCat will do a DNS
+  query at the hosts found in the internal hosts db. This option deactivates this
+  feature.  
+  Hostname lookups are enabled by default since OnionCat4.
 * **-e** _ifup_  
   Execute script _ifup_ to bring up the tunnel interface.  
   OnionCat will create a new tunnel interface and execute _ifup_ immediatly
@@ -132,25 +149,50 @@ OnionCat and Tor itself works, hidden service correctly configured and enabled.
   This variable contains the TLD appendix which is .onion for Tor and .b32.i2p
   for I2P.
   
+* **-E** _s_  
+  This option sets the expiry time in secondes for remote entries in the internal
+  hosts db.  
+  If the TTL of an entry expires, OnionCat will try to renew the entry by
+  connecting to the remote OnionCat to retrieve a new keepalive. If it is
+  unreachable it will retry after some time again. If it was unreachable for more
+  than _s_ seconds, the entry will be removed from the internal hosts db.  
+  The default expiry time is 604800 seconds which is 7 days.
+  
 * **-f** _config file_  
   Read initial configuration from _config file_. 
 * **-g** _hosts\_path_  
   Set the path to the hosts file. This option automatically enables option -H
-  (see there). If -g is not set, the path defaults to the system hosts file
-  which typically is /etc/hosts on Un*x systems.
+  (see there). If -g is not set, the path defaults to
+  SYSCONFDIR/tor/onioncat.hosts where SYSCONFDIR typically is /etc or
+  /usr/local/etc.  
+  On exit, OnionCat saves all collected hosts entries to
+  DATADIR/onioncat/hosts.cached. This file is pulled in automatically at the next
+  startup again. The entries are also save regularly every 5 minutes. This is
+  only done if the internal hosts db was modified, i.e. if new entries where
+  collected during the period of the last save to prevent unnecessary storage
+  interaction. Please note that if you manually delete the file on the command
+  line, it will not be recreated if no new entries where collected afterwards.
 * **-H**  
-  This option enables the hosts reverse lookup. If OnionCat receives a packet to
-  a destination IPv6 address within the OnionCat prefix, it translates it
-  directly to a .onion hostname by default. If option -H is enabled, OnionCat
-  instead looks up the hostname in the hosts file (see also -g). This option is
-  always enabled when OnionCat is used in GarliCat mode for I2P and it is required
-  with V3 hidden services of Tor (see below).
+  This option disables the hosts reverse lookup in the internal hosts db. Host
+  lookups are required for Tor's hidden services V3 as well as for I2P. Thus,
+  disabling the lookup function by using this options does only make sense when
+  using Tor's hidden services V2.  
+  Reverse lookups are enabled by default since OnionCat4.
 * **-h**  
   Display short usage message and shows options.
 * **-i**  
   Convert _onion\_id_ to IPv6 address and exit.
 * **-I**  
   Run OnionCat in GarliCat (I2P) mode.
+* **-J**  
+  Disable remote hostname validation. OnionCat is able to receive remote
+  hostnames from keepalive messages and DNS queries. OnionCat validates if these
+  names "make sense", i.e. it checks if the name is a valid onion name, and it
+  checks if the name translates to the right IP.  
+  Hostname validation is enabled by default.  
+  This is a security feature. Rogue OnionCats could send special crafted
+  keepalives or DNS answers which may trick OnionCat into connecting somewhere
+  else instead outside of the Tor network or to a fake hidden service.
 * **-l** _[ip:]port_  
   Bind OnionCat to specific _ip _ and/or _port_ number for incoming
   connections. It defaults to 127.0.0.1:8060. This option could be set
@@ -165,12 +207,13 @@ OnionCat and Tor itself works, hidden service correctly configured and enabled.
 * **-o** _IPv6 address_  
   Convert _IPv6 address_ to _onion\_id_ and exit program.
 * **-p**  
-  Use TAP device instead of TUN device. There are a view differences. See TAP
+  Use TAP device instead of TUN device. There are a few differences. See TAP
   DEVICE later.
 * **-P** _[pid file]_  
-  Create _pid file_ at _pid\_file_. If the option parameter is omitted OC
-  will create a pid file at **/var/run/ocat.pid**. In the latter case it MUST
-  NOT be the last option in the list of options.
+  Create _pid file_ at _pid\_file_. If the option parameter is omitted
+  OnionCat will create a pid file at **/var/run/ocat.pid**. In the latter case
+  it must not be the last option in the list of options or the options list is
+  terminated with a "--".
 * **-r**  
   Run OnionCat as root and do not change user id (see option **-u**).
 * **-R**  
@@ -182,31 +225,45 @@ OnionCat and Tor itself works, hidden service correctly configured and enabled.
   a service or you use software which opens sockets for incoming connections
   like Bitorrent) you MUST configure a hidden service and supply its hostname to
   OnionCat on the command line.
-  Please note that this option does only work if the remote OC does not run in
-  unidirectional mode which is default since SVN version 555 (see option
+  Please note that this option does only work if the remote OnionCat does NOT run
+  in unidirectional mode which is default since SVN version 555 (see option
   **-U**).
+  So usually you will not use this option.
+* **-S**  
+  OnionCat runs a lightweight DNS services to respond to DNS queries from other
+  OnionCats (see also option **-D**). This option disables this DNS service.
+  It responds only to reverse lookups within the Tor (FD87:D87E:EB43::/48) or I2P
+  (FD60:DB4D:DDB5::/48) prefix.  
+  The name service is enable by default.
 * **-s** _port_  
   Set OnionCat's virtual hidden service port to _port_. This should usually
   not be changed.
 * **-t** _(IP|[IP:]port)_  
   Set Tor SOCKS _IP_ and/or _port_. If no _IP_ is specified 127.0.0.1
-  will be used, if no _port_ is specified 9050 will be used as defaults. IPv6
-  addresses must be escaped by square brackets.  
+  will be used, if no _port_ is specified, 9050 will be used as default. If
+  compiled on Windows with Cygwin 9150 will be used because this is the default
+  for the Tor browser bundle. In GarliCat mode it defaults to 9051.
+  IPv6 addresses must be escaped by square brackets.  
   The special parameter _"none"_ disables OnionCat from making outbound
   connections. This shall be used only in special test scenarios.
 * **-T** _tun\_dev_  
   TUN device file to open for creation of TUN interface. It defaults to
   /dev/net/tun on Linux and /dev/tun0 on most other OSes, or /dev/tap0 if TAP
   mode is in use. Setup of a TUN device needs root permissions. OnionCat
-  automatically changes userid after the TUN device is set up correctly.
+  automatically changes its uid and gid after the TUN device is set up correctly.
 * **-U**  
   Deactivate unidirectional mode. Before SVN version 555 OnionCat ran only in
   bidirectional mode. This is that a connection to another OC was used for
   outgoing _and_ incoming packets. Since this could be a security risk under
   certain conditions, unidirectional mode was implemented in SVN r555 and set to
   default. With this option bidirectional mode can be enabled again. Please note
-  that this does not interoperate with option **-R** if the remote OC is
-  working in unidirectional mode.
+  that the unidirectional mode does not interoperate with option **-R** if the
+  remote OC is working in unidirectional mode.
+  If option **-R** is not used (which is the regular case), unidirectional und
+  bidirectional OnionCats can be mixed.
+  Please note that the only advantage of bidirectional mode is that it has a
+  lower setup time since it needs only one Tor circuit. Unidirectional mode needs
+  two circuits, one for each direction.
 * **-u** _username_  
   _username_ under which OnionCat should run. The uid is changed as soon as
   possible after the tun device setup. If **-u** is omitted, on OpenBSD and
@@ -242,6 +299,11 @@ following:
 <a name="onioncat-and-v3-hidden-services"></a>
 
 # Onioncat and V3 Hidden Services
+
+For a detailed explaination about the interaction between OnionCat4 and HSv3
+have a look at the document doc/INTRO_TO_ONIONCAT4.txt found in the source
+folder or on GIthub at
+https://github.com/rahra/onioncat/blob/master/doc/INTRO_TO_ONIONCAT4.txt .
 
 Originially Tor's v2 hidden service addresses had a binary length of 80 bits.
 This made it possible to let OnionCat map hidden service addresses to IPv6
@@ -285,7 +347,11 @@ with OnionCat, e.g. truncate
 In the versions of OnionCat up to 0.3.7 a symlink named gcat was created.
 OnionCat internally handled this as GarliCat which is equal to running ocat
 with the option **-I**. The symlink was removed due to a name conflict with a
-different binary (see BSD coreutils).
+different binary (see BSD coreutils).  
+The default settings changed since OnionCat4 (versions &gt;= 0.4.0). Actually
+hosts-lookup is now on by default and the meaning of option **-H** was
+inverted. This is because OnionCat4 is specifically configured to better match
+the necessities for Tor's hidden services V3.
 
 
 <a name="files"></a>

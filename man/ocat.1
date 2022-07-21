@@ -1,4 +1,4 @@
-.\" Copyright 2008-2021 Bernhard R. Fischer, Daniel Haslinger.
+.\" Copyright 2008-2022 Bernhard R. Fischer, Daniel Haslinger.
 .\"
 .\" This file is part of OnionCat.
 .\"
@@ -14,7 +14,7 @@
 .\" You should have received a copy of the GNU General Public License
 .\" along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
 .\"
-.TH OCAT 1 2021-07-17 "ocat" "OnionCat User's Manual"
+.TH OCAT 1 2022-07-21 "ocat" "OnionCat User's Manual"
 .SH NAME
 ocat \- OnionCat creates a transparent IPv6 layer on top of Tor's or I2P hidden
 services.
@@ -354,6 +354,11 @@ ip link set $OCAT_IFNAME up
 .fi
 
 .SH ONIONCAT AND V3 HIDDEN SERVICES
+For a detailed explaination about the interaction between OnionCat4 and HSv3
+have a look at the document doc/INTRO_TO_ONIONCAT4.txt found in the source
+folder or on GIthub at
+https://github.com/rahra/onioncat/blob/master/doc/INTRO_TO_ONIONCAT4.txt .
+
 Originially Tor's v2 hidden service addresses had a binary length of 80 bits.
 This made it possible to let OnionCat map hidden service addresses to IPv6
 addresses and vice versa. The development of OnionCat started in 2008, and this
