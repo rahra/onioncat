@@ -132,11 +132,11 @@ IPv6 address (which is the key), the .onion hostname, a source identifier (see
 below), an age (which is the timestamp when the entry was added), a TTL, and
 some metric parameters. The latter are used and modified by the resolver.
 
-They hosts database may be populated by 6 different sources as follows. The 1st
-3 are local sources the 2nd 3 are remote sources.
+The hosts database may be populated by 6 different sources as follows. The 1st
+3 are local sources, the 2nd 3 are remote sources.
 
 (0) Its own hostname. There is always just a single entry.
-(1) Command line arguments passed with option -A.
+(1) Hostnames passed as command line arguments with option -A.
 (2) The hosts file. By default this is /usr/local/etc/tor/onioncat.hosts. It is
     pulled in at program startup and automatically re-read every time if the
     file was modified.
@@ -265,13 +265,13 @@ N1 on the command line of N0). N0 has no entry for N1 in its hosts database.
 Thus it will try to resolve it and chooses a name server out of its hosts
 database. This is S0 because at this moment it is the only entry in the
 database. N0 will send a DNS query to S0 and will request the name for N1. S0
-will receive the request and will reply with the hostname of N1. It learned the
-name of N1 already in step 3 of before.
+will receive the request and will reply with the hostname of N1. It had learned
+the name of N1 already in step 3 of before.
 
 N0 will receive the reply for the hostname of N1. It will add the name to its
 own hosts database and can immediately open a connection to N1. After the
 connection is established, N0 sends a keepalive to N1. As a result N1 now also
-knows about S0 and can connect back (e.g. to send an echo reply).
+knows about N0 and can connect back (e.g. to send an echo reply).
 
 
 5.2 RUNNING BITTORRENT ON TOP OF ONIONCAT4
@@ -307,7 +307,7 @@ that the tracker's OnionCat learned about the hostname of this initial seeder
 (because of the keepalive).
 
 If now a leecher (L0) opens the torrent file, the BitTorrent client will
-connect to the tracker because of the URL in within the torrent file. This will
+connect to the tracker because of the URL within the torrent file. This will
 happen through OnionCat. As a result the tracker's OnionCat will learn the IP
 address of this leecher as well as the tracker itself. The tracker will then
 reply with a list of IP addresses which is in this moment just the single
@@ -316,7 +316,7 @@ address of the 1st seeder (S0).
 The BitTorrent client (L0) will now try to connect to S0. Since L0's OnionCat
 does not yet have an entry for S0 in its database it will resolve it. It sends
 a DNS query to the tracker's OnionCat because it is the only instance in the
-hosts database. This OnionCat (the tracker's) already knows about S0 and will
+hosts database. This OnionCat (the tracker) already knows about S0 and will
 reply. As a result L0 can now connect directly to S0 and start leeching.
 
 You can continue this game with additional clients resulting in a growing list
