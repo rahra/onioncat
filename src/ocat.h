@@ -440,7 +440,7 @@ struct OcatSetup
    int rand_addr;
    char version[VERSION_STRING_LEN];
    int sizeof_setup;
-   int sig_term, term_req;
+   int term_req;
    pthread_mutex_t mutex;
    //! listening sockets for controller interface
    struct sockaddr **ctrl_listen;
@@ -452,7 +452,7 @@ struct OcatSetup
    int max_ctrl, ctrl_active;
    //! pipe filedescriptors for pid deletion process
    int pid_fd[2];
-   int sig_usr1, clear_stats;
+   int clear_stats;
    /*! Define if OC connection should be used uni- or bidirectional.
       Bidirectional has a faster setup time but unidirectional is more safe in
       respect to security because both ends are verfied. */
@@ -660,7 +660,7 @@ extern char *tun_dev_;
 #endif
 
 /* ocat.c */
-
+void proc_signals(void);
 
 /* ocatlog.c */
 int open_connect_log(const char*);

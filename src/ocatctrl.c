@@ -296,7 +296,8 @@ void *ctrl_handler(void *p)
       else if (!strcmp(bufp, "terminate"))
       {
          log_msg(LOG_INFO, "terminate request from control port");
-         kill(getpid(), SIGINT);
+         if (kill(getpid(), SIGINT) == -1)
+            log_msg(LOG_ERR, "kill() failed: %s", strerror(errno));
       }
       else if (!strcmp(bufp, "route"))
       {

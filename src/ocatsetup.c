@@ -100,8 +100,8 @@ struct OcatSetup setup_ =
    0,
    {0},
    sizeof(struct OcatSetup),
-   //! sig_term, term_req
-   0, 0,
+   //! term_req
+   0,
    PTHREAD_MUTEX_INITIALIZER,
    // ctrl_listen
    ctrl_listen_ptr_,
@@ -122,8 +122,8 @@ struct OcatSetup setup_ =
    MAX_DEF_CTRL_SESS, 0,
    // pid_fd
    {-1, -1},
-   // sig_usr1, clear_stats
-   0, 0,
+   // clear_stats
+   0,
    // unidirectional
    1,
    // hosts_lookup, default is value set by ocat_netdesc.c

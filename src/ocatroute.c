@@ -474,7 +474,7 @@ void *socket_receiver(void *UNUSED(p))
       FD_SET(lpfd_[0], &rset);
       maxfd = lpfd_[0];
 
-      // create set for all available peers to read
+      // create set of all available peers to read
       lock_peers();
       for (peer = get_first_peer(); peer; peer = peer->next)
       {
@@ -990,6 +990,9 @@ void packet_forwarder(void)
 
    for (;;)
    {
+      // check if signals have arrived
+      proc_signals();
+
       // check for termination request
       if (term_req())
          break;
@@ -1005,23 +1008,11 @@ void packet_forwarder(void)
          log_debug("read from tun %d returned on error: \"%s\"", CNF(tunfd[0]), strerror(rlen));
          if (rlen == EINTR)
          {
-            log_debug("signal caught");
-            if (CNF(sig_term))
-            {
-               log_msg(LOG_NOTICE, "caught termination request");
-               // set global termination flag
-               set_term_req();
-            }
-            if (CNF(sig_usr1))
-            {
-               lock_setup();
-               CNF(clear_stats) = 1;
-               unlock_setup();
-               log_msg(LOG_NOTICE, "stats will be cleared after next stats output");
-            }
+            log_debug("restarting");
+            continue;
          }
-         log_debug("restarting");
-         continue;
+         set_term_req();
+         break;
       }
       rlen += BUF_OFF;
 

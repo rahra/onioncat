@@ -28,6 +28,10 @@
 #include "ocatresolv.h"
 
 
+//! flags to be set by signal handler
+volatile int sig_term_ = 0, sig_usr1_ = 0;
+
+
 void usage(const char *s)
 {
    fprintf(stderr, 
@@ -224,15 +228,34 @@ void sig_handler(int sig)
       case SIGTERM:
       case SIGINT:
          // emergency shutdown if signalled twice
-         if (CNF(sig_term))
+         if (sig_term_)
             exit(0);
 
-         CNF(sig_term) = 1;
+         sig_term_ = 1;
          break;
 
       case SIGUSR1:
-         CNF(sig_usr1) = 1;
+         sig_usr1_ = 1;
          break;
+   }
+}
+
+
+void proc_signals(void)
+{
+   log_debug("signal caught");
+   if (sig_term_)
+   {
+      log_msg(LOG_NOTICE, "caught termination request");
+      // set global termination flag
+      set_term_req();
+   }
+   if (sig_usr1_)
+   {
+      lock_setup();
+      CNF(clear_stats) = 1;
+      unlock_setup();
+      log_msg(LOG_NOTICE, "stats will be cleared after next stats output");
    }
 }
 
