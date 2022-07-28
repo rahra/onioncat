@@ -697,7 +697,7 @@ int main(int argc, char *argv[])
          log_msg(LOG_ERR, "inet_pton failed: %s", strerror(errno)), exit(1);
       else if (!c)
          log_msg(LOG_ERR, "%s is not a valid IPv6 address", argv[optind]), exit(1);
-      if (!has_tor_prefix(&CNF(ocat_addr)))
+      if (!has_ocat_prefix(&CNF(ocat_addr)))
          log_msg(LOG_ERR, "address does not have TOR prefix"), exit(1);
       ipv6tonion(&CNF(ocat_addr), CNF(onion_url));
       printf("%s%s\n", CNF(onion_url), NDESC(domain));

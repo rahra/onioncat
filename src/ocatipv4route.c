@@ -182,7 +182,7 @@ int parse_route(const char *rs)
    if (inet_pton(AF_INET6, s, &route.gw) != 1)
       return E_RT_SYNTAX;
 
-   if (!has_tor_prefix(&route.gw))
+   if (!has_ocat_prefix(&route.gw))
       return E_RT_NOTORGW;
 
    if (IN6_ARE_ADDR_EQUAL(&route.gw, &CNF(ocat_addr)))

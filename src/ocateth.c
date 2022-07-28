@@ -378,7 +378,7 @@ int ndp_soladv(char *buf, int rlen)
 
    struct in6_addr _nst;
    IN6_ADDR_COPY(&_nst, &ndp6->ndp_sol.nd_ns_target);
-   if (!has_tor_prefix(&_nst))
+   if (!has_ocat_prefix(&_nst))
    //if (!IN6_HAS_TOR_PREFIX(&ndp6->ndp_sol.nd_ns_target))
    {
       log_debug("solicit target is not TOR IPv6");

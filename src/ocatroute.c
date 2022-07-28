@@ -226,7 +226,7 @@ int handle_http(const OcatPeer_t *peer)
  */
 int set_peer_dest(struct in6_addr *dest, const struct in6_addr *addr)
 {
-   if (!has_tor_prefix(addr))
+   if (!has_ocat_prefix(addr))
    {
       log_msg(LOG_WARNING, "remote address does not have OC prefix");
       return -1;
@@ -621,7 +621,7 @@ void *socket_receiver(void *UNUSED(p))
             }
 
             // check if destination address has OC prefix
-            if (CNF(verify_dest) && is_ipv6(peer) && !has_tor_prefix(&((struct ip6_hdr*) peer->fragbuf)->ip6_dst))
+            if (CNF(verify_dest) && is_ipv6(peer) && !has_ocat_prefix(&((struct ip6_hdr*) peer->fragbuf)->ip6_dst))
             {
                log_msg(LOG_WARNING, "dropping packet to non-OC destination %s", inet_ntop(AF_INET6, &((struct ip6_hdr*) peer->fragbuf)->ip6_dst, addr, sizeof(addr)));
                goto sr_fin;
@@ -1086,7 +1086,7 @@ void packet_forwarder(void)
          if (!(dest = ipv6_lookup_route(&destbuf)))
             dest = &destbuf;
 
-         if (!has_tor_prefix(dest))
+         if (!has_ocat_prefix(dest))
          {
             char abuf[INET6_ADDRSTRLEN];
             if (!IN6_IS_ADDR_MULTICAST(&destbuf))

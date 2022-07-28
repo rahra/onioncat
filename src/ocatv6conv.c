@@ -42,7 +42,7 @@ static const char deBASE32_[] = {
       15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25 };  
 
 
-int has_tor_prefix(const struct in6_addr *addr)
+int has_ocat_prefix(const struct in6_addr *addr)
 {
    return memcmp(addr, &NDESC(prefix), 6) == 0;
 }

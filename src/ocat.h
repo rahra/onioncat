@@ -682,7 +682,7 @@ void log_msg(int, const char *, ...);
 char *ipv6tonion(const struct in6_addr *, char *);
 int oniontipv6(const char *, struct in6_addr *);
 int oniontipv4(const char *, struct in_addr *, int);
-int has_tor_prefix(const struct in6_addr *);
+int has_ocat_prefix(const struct in6_addr *);
 void rand_onion(char *);
 const char *inet_ntops(const struct sockaddr *, struct sockaddr_str *);
 int validate_onionname(const char *, struct in6_addr *);
