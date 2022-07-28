@@ -1,6 +1,9 @@
 *.o
 *~
 *.gz
+*.gz.asc
+*.gz.sha256
+*.tar.gz.sig
 *.swp
 .deps
 aclocal.m4
