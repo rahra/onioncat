@@ -1,18 +1,19 @@
-* Solaris: tunnel device should be unplumbed on program exit
-* Solaris TAP device untestet
-* OpenBSD TAP device might not work (see OpenBSD man page tun(4))
-* finish SOCKS5 code for I2P
+* socket_receiver loop should be improved
+* Solaris: tunnel device should be unplumbed on program exit -> Solaris user group seems to be negligible...
+* Solaris TAP device untestet -> see above
+//* OpenBSD TAP device might not work (see OpenBSD man page tun(4))
+//* finish SOCKS5 code for I2P
 * work on header compression (start at RFC2507 or 3095)
 * log connect log to OC console
-* forward multicasting packets (ff00::/8)
-* frame checking may be improved
-* generally improve tun opening routine
-* log levels and log output are currently somehow random
+//* forward multicasting packets (ff00::/8) -> I think that is stupid
+//* frame checking may be improved
+//* generally improve tun opening routine
+//* log levels and log output are currently somehow random
 * interaction with OS routing table to be able to forward packets to "foreign" networks beside the TOR prefix
-* peer list should be improved
+//* peer list should be improved
 * IPv6 routing table should be improved (is just a flat list yet)
-* controller interface should be improved (is not thread-safe)
-* controller interface should use basic IO and timed selects
+* controller interface should be improved (is not thread-safe) -> not really should, did never hang since more than 10 years ;)
+* controller interface should use basic IO and timed selects -> not very important, really necessary?
 //* peer reconnections timeout should be implemented (to not reconnect to fast)
 //* add Windows tunnel code
 //* IPv6 adresses are not checked for their validity
