@@ -1,4 +1,4 @@
-/* Copyright 2008-2017 Bernhard R. Fischer.
+/* Copyright 2008-2022 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -18,7 +18,7 @@
 /*! \file ocat.c
  * This is the main file OnionCat. It initializes everything, runs all threads,
  * and finally terminates OnionCat again.
- * \date 2019/09/08
+ * \date 2022/07/28
  * \author Bernhard R. Fischer, <bf@abenteuerland.at>
  */
 
@@ -70,6 +70,7 @@ void usage(const char *s)
 #endif
          "   -U                    disable unidirectional mode\n"
          "   -u <user>             change UID to user, default = \"%s\"\n"
+         "   -V                    Disable destination IP verification.\n"
          "   -2                    Enable OnionCat3 backwards compatibility options. This is the same as\n"
          "                         setting options -D -H -S.\n"
          "   -4                    enable IPv4 support (default = %d)\n"
@@ -440,7 +441,7 @@ int parse_opt(int argc, char *argv[])
    log_debug("parse_opt()");
    opterr = 1;
    optind = 1;
-   while ((c = getopt(argc, argv, "f:IA:abBCd:De:E:g:hHrRiJopl:t:T:s:SUu:245:L:P:n:")) != -1)
+   while ((c = getopt(argc, argv, "f:IA:abBCd:De:E:g:hHrRiJopl:t:T:s:SUu:V245:L:P:n:")) != -1)
    {
       log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, SSTR(optarg));
       switch (c)
@@ -601,6 +602,10 @@ int parse_opt(int argc, char *argv[])
 
          case 'u':
             CNF(usrname) = optarg;
+            break;
+
+         case 'V':
+            CNF(verify_dest) = 1;
             break;
 
          case '4':

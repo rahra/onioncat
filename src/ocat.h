@@ -1,4 +1,4 @@
-/* Copyright 2008-2019 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2022 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -18,8 +18,8 @@
 /*! \file ocat.h
  * This file is the central header file of OnionCat. It includes all other
  * headers and contains all macros, structures, typedefs,...
- * \author Bernhard R. Fischer
- * \date 2019/09/08
+ * \author Bernhard R. Fischer <bf@abenteuerland.at>
+ * \date 2022/07/28
  */
 
 #ifndef OCAT_H
@@ -465,6 +465,7 @@ struct OcatSetup
    int validate_remnames;  //!< validate hostnames from remote OnionCats
    uint16_t ocat_ns_port;  //!< default port number of name server
    int expire;             //!< expiry time of remote hosts entries
+   int verify_dest;        //!< verify destination address of incoming packets
 };
 
 #ifdef PACKET_QUEUE

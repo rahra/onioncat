@@ -20,7 +20,7 @@
  *  Those are active SOCKS4A and passive TCP-LISTEN.
  *
  *  \author Bernhard Fischer <bf@abenteuerland.at>
- *  \date 2022/05/06
+ *  \date 2022/07/28
  */
 
 
@@ -601,6 +601,26 @@ void *socket_receiver(void *UNUSED(p))
                   peer->fraglen = 0;
                }
                break;
+
+               if (len < 0)
+               {
+                  log_debug("partial packet, waiting for more data");
+                  break;
+               }
+            }
+
+            // check if destination address has OC prefix
+            if (CNF(verify_dest) && is_ipv6(peer) && !has_tor_prefix(&((struct ip6_hdr*) peer->fragbuf)->ip6_dst))
+            {
+               log_msg(LOG_WARNING, "dropping packet to non-OC destination %s", inet_ntop(AF_INET6, &((struct ip6_hdr*) peer->fragbuf)->ip6_dst, addr, sizeof(addr)));
+               goto sr_fin;
+            }
+
+            // check if IPv4 packet arrived although IPv4 is disabled
+            if (!CNF(ipv4_enable) && is_ipv4(peer))
+            {
+               log_msg(LOG_WARNING, "dropping unexpected IPv4 packet");
+               goto sr_fin;
             }
 
             // identify remote loopback
@@ -712,6 +732,7 @@ void *socket_receiver(void *UNUSED(p))
                drop = 0;
             }
 
+   sr_fin:
             peer->fraglen -= len;
             if (peer->fraglen)
             {

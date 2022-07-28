@@ -1,4 +1,4 @@
-/* Copyright 2008-2019 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2022 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -18,8 +18,8 @@
 /*! \file ocatsetup.c
  *  This file contains the global settings structure.
  *
- *  @author Bernhard Fischer <rahra _at_ cypherpunk at>
- *  \date 2019/09/08
+ *  @author Bernhard Fischer <bf@abenteuerland.at>
+ *  \date 2022/07/28
  */
 
 
@@ -141,7 +141,9 @@ struct OcatSetup setup_ =
    // ocat_ns_port
    OCAT_NS_PORT,
    // expiry time
-   HOSTS_EXPIRE
+   HOSTS_EXPIRE,
+   // verify_dest
+   1
 };
 
 
@@ -307,6 +309,7 @@ void print_setup_struct(FILE *f)
          "validate_remnames      = %d\n"
          "ocat_ns_port           = %d\n"
          "expire                 = %d\n"
+         "verify_dest            = %d\n"
          "----------------------\n"
          ,
          IPV4_KEY, ntohl(setup_.fhd_key[IPV4_KEY]), IPV6_KEY, ntohl(setup_.fhd_key[IPV6_KEY]),
@@ -358,7 +361,8 @@ void print_setup_struct(FILE *f)
          setup_.dns_server,
          setup_.validate_remnames,
          setup_.ocat_ns_port,
-         setup_.expire
+         setup_.expire,
+         setup_.verify_dest
          );
 
    if (inet_ntops((struct sockaddr*) setup_.socks_dst, &sas))
