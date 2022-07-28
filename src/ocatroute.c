@@ -217,17 +217,24 @@ int handle_http(const OcatPeer_t *peer)
 #endif
 
 
+/*! This function checks if addr is within OC prefix and is not our own
+ * address, and will then copy the contents of addr to dest.
+ * @param dest Pointer to destination buffer.
+ * @param addr Pointer to address which shall be checked.
+ * @return On success, i.e. addr is within OC prefix and not our own address, 0
+ * is returned. On error, -1 is returned and *dest stays untouched.
+ */
 int set_peer_dest(struct in6_addr *dest, const struct in6_addr *addr)
 {
    if (!has_tor_prefix(addr))
    {
-      log_debug("remote address does not have OC prefix");
+      log_msg(LOG_WARNING, "remote address does not have OC prefix");
       return -1;
    }
 
    if (IN6_ARE_ADDR_EQUAL(addr, &CNF(ocat_addr)))
    {
-      log_debug("source address is local address");
+      log_msg(LOG_WARNING, "source address is local address");
       return -1;
    }
 
@@ -449,6 +456,11 @@ int is_ipv4(const OcatPeer_t *peer)
 }
 
 
+/*! The socket_receiver is the thread which handles incoming packets from
+ * remote OnionCats over the network. It does several checks on the packets,
+ * also identifies the remote lookback handler, and handles the incoming
+ * keepalives.
+ */
 void *socket_receiver(void *UNUSED(p))
 {
    int maxfd, len;
@@ -457,7 +469,6 @@ void *socket_receiver(void *UNUSED(p))
    fd_set rset;
    OcatPeer_t *peer;
    struct in6_addr *in6;
-   int drop = 0;
    struct ether_header *eh = (struct ether_header*) (buf + 4);
    struct timeval tv;
 
@@ -656,9 +667,8 @@ void *socket_receiver(void *UNUSED(p))
             {
                if (is_ipv6(peer))
                {
-                  //memcpy(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src, sizeof(struct in6_addr));
                   if (set_peer_dest(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src))
-                     drop = 1;
+                     goto sr_fin;
                }
                else if (is_ipv4(peer))
                {
@@ -669,67 +679,57 @@ void *socket_receiver(void *UNUSED(p))
                   if (!(in6 = ipv4_lookup_route(ntohl(((struct ip*) peer->fragbuf)->ip_src.s_addr))))
 #endif
                   {
-                     drop = 1;
-                     log_debug("no route back");
+                     log_msg(LOG_WARNING, "no route back, dropping");
+                     goto sr_fin;
                   }
                   else
                   {
-                     //memcpy(&peer->addr, in6, sizeof(struct in6_addr));
                      if (set_peer_dest(&peer->addr, in6))
-                        drop = 1;
+                        goto sr_fin;
                   }
                }
 
-               if (!drop)
-                  log_msg(LOG_INFO | LOG_FCONN, "incoming connection on %d from %s is now identified", peer->tcpfd,
-                     inet_ntop(AF_INET6, &peer->addr, addr, INET6_ADDRSTRLEN));
+               log_msg(LOG_INFO | LOG_FCONN, "incoming connection on %d from %s is now identified", peer->tcpfd,
+                  inet_ntop(AF_INET6, &peer->addr, addr, INET6_ADDRSTRLEN));
             }
 
-            if (!drop)
+            // write directly on TUN device
+            if (!CNF(use_tap))
             {
-               // write directly on TUN device
-               if (!CNF(use_tap))
+               log_debug("writing to tun %d framesize %d + %d", CNF(tunfd[1]), len, 4 - BUF_OFF);
+               if (tun_write(CNF(tunfd[1]), ((char*) peer->tunhdr) + BUF_OFF, len + 4 - BUF_OFF) != (len + 4 - BUF_OFF))
+                  log_msg(LOG_ERR, "could not write %d bytes to tunnel %d", len + 4 - BUF_OFF, CNF(tunfd[1]));
+            }
+            // create ethernet header and handle MAC on TAP device
+            else if (*peer->tunhdr == CNF(fhd_key[IPV6_KEY]))
+            {
+               log_debug("creating ethernet header");
+
+               // FIXME: should differentiate between IPv6 and IP!!
+               memset(eh->ether_dst, 0, ETHER_ADDR_LEN);
+               if (mac_set(&((struct ip6_hdr*)peer->fragbuf)->ip6_dst, eh->ether_dst) == -1)
                {
-                  log_debug("writing to tun %d framesize %d + %d", CNF(tunfd[1]), len, 4 - BUF_OFF);
-                  if (tun_write(CNF(tunfd[1]), ((char*) peer->tunhdr) + BUF_OFF, len + 4 - BUF_OFF) != (len + 4 - BUF_OFF))
-                     log_msg(LOG_ERR, "could not write %d bytes to tunnel %d", len + 4 - BUF_OFF, CNF(tunfd[1]));
-               }
-               // create ethernet header and handle MAC on TAP device
-               else if (*peer->tunhdr == CNF(fhd_key[IPV6_KEY]))
-               {
-                  log_debug("creating ethernet header");
-
-                  // FIXME: should differentiate between IPv6 and IP!!
-                  memset(eh->ether_dst, 0, ETHER_ADDR_LEN);
-                  if (mac_set(&((struct ip6_hdr*)peer->fragbuf)->ip6_dst, eh->ether_dst) == -1)
-                  {
-                     log_debug("dest MAC unknown, resolving");
-                     ndp_solicit(&((struct ip6_hdr*)peer->fragbuf)->ip6_src, &((struct ip6_hdr*)peer->fragbuf)->ip6_dst);
-                  }
-                  else
-                  {
-                     set_tunheader(buf, *peer->tunhdr);
-                     memcpy(buf + 4 + sizeof(struct ether_header), peer->fragbuf, len);
-                     memcpy(eh->ether_src, CNF(ocat_hwaddr), ETHER_ADDR_LEN);
-
-                     if (*peer->tunhdr == CNF(fhd_key[IPV6_KEY]))
-                        eh->ether_type = htons(ETHERTYPE_IPV6);
-                     else if (*peer->tunhdr == CNF(fhd_key[IPV4_KEY]))
-                        eh->ether_type = htons(ETHERTYPE_IP);
-
-                     if (tun_write(CNF(tunfd[1]), buf + BUF_OFF, len + 4 + sizeof(struct ether_header) - BUF_OFF) != (len + 4 + (int) sizeof(struct ether_header) - BUF_OFF))
-                        log_msg(LOG_ERR, "could not write %d bytes to tunnel %d", len + 4 + sizeof(struct ether_header) - BUF_OFF, CNF(tunfd[1]));
-                  }
+                  log_debug("dest MAC unknown, resolving");
+                  ndp_solicit(&((struct ip6_hdr*)peer->fragbuf)->ip6_src, &((struct ip6_hdr*)peer->fragbuf)->ip6_dst);
                }
                else
                {
-                  log_debug("protocol %x not implemented on TAP device", ntohs(*peer->tunhdr));
+                  set_tunheader(buf, *peer->tunhdr);
+                  memcpy(buf + 4 + sizeof(struct ether_header), peer->fragbuf, len);
+                  memcpy(eh->ether_src, CNF(ocat_hwaddr), ETHER_ADDR_LEN);
+
+                  if (*peer->tunhdr == CNF(fhd_key[IPV6_KEY]))
+                     eh->ether_type = htons(ETHERTYPE_IPV6);
+                  else if (*peer->tunhdr == CNF(fhd_key[IPV4_KEY]))
+                     eh->ether_type = htons(ETHERTYPE_IP);
+
+                  if (tun_write(CNF(tunfd[1]), buf + BUF_OFF, len + 4 + sizeof(struct ether_header) - BUF_OFF) != (len + 4 + (int) sizeof(struct ether_header) - BUF_OFF))
+                     log_msg(LOG_ERR, "could not write %d bytes to tunnel %d", len + 4 + sizeof(struct ether_header) - BUF_OFF, CNF(tunfd[1]));
                }
             }
             else
             {
-               log_msg(LOG_ERR, "dropping packet with %d bytes", len);
-               drop = 0;
+               log_debug("protocol %x not implemented on TAP device", ntohs(*peer->tunhdr));
             }
 
    sr_fin:
