@@ -556,7 +556,7 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
 {
    int fd;
 
-	log_debug("opening tun \"%s\"", tun_dev_);
+   log_debug("opening tun \"%s\"", tun_dev_);
 #ifdef __CYGWIN__
    // FIXME: win_open_tun() does not set errno
    if ((fd = win_open_tun(dev, dev_s)) == -1)
