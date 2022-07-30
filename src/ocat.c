@@ -244,7 +244,6 @@ void sig_handler(int sig)
 
 void proc_signals(void)
 {
-   log_debug("signal caught");
    if (sig_term_)
    {
       log_msg(LOG_NOTICE, "caught termination request");

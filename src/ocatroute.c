@@ -470,7 +470,6 @@ void *socket_receiver(void *UNUSED(p))
    OcatPeer_t *peer;
    struct in6_addr *in6;
    struct ether_header *eh = (struct ether_header*) (buf + 4);
-   struct timeval tv;
 
    if (pipe(lpfd_) < 0)
       log_msg(LOG_EMERG, "could not create pipe for socket_receiver: \"%s\"", strerror(errno)), exit(1);
@@ -507,13 +506,8 @@ void *socket_receiver(void *UNUSED(p))
       }
       unlock_peers();
 
-      set_select_timeout(&tv);
-      log_debug2("selecting (maxfd = %d)", maxfd);
-      if ((maxfd = select(maxfd + 1, &rset, NULL, NULL, &tv)) == -1)
-      {
-         log_msg(LOG_ERR, "select encountered error: \"%s\", restarting", strerror(errno));
+      if ((maxfd = oc_select(maxfd + 1, &rset, NULL, NULL)) == -1)
          continue;
-      }
 
       // thread woke up because of internal pipe read => restart selection
       if (FD_ISSET(lpfd_[0], &rset))
@@ -895,7 +889,6 @@ int run_listeners(struct sockaddr **addr, int *sockfd, int cnt, int (action_acce
    int maxfd, i;
    socklen_t alen;
    char iabuf[INET6_ADDRSTRLEN];
-   struct timeval tv;
 
    for (i = 0; i < cnt; i++)
    {
@@ -930,14 +923,8 @@ int run_listeners(struct sockaddr **addr, int *sockfd, int cnt, int (action_acce
          break;
       }
 
-      set_select_timeout(&tv);
-      log_debug2("selecting (maxfd = %d)", maxfd);
-      if ((maxfd = select(maxfd + 1, &rset, NULL, NULL, &tv)) == -1)
-      {
-         log_debug("select returned: \"%s\"", strerror(errno));
+      if ((maxfd = oc_select(maxfd + 1, &rset, NULL, NULL)) == -1)
          continue;
-      }
-      log_debug2("select returned %d fds ready", maxfd);
 
       for (i = 0; maxfd && (i < cnt); i++)
       {
@@ -1336,12 +1323,8 @@ int loopback_loop(int fd)
    {
       FD_ZERO(&rset);
       FD_SET(fd, &rset);
-      log_debug("selecting in fd %d", fd);
-      if ((maxfd = select(fd + 1, &rset, NULL, NULL, NULL)) == -1)
-      {
-         log_msg(LOG_ERR, "select encountered error: \"%s\", restarting", strerror(errno));
+      if ((maxfd = oc_select(fd + 1, &rset, NULL, NULL)) <= 0)
          continue;
-      }
 
       if (!FD_ISSET(fd, &rset))
       {

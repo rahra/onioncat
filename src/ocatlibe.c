@@ -1,4 +1,4 @@
-/* Copyright 2008,2009 Bernhard R. Fischer.
+/* Copyright 2008-2022 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -15,11 +15,11 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*! ocatlibe.c
+/*! \file ocatlibe.c
  *  Contains some helper functions.
  *
- *  @author Bernhard Fischer <rahra _at_ cypherpunk at>
- *  @version 2008/02/03-01
+ *  \author Bernhard Fischer <bf@abenteuerland.at>
+ *  \version 2022/07/29
  */
 
 
@@ -42,9 +42,7 @@ void oe_close(int fd)
       {
          log_msg(LOG_ERR, "close(%d) failed: \"%s\". restarting in a moment...", fd, strerror(r));
          set_select_timeout(&tv);
-         if (select(0, NULL, NULL, NULL, &tv) == -1)
-            log_msg(LOG_ERR, "select() failed: %s", strerror(errno));
-         continue;
+         oc_select(0, NULL, NULL, NULL);
       }
       log_msg(LOG_CRIT, "close(%d) failed: \"%s\"", fd, strerror(r));
       break;
@@ -220,5 +218,37 @@ int fdaprintf(int fd, int bsiz, const char *fmt, va_list ap)
 int fdprintf(int fd, const char *fmt, va_list ap)
 {
    return fdaprintf(fd, SIZE_256, fmt, ap);
+}
+
+
+/*! Generic implementation of the select(2) call suitable for OnionCat. All
+ * parameters are equal to the original select(2) call except t. t is used to
+ * fill in a timeval structure.
+ */
+int oc_select0(int maxfd, fd_set *rset, fd_set *wset, fd_set *eset, int t)
+{
+   struct timeval tv;
+
+   set_select_timeout0(&tv, t);
+   log_debug2("selecting (maxfd = %d)", maxfd);
+   if ((maxfd = select(maxfd + 1, rset, wset, eset, &tv)) == -1)
+   {
+      log_debug("select returned: \"%s\"", strerror(errno));
+   }
+   else
+   {
+      log_debug2("select returned %d fds ready", maxfd);
+   }
+
+   return maxfd;
+}
+
+
+/*! This is a wrapper function for oc_select0() with a fixed value of t
+ * (SELECT_TIMEOUT).
+ */
+int oc_select(int maxfd, fd_set *rset, fd_set *wset, fd_set *eset)
+{
+   return oc_select0(maxfd, rset, wset, eset, SELECT_TIMEOUT);
 }
 

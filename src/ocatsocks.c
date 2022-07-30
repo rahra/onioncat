@@ -204,17 +204,13 @@ void socks_pipe_request(const SocksQueue_t *sq)
    int maxfd;
    int len = sizeof(*sq), ret;
 
-   FD_ZERO(&wset);
-   FD_SET(CNF(socksfd[1]), &wset);
-   maxfd = CNF(socksfd[1]);
-
-   log_debug("selecting (maxfd = %d)", maxfd);
-   if ((maxfd = select(maxfd + 1, NULL, &wset, NULL, NULL)) == -1)
+   for (maxfd = 0; !maxfd;)
    {
-      log_msg(LOG_EMERG, "select encountered error: \"%s\", restarting", strerror(errno));
-      return;
+      FD_ZERO(&wset);
+      FD_SET(CNF(socksfd[1]), &wset);
+      if ((maxfd = oc_select(CNF(socksfd[1]) + 1, NULL, &wset, NULL)) == -1)
+         return;
    }
-   log_debug2("select returned %d", maxfd);
 
    if (maxfd && FD_ISSET(CNF(socksfd[1]), &wset))
    {
@@ -600,7 +596,6 @@ void *socks_connector_sel(void *UNUSED(p))
    int maxfd = 0, len, so_err;
    SocksQueue_t *squeue, sq;
    time_t t;
-   struct timeval tv;
    socklen_t err_len;
    struct sockaddr_storage ss;
    char name[NI_MAXHOST];
@@ -815,14 +810,8 @@ void *socks_connector_sel(void *UNUSED(p))
       }
 
       // select all file descriptors
-      set_select_timeout0(&tv, SOCKS_DNS_RETRY_TIMEOUT);
-      log_debug2("selecting (maxfd = %d)", maxfd);
-      if ((maxfd = select(maxfd + 1, &rset, &wset, NULL, &tv)) == -1)
-      {
-         log_msg(LOG_EMERG, "select encountered error: \"%s\", restarting", strerror(errno));
+      if ((maxfd = oc_select0(maxfd + 1, &rset, &wset, NULL, SOCKS_DNS_RETRY_TIMEOUT)) == -1)
          continue;
-      }
-      log_debug2("select returned %d", maxfd);
 
       // check socks request pipe
       if (FD_ISSET(CNF(socksfd[0]), &rset))
@@ -1021,7 +1010,6 @@ void *socks_connector_sel(void *UNUSED(p))
 
 int synchron_socks_connect(const struct in6_addr *addr)
 {
-   struct timeval tv;
    SocksQueue_t sq;
 
    memset(&sq, 0, sizeof(sq));
@@ -1145,9 +1133,7 @@ int synchron_socks_connect(const struct in6_addr *addr)
       }
 
       log_msg(LOG_INFO, "Restarting in a moment...");
-      set_select_timeout(&tv);
-      if (select(0, NULL, NULL, NULL, &tv) == -1)
-         log_msg(LOG_ERR, "select() failed: %s", strerror(errno));
+      oc_select(0, NULL, NULL, NULL);
    }
 
 rlr_exit:

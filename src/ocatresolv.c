@@ -629,7 +629,6 @@ void *oc_nameserver(void *p)
    struct sockaddr_in6 s6addr;
    char buf[PACKETSZ + 1];
    int fd = -1, len, n;
-   struct timeval tv;
    socklen_t slen;
    fd_set rset;
 
@@ -648,12 +647,8 @@ void *oc_nameserver(void *p)
 
       FD_ZERO(&rset);
       FD_SET(fd, &rset);
-      set_select_timeout(&tv);
-      if ((n = select(fd + 1, &rset, NULL, NULL, &tv)) == -1)
-      {
-         log_msg(LOG_ERR, "select encountered error: \"%s\", restarting", strerror(errno));
+      if ((n = oc_select(fd + 1, &rset, NULL, NULL)) == -1)
          continue;
-      }
 
       if (!n)
          continue;
@@ -886,7 +881,6 @@ static void log_query(const ocres_state_t *os, int n)
 void *oc_resolver(void *UNUSED(p))
 {
    ocres_state_t *orstate;
-   struct timeval tv;
    int i, n, maxfd, len;
    fd_set rset;
    time_t tm;
@@ -967,13 +961,8 @@ void *oc_resolver(void *UNUSED(p))
       pthread_mutex_unlock(&orstate_mutex_);
 
       // wait for any fd to get ready
-      set_select_timeout0(&tv, DNS_RETRY_TIMEOUT);
-      if ((n = select(maxfd + 1, &rset, NULL, NULL, &tv)) == -1)
-      {
-         log_msg(LOG_ERR, "select encountered error: \"%s\", restarting", strerror(errno));
+      if ((n = oc_select0(maxfd + 1, &rset, NULL, NULL, DNS_RETRY_TIMEOUT)) == -1)
          continue;
-      }
-      log_debug2("select returned %d", n);
 
       // check if resolver pipe is ready
       if (FD_ISSET(ocres_pipe_fd_[0], &rset))
