@@ -499,9 +499,7 @@ void *socket_receiver(void *UNUSED(p))
          if (peer->tcpfd >= FD_SETSIZE)
             log_msg(LOG_EMERG, "%d >= FD_SETIZE(%d)", peer->tcpfd, FD_SETSIZE), exit(1);
 
-         FD_SET(peer->tcpfd, &rset);
-         if (peer->tcpfd > maxfd)
-            maxfd = peer->tcpfd;
+         MFD_SET(peer->tcpfd, &rset, maxfd);
          unlock_peer(peer);
       }
       unlock_peers();
