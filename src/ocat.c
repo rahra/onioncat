@@ -800,7 +800,7 @@ int main(int argc, char *argv[])
    {
       run_ocat_thread("nserver", oc_nameserver, (void*)(intptr_t) CNF(ocat_ns_port));
       // 2nd thread is for backwards compatibility, will be removed in future
-      run_ocat_thread("nserver", oc_nameserver, (void*)(intptr_t) 8060);
+      run_ocat_thread("_nserver", oc_nameserver, (void*)(intptr_t) 8060);
    }
 
    // getting passwd info for user
@@ -831,6 +831,13 @@ int main(int argc, char *argv[])
 
    if (!getuid())
       mk_cache_dir(STATEDIR, pwd->pw_uid, pwd->pw_gid);
+
+   // wait for nameserver port 53 to be bound before dropping privileges
+   if (CNF(dns_server) && CNF(ocat_ns_port) < 1024)
+   {
+      log_debug("waiting for name server to have UDP socket bound to port %d", CNF(ocat_ns_port));
+      wait_thread_by_name_ready("nserver");
+   }
 
    if (!CNF(runasroot) && !getuid())
    {
