@@ -513,7 +513,6 @@ typedef struct OcatPeer
    unsigned long in;       //!< bytes input
    uint32_t *tunhdr;       //!< pointer to local tun frame header
    char *fragbuf;          //!< pointer to (de)frag buffer
-   char _fragbuf[FRAME_SIZE]; //!< (de)frag buffer
    int fraglen;            //!< current frag buffer size
    pthread_mutex_t mutex;  //!< mutex for thread locking
    int perm;               //!< keep peer permanently open
@@ -521,6 +520,7 @@ typedef struct OcatPeer
    unsigned inm;
    unsigned outm;
    int rand;               //!< random peer number
+   char _fragbuf[FRAME_SIZE]; //!< (de)frag buffer
 } OcatPeer_t;
 
 //! OcatThread is a control structure to manage each thread of OnionCat.
