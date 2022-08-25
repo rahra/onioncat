@@ -520,6 +520,8 @@ typedef struct OcatPeer
    unsigned inm;
    unsigned outm;
    int rand;               //!< random peer number
+   struct in6_addr saddr;  //!< source address as specified by peer
+   char sname[SIZE_256];   //!< source hostname as specified by peer
    char _fragbuf[FRAME_SIZE]; //!< (de)frag buffer
 } OcatPeer_t;
 

@@ -109,7 +109,7 @@ void *ctrl_handler(void *p)
 {
    int fd, a, b, c;
    FILE *ff, *fo;
-   char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], onionstr[NDESC(name_size)], timestr[32], *s, *tokbuf, *bufp;
+   char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], addrstr2[INET6_ADDRSTRLEN], onionstr[SIZE_256], timestr[32], *s, *tokbuf, *bufp;
    int rlen, cfd;
    struct tm *tm;
    OcatPeer_t *peer;
@@ -224,12 +224,15 @@ void *ctrl_handler(void *p)
             {
                tm = localtime(&peer->otime);
                strftime(timestr, 32, "%c", tm);
-               fprintf(fo, "[%s]\n fd = %d\n addr = %s\n dir = \"%s\" (%d)\n idle = %lds\n bytes_in = %ld\n bytes_out = %ld\n setup_delay = %lds\n opening_time = \"%s\"\n conn type = \"%s\" (%d)\n rand = 0x%08x\n",
-                     IN6_IS_ADDR_UNSPECIFIED(&peer->addr) ? "--unidentified--" : ipv6tonion(&peer->addr, onionstr), peer->tcpfd,
+               if (hosts_get_name(&peer->addr, onionstr, sizeof(onionstr)) < 0)
+                  ipv6tonion(&peer->addr, onionstr);
+               fprintf(fo, "[%s]\n fd = %d\n addr = %s\n dir = \"%s\" (%d)\n idle = %lds\n bytes_in = %ld\n bytes_out = %ld\n setup_delay = %lds\n opening_time = \"%s\"\n conn type = \"%s\" (%d)\n rand = 0x%08x\n saddr = %s\n sname = \"%s\"\n",
+                     IN6_IS_ADDR_UNSPECIFIED(&peer->addr) ? "--unidentified--" : onionstr, peer->tcpfd,
                      inet_ntop(AF_INET6, &peer->addr, addrstr, INET6_ADDRSTRLEN),
                      peer->dir == PEER_INCOMING ? "IN" : "OUT", peer->dir,
                      (long) (time(NULL) - peer->time), peer->in, peer->out, (long) peer->sdelay, timestr,
-                     peer->perm ? "PERMANENT" : "TEMPORARY", peer->perm, peer->rand
+                     peer->perm ? "PERMANENT" : "TEMPORARY", peer->perm, peer->rand,
+                     inet_ntop(AF_INET6, &peer->saddr, addrstr2, sizeof(addrstr2)), peer->sname
                      );
             }
          unlock_peers();

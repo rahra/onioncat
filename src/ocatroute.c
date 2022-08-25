@@ -20,7 +20,7 @@
  *  Those are active SOCKS4A and passive TCP-LISTEN.
  *
  *  \author Bernhard Fischer <bf@abenteuerland.at>
- *  \date 2022/07/28
+ *  \date 2022/08/23
  */
 
 
@@ -275,13 +275,15 @@ uint32_t get_tunheader(char *buf)
 
 /*! This function parses the keepalive packet. If it is valid, a new hosts
  * entry is added to the hosts DB.
+ * @param peer Pointer to the peer structure.
  * @param i6h Pointer to IPv6 packet.
  * @return The function returns 0 on success if a valid OC4 keepalive was
- * found. 1 is returned if the keepalive contains no data. This may be the case
- * for pre OC4 keepalives. They are sufficient for HSv2. In case of error -1 is
- * returned.
+ * found. 1 is returned if the keepalive contains no or invalid data. This may
+ * be the case for pre OC4 keepalives. They are sufficient for HSv2. In case of
+ * error -1 is returned. The latter is the case if the next header field is any
+ * other than IPPROTO_NONE (59).
  */
-int handle_keepalive(const struct ip6_hdr *i6h)
+int handle_keepalive(OcatPeer_t *peer,  const struct ip6_hdr *i6h)
 {
    // FIXME: should that be activated only if lookup is enabled?
    char *buf;
@@ -291,21 +293,15 @@ int handle_keepalive(const struct ip6_hdr *i6h)
    if (i6h->ip6_nxt != IPPROTO_NONE)
       return -1;
 
+   IN6_ADDR_COPY(&peer->saddr, &i6h->ip6_src);
+
    // extract payload data
    len = ntohs(i6h->ip6_plen);
-
-#if 0
-   if (!len)
-   {
-      log_msg(LOG_INFO, "may be v2 keepalive");
-      return 1;
-   }
-#endif
 
    if (len < 2)
    {
       log_debug("not enough data for hostname in keepalive");
-      return -1;
+      goto hk_poc4;
    }
 
    // create pointer to payload
@@ -315,24 +311,35 @@ int handle_keepalive(const struct ip6_hdr *i6h)
    if (buf[0] != 1)
    {
       log_debug("version %d in keepalive not supported", buf[0]);
-      return -1;
+      goto hk_poc4;
    }
 
-   log_msg(LOG_INFO, "seems to be OC4 keepalive");
    // advance pointer to hostname
    buf++;
    len--;
-   // make sure it is \0-terminated
-   buf[len] = '\0';
+   // check \0-termination
+   if (memchr(buf, 0, len) == NULL)
+   {
+      log_msg(LOG_WARNING, "name in keepalive not \\0-terminated");
+      goto hk_poc4;
+   }
 
+   log_msg(LOG_INFO, "seems to be OC4 keepalive");
    hosts_add_entry(&i6h->ip6_src, buf, HSRC_KPLV, time(NULL), HOSTS_KPLV_TTL);
+   strlcpy(peer->sname, buf, sizeof(peer->sname));
    return 0;
+
+hk_poc4:
+   log_msg(LOG_INFO, "treating as pre-OC4 keepalive");
+   *peer->sname = '\0';
+   return 1;
 }
 
 
-/*! Try to identify own incoming loopback peer. This is if it is a keepalive
- * (i.e. nextheader == IPPROTO_NONE (59)) and the flow label matches. The flow
- * label is set to random number when it sends keepalives.
+/*! Try to identify own incoming loopback peer by matching the flow label. The
+ * packet must be a "keepalive" which should be made sure by previously calling
+ * handle_keepalive().
+ * The flow label is set to random number when it sends keepalives.
  * @param peer Pointer to peer on which the packet was received.
  * @param i6h Pointer to IPv6 packet.
  * @return The function returns 0 if it was its own loopback keepalive,
@@ -372,6 +379,14 @@ int ident_loopback(OcatPeer_t *peer, const struct ip6_hdr *i6h)
    }
 
    log_debug("found peer to myself");
+
+   if (IN6_ARE_ADDR_EQUAL(&lpeer->addr, &lpeer->saddr))
+   {
+      unlock_peer(lpeer);
+      log_debug("loopback was already identified");
+      return -1;
+   }
+
    if (lpeer->dir != PEER_OUTGOING)
    {
       unlock_peer(lpeer);
@@ -387,7 +402,8 @@ int ident_loopback(OcatPeer_t *peer, const struct ip6_hdr *i6h)
    }
 
    log_debug("identified valid loopback keepalive");
-
+   IN6_ADDR_COPY(&lpeer->saddr, &peer->saddr);
+   memcpy(lpeer->sname, peer->sname, sizeof(lpeer->sname));
    unlock_peer(lpeer);
    return 0;
 }
@@ -629,17 +645,18 @@ void *socket_receiver(void *UNUSED(p))
             // identify remote loopback
             if (is_ipv6(peer) && IN6_IS_ADDR_UNSPECIFIED(&peer->addr))
             {
-               if (!ident_loopback(peer, (struct ip6_hdr*)peer->fragbuf))
+               if (handle_keepalive(peer, (struct ip6_hdr*)peer->fragbuf) >= 0)
                {
-                  run_ocat_thread("rloopback", remote_loopback_responder, (void*)(uintptr_t) peer->tcpfd);
+                  if (!ident_loopback(peer, (struct ip6_hdr*)peer->fragbuf))
+                  {
+                     run_ocat_thread("rloopback", remote_loopback_responder, (void*)(uintptr_t) peer->tcpfd);
 
-                  // remove peer
-                  log_msg(LOG_INFO, "mark peer on fd %d for deletion", peer->tcpfd);
-                  peer->state = PEER_DELETE;
-               }
-               else
-               {
-                  if (handle_keepalive((struct ip6_hdr*)peer->fragbuf) >= 0 && CNF(unidirectional))
+                     // remove peer
+                     log_msg(LOG_INFO, "mark peer on fd %d for deletion", peer->tcpfd);
+                     peer->state = PEER_DELETE;
+                  }
+                  // create return peer if not yet opened
+                  else if (CNF(unidirectional))
                   {
                      OcatPeer_t *rpeer;
                      lock_peers();
