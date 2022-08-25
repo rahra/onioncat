@@ -472,6 +472,106 @@ int is_ipv4(const OcatPeer_t *peer)
 }
 
 
+/*! This function queues a new request for the OC address in6 if there is no
+ * peer yet available.
+ * @param in6 Pointer to IPv6 address to connect to.
+ * @return If a new connection was queued, 0 is returned. If a peer is already
+ * available, nothing will be done and the function will return -1.
+ */
+int socks_queue_ifnopeer(const struct in6_addr *in6)
+{
+   char addr[INET6_ADDRSTRLEN];
+   OcatPeer_t *rpeer;
+
+   lock_peers();
+   rpeer = search_peer(in6);
+   unlock_peers();
+
+   if (rpeer != NULL)
+      return -1;
+
+   log_msg(LOG_INFO, "creating immediate return peer to %s", inet_ntop(AF_INET6, in6, addr, INET6_ADDRSTRLEN));
+   socks_queue(*in6, 0);
+   return 0;
+}
+
+
+/*! This function checks incoming packets for their source address and does
+ * several things. It's intended to be called if the source address of a peer
+ * was not yet called (but may be called more often).
+ * If the packet is an IPv6 packet it checks if it is an OnionCat keepalive and
+ * sets the source address. It further checks if it is a loopback (remote
+ * lookback, feed:beef) request in which case it will launch the remote
+ * loopback thread. If not, it will create a regular return peer, if it is in
+ * unidirectional mode (which is standard), or will just set the peers
+ * destination address if it is in bidirectional mode (old-school, not default,
+ * enabled with option -U).
+ * If an IPv4 packet arrived it will lookup the return route and open a
+ * connection to the according remote peer, if a route is available (or set the
+ * destination address according to the routing table if in bidirectional
+ * mode).
+ * @param peer Pointer to the peer with a valid packet in the frame buffer.
+ * @return On success the function will return 0 and the packet shall be
+ * forwarded to the tunnel device. On error, -1 is returned and the packet
+ * shall be dropped.
+ */
+int ident_peer(OcatPeer_t *peer)
+{
+   struct in6_addr *in6;
+
+   if (is_ipv6(peer))
+   {
+      // check/handle keepalive packet
+      if (handle_keepalive(peer, (struct ip6_hdr*)peer->fragbuf) >= 0)
+      {
+         // identify remote loopback
+         if (!ident_loopback(peer, (struct ip6_hdr*)peer->fragbuf))
+         {
+            run_ocat_thread("rloopback", remote_loopback_responder, (void*)(uintptr_t) peer->tcpfd);
+
+            // remove peer
+            log_msg(LOG_INFO, "mark peer on fd %d for deletion", peer->tcpfd);
+            peer->state = PEER_DELETE;
+            return 0;
+         }
+      }
+      in6 = &((struct ip6_hdr*)peer->fragbuf)->ip6_src;
+   }
+   else if (is_ipv4(peer))
+   {
+      // check if there is a route back
+#ifdef HAVE_STRUCT_IPHDR
+      if (!(in6 = ipv4_lookup_route(ntohl(((struct iphdr*) peer->fragbuf)->saddr))))
+#else
+      if (!(in6 = ipv4_lookup_route(ntohl(((struct ip*) peer->fragbuf)->ip_src.s_addr))))
+#endif
+      {
+         log_msg(LOG_WARNING, "no route back, dropping");
+         return -1;
+      }
+   }
+   else
+   {
+      log_msg(LOG_WARNING, "unknown packet type");
+      return -1;
+   }
+
+   // create return peer if not yet opened if in unidirectional mode
+   if (CNF(unidirectional))
+   {
+      (void) socks_queue_ifnopeer(in6);
+   }
+   // if in bidirectional mode set peer destination
+   else
+   {
+      if (set_peer_dest(&peer->addr, in6))
+         return -1;
+   }
+
+   return 0;
+}
+
+
 /*! The socket_receiver is the thread which handles incoming packets from
  * remote OnionCats over the network. It does several checks on the packets,
  * also identifies the remote lookback handler, and handles the incoming
@@ -484,7 +584,6 @@ void *socket_receiver(void *UNUSED(p))
    char addr[INET6_ADDRSTRLEN];
    fd_set rset;
    OcatPeer_t *peer;
-   struct in6_addr *in6;
    struct ether_header *eh = (struct ether_header*) (buf + 4);
 
    if (pipe(lpfd_) < 0)
@@ -642,65 +741,10 @@ void *socket_receiver(void *UNUSED(p))
                goto sr_fin;
             }
 
-            // identify remote loopback
-            if (is_ipv6(peer) && IN6_IS_ADDR_UNSPECIFIED(&peer->addr))
-            {
-               if (handle_keepalive(peer, (struct ip6_hdr*)peer->fragbuf) >= 0)
-               {
-                  if (!ident_loopback(peer, (struct ip6_hdr*)peer->fragbuf))
-                  {
-                     run_ocat_thread("rloopback", remote_loopback_responder, (void*)(uintptr_t) peer->tcpfd);
-
-                     // remove peer
-                     log_msg(LOG_INFO, "mark peer on fd %d for deletion", peer->tcpfd);
-                     peer->state = PEER_DELETE;
-                  }
-                  // create return peer if not yet opened
-                  else if (CNF(unidirectional))
-                  {
-                     OcatPeer_t *rpeer;
-                     lock_peers();
-                     rpeer = search_peer(&((struct ip6_hdr*)peer->fragbuf)->ip6_src);
-                     unlock_peers();
-                     if (rpeer == NULL)
-                     {
-                        log_msg(LOG_INFO, "creating immediate return peer to %s", inet_ntop(AF_INET6, &((struct ip6_hdr*)peer->fragbuf)->ip6_src, addr, INET6_ADDRSTRLEN));
-                        socks_queue(((struct ip6_hdr*)peer->fragbuf)->ip6_src, 0);
-                     }
-                  }
-               }
-            }
-
-            // set IP address if it is not set yet and frame is valid and in bidirectional mode
-            if (!CNF(unidirectional) && IN6_IS_ADDR_UNSPECIFIED(&peer->addr))
-            {
-               if (is_ipv6(peer))
-               {
-                  if (set_peer_dest(&peer->addr, &((struct ip6_hdr*)peer->fragbuf)->ip6_src))
-                     goto sr_fin;
-               }
-               else if (is_ipv4(peer))
-               {
-                  // check if there is a route back
-#ifdef HAVE_STRUCT_IPHDR
-                  if (!(in6 = ipv4_lookup_route(ntohl(((struct iphdr*) peer->fragbuf)->saddr))))
-#else
-                  if (!(in6 = ipv4_lookup_route(ntohl(((struct ip*) peer->fragbuf)->ip_src.s_addr))))
-#endif
-                  {
-                     log_msg(LOG_WARNING, "no route back, dropping");
-                     goto sr_fin;
-                  }
-                  else
-                  {
-                     if (set_peer_dest(&peer->addr, in6))
-                        goto sr_fin;
-                  }
-               }
-
-               log_msg(LOG_INFO | LOG_FCONN, "incoming connection on %d from %s is now identified", peer->tcpfd,
-                  inet_ntop(AF_INET6, &peer->addr, addr, INET6_ADDRSTRLEN));
-            }
+            // if source address of peer is not yet known, identify it
+            if (IN6_IS_ADDR_UNSPECIFIED(&peer->saddr))
+               if (ident_peer(peer) != 0)
+                  goto sr_fin;
 
             // write directly on TUN device
             if (!CNF(use_tap))
