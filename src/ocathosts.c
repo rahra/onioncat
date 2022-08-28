@@ -319,7 +319,7 @@ int hosts_check(void)
 #endif
    }
 
-   if (hosts_file_modified_r(&hosts_.hosts_ts))
+   if (hosts_file_modified_r(&hosts_.hosts_ts) == 1)
       hosts_read(hosts_.hosts_ts.tv_sec, path_hosts_);
 
    return 0;
