@@ -507,16 +507,24 @@ int socks_tcp_connect(int fd, struct sockaddr *addr, int len)
 }
 
 
-void socks_reschedule(SocksQueue_t *squeue)
+void socks_reset(SocksQueue_t *squeue)
 {
-   log_msg(LOG_ERR, "rescheduling SOCKS request");
+   log_debug("resetting SOCKS request");
    if (squeue->fd > 0)
    {
       oe_close(squeue->fd);
       squeue->fd = 0;
    }
-   squeue->restart_time = time(NULL) + TOR_SOCKS_CONN_TIMEOUT;
+   squeue->restart_time = 0;
    squeue->state = SOCKS_NEW;
+}
+
+
+void socks_reschedule(SocksQueue_t *squeue)
+{
+   log_msg(LOG_INFO, "rescheduling SOCKS request");
+   socks_reset(squeue);
+   squeue->restart_time = time(NULL) + TOR_SOCKS_CONN_TIMEOUT;
 }
 
  
@@ -806,6 +814,7 @@ void *socks_connector_sel(void *UNUSED(p))
 
             default:
                log_msg(LOG_CRIT, "ignoring unknown state %d", squeue->state);
+               socks_reset(squeue);
          }
       }
 
@@ -986,7 +995,8 @@ void *socks_connector_sel(void *UNUSED(p))
                   break;
 
                default:
-                  log_debug("unknown state %d in read set", squeue->state);
+                  log_msg(LOG_CRIT, "unknown state %d in read set", squeue->state);
+                  socks_reset(squeue);
             }
          }
       }
@@ -1127,7 +1137,7 @@ int synchron_socks_connect(const struct in6_addr *addr)
             break;
 
          default:
-            log_msg(LOG_EMERG, "unhandled state %d", sq.state);
+            log_msg(LOG_CRIT, "unhandled state %d", sq.state);
             sq.state = SOCKS_DELETE;
             continue;
       }
