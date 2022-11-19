@@ -37,12 +37,12 @@ void usage(const char *s)
    fprintf(stderr, 
          "%s\n"
          "usage: %s [OPTIONS] <onion_hostname>\n"
-         "   -A <ipv6>/<hostname>  Add the IPv6/hostname pair to the internal hosts db.\n"
+         "   -A [<ipv6>/]<name>    Add the IPv6/hostname pair to the internal hosts db.\n"
          "   -a                    create connect log at \"$HOME/%s/%s\" (default = %d)\n"
          "   -b                    daemonize (default = %d)\n"
          "   -B                    do not daemonize (default = %d)\n"
          "   -h                    display usage message\n"
-         "   -H                    Disable hosts lookup (default = %d, see also option -g)\n"
+         "   -H                    Disable hosts lookup (default = %d, meaning lookup enabled). See also option -g.\n"
          "   -C                    disable local controller interface\n"
          "   -d <n>                set debug level to n, default = %d\n"
          "   -D                    Disable OnionCat DNS lookups, default = %d.\n"
@@ -381,23 +381,48 @@ void parse_opt_early(int argc, char *argv_orig[])
 int parse_addr_host(char *kv)
 {
    struct in6_addr addr;
-   char *s;
+   char *s, *r, buf[17];
+   int len;
 
-   if ((s = strtok(kv, "/")) == NULL)
+   if (strchr(kv, '/') == NULL)
    {
-      return -1;
+      s = kv;
+      if ((len = validate_hostname(s)) == -1)
+      {
+         log_msg(LOG_ERR, "%s seems not to be invalid hostname", kv);
+         return -1;
+      }
+      strlcpy(buf, &s[len - 16], sizeof(buf));
+      if (oniontipv6(buf, &addr) == -1)
+      {
+         log_msg(LOG_ERR, "parameter seems not to be valid onion hostname"), exit(1);
+         return -1;
+      }
    }
-
-   if (inet_pton(AF_INET6, s, &addr) != 1)
+   else
    {
-      log_msg(LOG_ERR, "%s is not a valid address");
-      return -1;
-   }
+      if ((s = strtok_r(kv, "/", &r)) == NULL)
+      {
+         return -1;
+      }
 
-   if ((s = strtok(NULL, "/")) == NULL)
-   {
-      log_msg(LOG_ERR, "no second token in parameter");
-      return -1;
+      if (inet_pton(AF_INET6, s, &addr) != 1)
+      {
+         log_msg(LOG_ERR, "%s is not a valid address");
+         return -1;
+      }
+
+      if ((s = strtok_r(NULL, "/", &r)) == NULL)
+      {
+         log_msg(LOG_ERR, "no second token in parameter");
+         return -1;
+      }
+
+      if (validate_hostname(s) == -1)
+      {
+         log_msg(LOG_ERR, "%s seems not to be invalid hostname", kv);
+         return -1;
+      }
    }
 
    if (hosts_add_entry(&addr, s, HSRC_CLI, time(NULL), -1) == -1)
@@ -623,11 +648,10 @@ int parse_opt(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-   char *charset = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM234567";
 #ifdef HAVE_GETPWNAM_R
    char pwdbuf[SIZE_1K];
 #endif
-   char *s, ip6addr[INET6_ADDRSTRLEN], hw[20], def[100];
+   char ip6addr[INET6_ADDRSTRLEN], hw[20], def[100];
    int c;
    struct passwd *pwd, pwdm;
    int urlconv = 0, mode_detect = 0;
@@ -711,15 +735,10 @@ int main(int argc, char *argv[])
    else
       rand_onion(CNF(onion_url));
 
-   // convert parameter to IPv6 address
-   if ((s = strchr(CNF(onion_url), '.')))
-         *s = '\0';
-   // check for valid onion name length (v2 -> 16, HSv3 -> 56, I2P -> 52)
-   if ((strlen(CNF(onion_url)) != 16) && ((int) strlen(CNF(onion_url)) != CNF(l_hs_namelen)))
-      log_msg(LOG_ERR, "parameter seems not to be valid onion hostname: invalid length"), exit(1);
-   // check for valid base32 charset
-   if (strspn(CNF(onion_url), charset) != strlen(CNF(onion_url)))
-      log_msg(LOG_ERR, "parameter seems not to be valid onion hostname: invalid characters"), exit(1);
+   if (validate_hostname(CNF(onion_url)) == -1)
+      exit(1);
+   *strchr(CNF(onion_url), '.') = '\0';
+
    // if it is a v3 hostname
    if ((int) strlen(CNF(onion_url)) == CNF(l_hs_namelen))
    {

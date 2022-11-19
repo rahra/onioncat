@@ -110,6 +110,7 @@ int is_hosts_db_modified(void);
 int hosts_metric(const host_ent_t *);
 void host_stats_inc_q(const struct in6_addr *);
 void host_stats_inc_ans(const struct in6_addr *, int );
+int validate_hostname(const char *);
 
 
 #endif
