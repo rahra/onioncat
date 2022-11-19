@@ -3,6 +3,7 @@
 AN INTRODUCTION TO ONIONCAT4
 
 Version 1.0, 2022/07/21, Bernhard R. Fischer <bf@abenteuerland.at>
+Version 1.1, 2022/11/19, Bernhard R. Fischer <bf@abenteuerland.at>
 
 
 ABSTRACT
@@ -248,7 +249,7 @@ note that this is just a personal definition. It's a point of view. All
 OnionCat instances are technically equal and have the same capabilities.
 
 Step 1: Start OnionCat4 on all instances with the additional command line
-argument "-A <ipv6_address_of_S0>/<hostname_of_S0.onion>".
+argument "-A <hostname_of_S0.onion>".
 
 Step 2: On the command line of each instance (except S0) ping the IPv6 address
 of S0.
@@ -292,14 +293,13 @@ is a robust and lightweight OpenSource BitTorrent tracker (compile it with
 
 Clients need 2 pieces of information. Both could be made public somewhere on
 the Internet.
-(1) The IPv6 address and hostname pair of the tracker.
+(1) The .onion-hostname of the tracker.
 (2) A torrent file. It contains the information about the file to download and
     the URL of the tracker. In this case the URL is the OnionCat IPv6 address
     of the tracker, e.g. http://[fd87:d87e:eb43:<ip_of_tracker>]:6969/announce.
 
-On the client run OnionCat4 with the option "-A
-<ipv6_of_tracker>/<hostname_of_tracker.onion>". Then fire up your favorite
-BitTorrent client and open the torrent file.
+On the client run OnionCat4 with the option "-A <hostname_of_tracker.onion>".
+Then fire up your favorite BitTorrent client and open the torrent file.
 
 Since somebody was the first one to seed the file, his BitTorrent client (S0)
 had to connect to the tracker. This happened through OnionCat4 and because of
