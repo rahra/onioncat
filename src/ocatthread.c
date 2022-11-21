@@ -104,7 +104,7 @@ void *thread_run(void *p)
    // delete thread struct from list and free memory
    pthread_mutex_lock(&thread_mutex_);
    for (tl = &octh_; *tl; tl = &(*tl)->next)
-      if ((*tl)->handle == ((OcatThread_t*)p)->handle)
+      if (pthread_equal((*tl)->handle, ((OcatThread_t*)p)->handle))
          break;
    //free(p);
    if ((p = *tl))
@@ -180,7 +180,7 @@ const OcatThread_t *get_thread(void)
 
    pthread_mutex_lock(&thread_mutex_);
    for (th = octh_; th; th = th->next)
-      if (th->handle == thread)
+      if (pthread_equal(th->handle, thread))
          break;
    pthread_mutex_unlock(&thread_mutex_);
 
@@ -196,7 +196,7 @@ int set_thread_name(const char *n)
 
    pthread_mutex_lock(&thread_mutex_);
    for (th = octh_; th; th = th->next)
-      if (th->handle == thread)
+      if (pthread_equal(th->handle, thread))
       {
          strlcpy(th->name, n, THREAD_NAME_LEN);
          e = 0;
@@ -264,7 +264,7 @@ int set_thread_ready(void)
    log_debug("set_thread_ready()");
    pthread_mutex_lock(&thread_mutex_);
    for (th = octh_; th; th = th->next)
-      if (th->handle == thread)
+      if (pthread_equal(th->handle, thread))
       {
          th->ready = 1;
          pthread_cond_broadcast(&thread_cond_);
@@ -332,7 +332,7 @@ void detach_thread(void)
 
    pthread_mutex_lock(&thread_mutex_);
    for (th = octh_; th; th = th->next)
-      if (th->handle == thread)
+      if (pthread_equal(th->handle, thread))
          break;
    if (th && !(rc = pthread_detach(thread)))
       th->detached = 1;
