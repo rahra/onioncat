@@ -1,4 +1,4 @@
-/* Copyright 2008-2019 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2022 Bernhard R. Fischer, Daniel Haslinger.
  *
  * This file is part of OnionCat.
  *
@@ -19,8 +19,8 @@
  *  contains thread management functions. Basically these are
  *  wrapper functions around create_pthread.
  *
- *  @author Bernhard R. Fischer <rahra _at_ cypherpunk at>
- *  \date 2019/09/08
+ *  \author Bernhard R. Fischer <bf@abenteuerland.at>
+ *  \date 2022/11/21
  */
 
 
