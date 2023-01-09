@@ -62,6 +62,9 @@ Ping responses from fd87:d87e:eb43::feed:beef indicate that connection between
 OnionCat and Tor itself works, hidden service correctly configured and enabled.
 
 .SS OPTIONS
+In the following is a description of all options. Typically you won't need any
+of them except specifying your OnionCat's .onion hostname. Depending on your
+setup you may use options \fB-g\fP and \fB-A\fP.
 .TP
 \fB\-2\fP
 This option is here only for simplicity. With this option OnionCat behaves like
@@ -101,10 +104,17 @@ OnionCat creates a log file at $HOME/.ocat/connect_log. All incoming connects ar
 logged to that file. $HOME is determined from the user under which OnionCat runs
 (see option \-u).
 .TP
-\fB\-A\fP \fIipv6\fP/\fIhostname\fP
+\fB\-A\fP [\fIipv6\fP/]\fIhostname\fP
 This option lets you add an IP address hostname pair to the internal hosts db.
-This option may be specified multple times. Alternatively you could put the
-IP/hostname pairs into the OnionCat hosts file (see option \-g).
+Typically it is enough to specify just the .onion hostname because the IPv6
+address is derived from the hostname. Adding an IP address is either redundant
+or may be used in special scenarios where the IPv6 address differes from its
+original address. The latter will only work in a closed environment and is not
+interoperable with other OnionCats in the wild because by default the names and
+IPs are verified to be correct.
+This option may be specified multple times.
+Alternatively you could put the IP/hostname pairs into the OnionCat hosts file
+(see option \-g).
 .TP
 \fB\-b\fP
 Run OnionCat in background. This is default. OnionCat will detach from a running
@@ -409,8 +419,12 @@ $HOME/.ocat/connect_log
 
 .SH AUTHOR
 Concepts, software, and man page written by Bernhard R. Fischer
-<bf@abenteuerland.at>. Package maintenance and additional support by Ferdinand
-Haselbacher, Daniel Haslinger <creo-ocat@blackmesa.at>, and Wim Gaethofs.
+<bf@abenteuerland.at>.
+
+.SH CREDITS
+Credits go to Ferdinand Haselbacher, Daniel Haslinger, Wim Gaethofs,
+Marshalbanana, all package maintainers of several Linux and BSD distros, and
+many others who have contributed and reported bugs.
 
 .SH "SEE ALSO"
 Onioncat source code https://github.com/rahra/onioncat
@@ -424,7 +438,7 @@ Tor project homepage https://www.torproject.org/
 I2P project homepage https://geti2p.net/
 
 .SH COPYRIGHT
-Copyright 2008-2021 Bernhard R. Fischer.
+Copyright 2008-2022 Bernhard R. Fischer.
 
 This file is part of OnionCat.
 

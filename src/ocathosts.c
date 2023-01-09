@@ -326,6 +326,49 @@ int hosts_check(void)
 }
 
 
+int validate_hostname(const char *src)
+{
+   const char * const charset = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM234567";
+   char *s, buf[128];
+   int len;
+
+   // check if a domain is appended
+   if ((s = strchr(src, '.')) == NULL)
+   {
+      log_msg(LOG_ERR, "name has no domain");
+      return -1;
+   }
+
+   // check if correct domain is appended
+   if (strcmp(s, CNF(domain)))
+   {
+      log_msg(LOG_ERR, "incorrect domain \"%s\"", s);
+      return -1;
+   }
+
+   // copy data to buffer and \0-terminate
+   strlcpy(buf, src, sizeof(buf));
+   buf[s - src] = '\0';
+   len = strlen(buf);
+
+   // check for valid onion name length (v2 -> 16, HSv3 -> 56, I2P -> 52)
+   if ((len != 16) && (len != CNF(l_hs_namelen)))
+   {
+      log_msg(LOG_ERR, "parameter seems not to be valid onion hostname: invalid length");
+      return -1;
+   }
+
+   // check for valid base32 charset
+   if ((int) strspn(buf, charset) != len)
+   {
+      log_msg(LOG_ERR, "parameter seems not to be valid onion hostname: invalid characters");
+      return -1;
+   }
+
+   return len;
+}
+
+
 /*! Return name for IPv6 address.
  *  @return On success it returns index >= 0 within host_ent array. If not
  *  found, -1 on error.
