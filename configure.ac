@@ -65,7 +65,7 @@ AC_SEARCH_LIBS([inet_ntop], [nsl])
 AC_HEADER_STDC
 AC_PROG_EGREP
 
-AC_CHECK_HEADERS([sys/types.h sys/wait.h sys/socket.h sys/stat.h netdb.h arpa/nameser.h netinet/in.h netinet/in_systm.h netinet/ip.h netinet/ip6.h netinet/in6.h net/if.h net/if_tun.h net/tun/if_tun.h linux/if_tun.h linux/sockios.h linux/ipv6.h endian.h sys/endian.h netinet/icmp6.h net/ethernet.h netinet/if_ether.h netinet/ether.h netinet/udp.h sys/ethernet.h fcntl.h time.h netinet6/in6_var.h netinet6/nd6.h pwd.h syslog.h resolv.h], [], [],
+AC_CHECK_HEADERS([sys/types.h sys/wait.h sys/socket.h sys/stat.h netdb.h arpa/nameser.h arpa/nameser_compat.h netinet/in.h netinet/in_systm.h netinet/ip.h netinet/ip6.h netinet/in6.h net/if.h net/if_tun.h net/tun/if_tun.h linux/if_tun.h linux/sockios.h linux/ipv6.h endian.h sys/endian.h netinet/icmp6.h net/ethernet.h netinet/if_ether.h netinet/ether.h netinet/udp.h sys/ethernet.h fcntl.h time.h netinet6/in6_var.h netinet6/nd6.h pwd.h syslog.h resolv.h], [], [],
 [[
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
