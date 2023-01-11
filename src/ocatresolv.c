@@ -607,8 +607,14 @@ int oc_ns_socket(int port)
    //wait_thread_by_name_ready("main");
 
    // bind socket to address
-   if (bind(fd, (struct sockaddr*) &s6addr, slen) == -1)
+   for (int i = 0; bind(fd, (struct sockaddr*) &s6addr, slen) == -1; i++)
    {
+      if (i < 3 && errno == EADDRNOTAVAIL)
+      {
+         log_msg(LOG_INFO, "bind failed, waiting for interface address to get ready...");
+         sleep(1);
+         continue;
+      }
       log_msg(LOG_ERR, "could not bind DNS socket to port %d: %s", port, strerror(errno));
       oe_close(fd);
       return -1;
