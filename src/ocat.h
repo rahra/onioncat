@@ -227,6 +227,8 @@
 #define KEEPALIVE_TIME 60
 //! select timeout (to avoid endless blocking)
 #define SELECT_TIMEOUT 10
+//! maximum time of thread inactivity before warning (should be > than SELECT_TIMEOUT and > CLEANER_WAKEUP)
+#define MAX_INACTIVITY 25
 
 #define LOG_FCONN 0x400
 #define LOG_FERR 0x800
@@ -537,6 +539,7 @@ typedef struct OcatThread
    void *(*entry)(void*);
    void *parm;
    int ready;              //!< thread is ready, i.e. every initialization is done
+   time_t t_act;           //!< timestamp of latest activity
 } OcatThread_t;
 
 //! Data structure for SOCKS connections in progress.
@@ -736,6 +739,8 @@ int term_req(void);
 void set_term_req(void);
 int wait_thread_by_name_ready(const char *);
 int set_thread_ready(void);
+void update_thread_activity(void);
+int check_threads(void);
 
 /* ocatcompat.c */
 #ifndef HAVE_STRLCAT

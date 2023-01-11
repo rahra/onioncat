@@ -610,6 +610,7 @@ void *socks_connector_sel(void *UNUSED(p))
 
    for (;;)
    {
+      update_thread_activity();
       if (term_req())
          return NULL;
 

@@ -1,4 +1,4 @@
-/* Copyright 2008-2022 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2023 Bernhard R. Fischer, Daniel Haslinger.
  *
  * This file is part of OnionCat.
  *
@@ -20,7 +20,7 @@
  *  wrapper functions around create_pthread.
  *
  *  \author Bernhard R. Fischer <bf@abenteuerland.at>
- *  \date 2022/11/21
+ *  \date 2023/01/10
  */
 
 
@@ -289,8 +289,9 @@ void print_threads(FILE *f)
             "id = %d, "
             "entry = %p, "
             "parm = %p, "
+            "age = %d, "
             "detached = %d\n",
-            th->name, (long) th->handle, th->id, th->entry, th->parm, th->detached);
+            th->name, (long) th->handle, th->id, th->entry, th->parm, (int) (time(NULL) - th->t_act), th->detached);
    }
    pthread_mutex_unlock(&thread_mutex_);
 }
@@ -370,5 +371,46 @@ void set_term_req(void)
    lock_setup();
    CNF(term_req) = 1;
    unlock_setup();
+}
+
+
+/*! This function updates the thread activity timestamp (for watchdog
+ * checking).
+ * */
+void update_thread_activity(void)
+{
+   OcatThread_t *th;
+   pthread_t thread = pthread_self();
+
+   pthread_mutex_lock(&thread_mutex_);
+   for (th = octh_; th; th = th->next)
+      if (pthread_equal(th->handle, thread))
+      {
+         th->t_act = time(NULL);
+         break;
+      }
+   pthread_mutex_unlock(&thread_mutex_);
+}
+
+
+/*! This function checks all threads for their activity (meaning if they are
+ * still alive).
+ * @return If all threads are alive, 0 is returned. Otherwise the id of the
+ * first inactive (dead) thread is returned which is a number > 0.
+ */
+int check_threads(void)
+{
+   int e = 0;
+   OcatThread_t *th;
+
+   pthread_mutex_lock(&thread_mutex_);
+   for (th = octh_; th; th = th->next)
+      if (th->t_act + MAX_INACTIVITY < time(NULL))
+      {
+         e = th->id;
+         break;
+      }
+   pthread_mutex_unlock(&thread_mutex_);
+   return e;
 }
 
