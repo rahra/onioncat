@@ -648,6 +648,7 @@ void *oc_nameserver(void *p)
    // loop over connections
    for (;;)
    {
+      update_thread_activity();
       if (term_req())
          break;
 
@@ -904,6 +905,7 @@ void *oc_resolver(void *UNUSED(p))
 
    while (!term_req())
    {
+      update_thread_activity();
       // clean queue entries which are ready for deletion
       ocres_cleanup(&orstate_);
 

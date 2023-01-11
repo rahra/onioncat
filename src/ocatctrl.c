@@ -160,6 +160,7 @@ void *ctrl_handler(void *p)
 
    for (;;)
    {
+      update_thread_activity();
       if (CNF(config_read))
          fprintf(fo, "%s> ", CNF(onion_url));
 

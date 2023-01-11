@@ -198,6 +198,9 @@ int socks_activate_peer(SocksQueue_t *sq)
 }
 
 
+/*! This writes a SocksQueue element to the socks connector pipe.
+ * @param sq Filled out SocksQueue_t struct.
+ */
 void socks_pipe_request(const SocksQueue_t *sq)
 {
    fd_set wset;
@@ -212,7 +215,7 @@ void socks_pipe_request(const SocksQueue_t *sq)
          return;
    }
 
-   if (maxfd && FD_ISSET(CNF(socksfd[1]), &wset))
+   if (FD_ISSET(CNF(socksfd[1]), &wset))
    {
       log_debug("writing %d bytes to fd %d", len, CNF(socksfd[1]));
       if ((ret = write(CNF(socksfd[1]), sq, len)) == -1)
@@ -255,6 +258,22 @@ void socks_query_callback(void *UNUSED(p), struct in6_addr in6, int code)
 }
 
 
+/*! Check if address addr exists within SOCKS request queue.
+ * @param addr IPv6 Address to check for.
+ * @return If the request for the address exists a pointer to the queued
+ * element is returned. Otherwise NULL is returned.
+ */
+SocksQueue_t *socks_get_req(const struct in6_addr *addr)
+{
+   SocksQueue_t *squeue;
+
+   for (squeue = socks_queue_; squeue; squeue = squeue->next)
+      if (IN6_ARE_ADDR_EQUAL(&squeue->addr, addr))
+         return squeue;
+   return NULL;
+}
+
+
 /*! Add and link a SOCKS request to the SOCKS queue.
  *  @param sq Request structure to add.
  */
@@ -263,6 +282,11 @@ void socks_enqueue(const SocksQueue_t *sq)
    SocksQueue_t *squeue;
 
    log_debug("queueing new SOCKS connection request");
+   if (socks_get_req(&sq->addr))
+   {
+      log_debug("SOCKS request exists");
+      return;
+   }
    if (!(squeue = malloc(sizeof(SocksQueue_t))))
       log_msg(LOG_EMERG, "could not get memory for SocksQueue entry: \"%s\"", strerror(errno)), exit(1);
    memcpy(squeue, sq, sizeof(*squeue));
@@ -272,8 +296,8 @@ void socks_enqueue(const SocksQueue_t *sq)
 }
 
 
-/*! Send a SOCKS request to the request pipe in order to get
- *  added to the SOCKS queue with socks_enqueue()
+/*! Initialize a new SOCKS request and send it to the request pipe in order to
+ *  get added to the SOCKS queue with socks_enqueue().
  *  @param addr IPv6 address to be requested
  *  @param perm 1 if connection should kept opened inifitely after successful request, 0 else.
  */
@@ -285,23 +309,18 @@ void socks_queue(struct in6_addr addr, int perm)
    if (!CNF(socks_dst)->sin_family)
       return;
 
-   for (squeue = socks_queue_; squeue; squeue = squeue->next)
-      if (IN6_ARE_ADDR_EQUAL(&squeue->addr, &addr))
-         break;
-
-   if (!squeue)
-   {
-      log_debug("queueing new SOCKS connection request");
-      memset(&sq, 0, sizeof(sq));
-      IN6_ADDR_COPY(&sq.addr, &addr);
-      sq.perm = perm;
-      log_debug("signalling connector");
-      socks_pipe_request(&sq);
-   }
-   else
+   if ((squeue = socks_get_req(&addr)) != NULL)
    {
       log_debug("connection already exists, not queueing SOCKS connection");
+      return;
    }
+
+   log_debug("queueing new SOCKS connection request");
+   memset(&sq, 0, sizeof(sq));
+   IN6_ADDR_COPY(&sq.addr, &addr);
+   sq.perm = perm;
+   log_debug("signalling connector");
+   socks_pipe_request(&sq);
 }
 
 
@@ -610,6 +629,7 @@ void *socks_connector_sel(void *UNUSED(p))
 
    for (;;)
    {
+      update_thread_activity();
       if (term_req())
          return NULL;
 

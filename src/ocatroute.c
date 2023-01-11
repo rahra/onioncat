@@ -350,11 +350,6 @@ int ident_loopback(OcatPeer_t *peer, const struct ip6_hdr *i6h)
    OcatPeer_t *lpeer;
    int flow;
 
-   // check if ip6 packet without content (header only)
-   if (i6h->ip6_nxt != IPPROTO_NONE)
-      return -1;
-   log_debug("packet seems to be keepalive");
-
    // check if flowlabel is set
    if (!(flow = ntohl(i6h->ip6_flow) & 0xfffff))
       return -1;
@@ -591,6 +586,7 @@ void *socket_receiver(void *UNUSED(p))
 
    for (;;)
    {
+      update_thread_activity();
       // check for termination request
       if (term_req())
          break;
@@ -959,6 +955,7 @@ int run_listeners(struct sockaddr **addr, int *sockfd, int cnt, int (action_acce
    set_thread_ready();
    for (;;)
    {
+      update_thread_activity();
       // check for termination request
       if (term_req())
          break;
@@ -1057,6 +1054,7 @@ void packet_forwarder(void)
 
    for (;;)
    {
+      update_thread_activity();
       // check if signals have arrived
       proc_signals();
 
@@ -1294,11 +1292,12 @@ void cleanup_peers(void)
  */
 void *socket_cleaner(void *UNUSED(ptr))
 {
-   int stat_wup = 0;
+   int stat_wup = 0, tid;
    time_t act_time, saved_time = time(NULL);
 
    for (;;)
    {
+      update_thread_activity();
       // check for termination request
       if (term_req())
          break;
@@ -1307,6 +1306,9 @@ void *socket_cleaner(void *UNUSED(ptr))
       log_debug2("wakeup");
 
       act_time = time(NULL);
+
+      if ((tid = check_threads()))
+         log_msg(LOG_EMERG, "thread %d seems to hang");
 
       // save cached hosts
       if (is_hosts_db_modified() && act_time - saved_time > HOSTS_TIME)
@@ -1380,6 +1382,8 @@ int loopback_loop(int fd)
    log_debug("starting loopback loop on fd %d", fd);
    while (!term_req())
    {
+      update_thread_activity();
+
       FD_ZERO(&rset);
       FD_SET(fd, &rset);
       if ((maxfd = oc_select(fd + 1, &rset, NULL, NULL)) <= 0)
