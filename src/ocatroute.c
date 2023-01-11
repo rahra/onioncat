@@ -1308,7 +1308,7 @@ void *socket_cleaner(void *UNUSED(ptr))
       act_time = time(NULL);
 
       if ((tid = check_threads()))
-         log_msg(LOG_EMERG, "thread %d seems to hang");
+         log_msg(LOG_EMERG, "thread %d seems to hang", tid);
 
       // save cached hosts
       if (is_hosts_db_modified() && act_time - saved_time > HOSTS_TIME)
