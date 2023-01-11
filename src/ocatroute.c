@@ -773,7 +773,7 @@ void *socket_receiver(void *UNUSED(p))
                      eh->ether_type = htons(ETHERTYPE_IP);
 
                   if (tun_write(CNF(tunfd[1]), buf + BUF_OFF, len + 4 + sizeof(struct ether_header) - BUF_OFF) != (len + 4 + (int) sizeof(struct ether_header) - BUF_OFF))
-                     log_msg(LOG_ERR, "could not write %d bytes to tunnel %d", len + 4 + sizeof(struct ether_header) - BUF_OFF, CNF(tunfd[1]));
+                     log_msg(LOG_ERR, "could not write %d bytes to tunnel %d", len + 4 + (int) sizeof(struct ether_header) - BUF_OFF, CNF(tunfd[1]));
                }
             }
             else
@@ -823,7 +823,7 @@ void set_nonblock(int fd)
       log_msg(LOG_ERR, "could not get socket flags for %d: \"%s\"", fd, strerror(errno));
       flags = 0;
    }
-   log_debug("O_NONBLOCK currently is %x", flags & O_NONBLOCK);
+   log_debug("O_NONBLOCK currently is 0x%lx", flags & O_NONBLOCK);
 
    if ((fcntl(fd, F_SETFL, flags | O_NONBLOCK)) == -1)
       log_msg(LOG_ERR, "could not set O_NONBLOCK for %d: \"%s\"", fd, strerror(errno));
@@ -1391,7 +1391,7 @@ int loopback_loop(int fd)
 
       if (!FD_ISSET(fd, &rset))
       {
-         log_msg(LOG_ERR, "fd %d not in fdset, this should not happen");
+         log_msg(LOG_ERR, "fd %d not in fdset, this should not happen", fd);
          continue;
       }
 
