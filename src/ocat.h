@@ -670,7 +670,7 @@ void proc_signals(void);
 
 /* ocatlog.c */
 int open_connect_log(const char*);
-void log_msg(int, const char *, ...);
+void log_msg(int, const char *, ...) __attribute__((format (printf, 2, 3)));
 #ifdef DEBUG
 #define log_debug(x...) log_msg(LOG_DEBUG, ## x)
 #ifdef DEBUG_EXCESSIVE

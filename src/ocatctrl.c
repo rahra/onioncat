@@ -196,7 +196,7 @@ void *ctrl_handler(void *p)
       if (!fgets(buf, FRAME_SIZE, ff))
       {
          if (!feof(ff))
-            log_msg(LOG_ERR, "error reading from %d");
+            log_msg(LOG_ERR, "error reading from %d", fd);
          break;
       }
 

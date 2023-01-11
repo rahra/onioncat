@@ -115,7 +115,7 @@ int socks_send_request(const SocksQueue_t *sq)
 
    get_hostname(sq, onion, sizeof(onion));
 
-   log_debug("SOCKS_BUFLEN = %d, NI_MAXHOST = %d", SOCKS_BUFLEN, NI_MAXHOST);
+   log_debug("SOCKS_BUFLEN = %d, NI_MAXHOST = %d", (int) SOCKS_BUFLEN, NI_MAXHOST);
    if (inet_ntop(AF_INET6, &sq->addr, buf, sizeof(buf)) == NULL)
    {
       log_msg(LOG_WARNING, "inet_ntop failed: \"%s\"", strerror(errno));
@@ -482,7 +482,7 @@ int socks5_rec_response(SocksQueue_t *sq)
    log_debug("got %d bytes as SOCKS5 response", ret);
    if (ret < (int) sizeof(*s5hdr))
    {
-      log_msg(LOG_ERR, "SOCKS5 response seems truncated to %d of at least %d bytes", ret, sizeof(*s5hdr));
+      log_msg(LOG_ERR, "SOCKS5 response seems truncated to %d of at least %d bytes", ret, (int) sizeof(*s5hdr));
       return -1;
    }
 
@@ -652,7 +652,7 @@ void *socks_connector_sel(void *UNUSED(p))
 
                if (t < squeue->restart_time)
                {
-                  log_debug("SOCKS request is scheduled for connection not before %ds", squeue->restart_time - t);
+                  log_debug("SOCKS request is scheduled for connection not before %lds", squeue->restart_time - t);
                   continue;
                }
 
@@ -851,7 +851,7 @@ void *socks_connector_sel(void *UNUSED(p))
                   CNF(socksfd[0]), strerror(errno));
          if (len < (int) sizeof(sq))
             log_msg(LOG_ERR, "read from SOCKS request pipe truncated to %d of %d bytes, ignoring.", 
-                  len, sizeof(sq));
+                  len, (int) sizeof(sq));
          else
          {
             log_debug("received %d bytes on SOCKS request pipe fd %d", len, CNF(socksfd[0]));

@@ -297,7 +297,7 @@ int ndp_solicit(const struct in6_addr *src, const struct in6_addr *dst)
    // FIXME: there's no error checking
    win_write_tun(buf + 4, sizeof(buf) - 4);
 #else
-   log_debug("writing %d bytes ndp solicitation to tunfd %d", sizeof(buf), CNF(tunfd[1]));
+   log_debug("writing %d bytes ndp solicitation to tunfd %d", (int) sizeof(buf), CNF(tunfd[1]));
    if (write(CNF(tunfd[1]), buf, sizeof(buf)) < (int) sizeof(buf))
       log_msg(LOG_ERR, "short write to tun fd %d", CNF(tunfd[1]));
 #endif
@@ -477,7 +477,7 @@ int eth_check(char *buf, int len)
    // check minimum frame length
    if (len < (int) sizeof(struct ether_header) + 4)
    {
-      log_msg(LOG_ERR, "frame too short, len = %d < 4 + %d", len, sizeof(struct ether_header));
+      log_msg(LOG_ERR, "frame too short, len = %d < 4 + %d", len, (int) sizeof(struct ether_header));
       return E_ETH_TRUNC;
    }
 

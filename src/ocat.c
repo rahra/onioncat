@@ -408,7 +408,7 @@ int parse_addr_host(char *kv)
 
       if (inet_pton(AF_INET6, s, &addr) != 1)
       {
-         log_msg(LOG_ERR, "%s is not a valid address");
+         log_msg(LOG_ERR, "%s is not a valid address", s);
          return -1;
       }
 
@@ -864,7 +864,7 @@ int main(int argc, char *argv[])
       if (setgid(pwd->pw_gid))
          log_msg(LOG_ERR, "could not change gid: \"%s\"", strerror(errno)), exit(1);
       if (setuid(pwd->pw_uid))
-         log_msg(LOG_ERR, "could not change uid: \"%d\"", strerror(errno)), exit(1);
+         log_msg(LOG_ERR, "could not change uid: \"%s\"", strerror(errno)), exit(1);
    }
    log_debug("uid/gid = %d/%d", getuid(), getgid());
 

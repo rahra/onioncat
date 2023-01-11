@@ -153,7 +153,7 @@ int run_ocat_thread(const char *name, void *(*thfunc)(void*), void *parm)
    if ((rc - pthread_attr_getstacksize(&th->attr, &ss)))
       log_debug("could not get thread stack size attr: \"%s\"", strerror(rc));
    else
-      log_debug("default thread stack size %dk, setting to %dk", ss / 1024, THREAD_STACK_SIZE / 1024);
+      log_debug("default thread stack size %dk, setting to %dk", (int) ss / 1024, THREAD_STACK_SIZE / 1024);
 #endif
 
    if ((rc - pthread_attr_setstacksize(&th->attr, THREAD_STACK_SIZE)))
