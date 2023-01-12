@@ -467,7 +467,8 @@ int run_ctrl_handler(int fd)
 
 void *ocat_controller(void *UNUSED(p))
 {
-   run_listeners(CNF(ctrl_listen), CNF(ctrl_listen_fd), CNF(ctrl_listen_cnt), run_ctrl_handler);
+   if (run_listeners(CNF(ctrl_listen), CNF(ctrl_listen_fd), CNF(ctrl_listen_cnt), run_ctrl_handler) == -1)
+      log_msg(LOG_WARNING, "could not start controller");
    return NULL;
 }
 

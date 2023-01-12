@@ -898,7 +898,7 @@ int create_listener(struct sockaddr *addr, int sock_len)
 
    if ((fd = socket(family, SOCK_STREAM, 0)) < 0)
    {
-      log_msg(LOG_EMERG, "could not create listener socker: \"%s\"", strerror(errno));
+      log_msg(LOG_WARNING, "could not create listener socker: \"%s\"", strerror(errno));
       return -1;
    }
 
@@ -907,14 +907,14 @@ int create_listener(struct sockaddr *addr, int sock_len)
       log_msg(LOG_WARNING, "could not set socket %d to SO_REUSEADDR: \"%s\"", fd, strerror(errno));
    if (bind(fd, addr, sock_len) == -1)
    {
-      log_msg(LOG_EMERG, "could not bind listener %d: \"%s\"", fd, strerror(errno));
+      log_msg(LOG_WARNING, "could not bind listener %d: \"%s\"", fd, strerror(errno));
       oe_close(fd);
       return -1;
    }
 
    if (listen(fd, 32) < 0)
    {
-      log_msg(LOG_EMERG, "could not bring listener %d to listening state: \"%s\"", fd, strerror(errno));
+      log_msg(LOG_WARNING, "could not bring listener %d to listening state: \"%s\"", fd, strerror(errno));
       oe_close(fd);
       return -1;
    }
@@ -949,7 +949,7 @@ int run_listeners(struct sockaddr **addr, int *sockfd, int cnt, int (action_acce
    {
       log_debug("create listener");
       if ((sockfd[i] = create_listener(addr[i], SOCKADDR_SIZE(addr[i]))) == -1)
-         log_msg(LOG_EMERG, "exiting"), exit(1);
+         return -1;
    }
 
    set_thread_ready();
@@ -1017,7 +1017,11 @@ int run_listeners(struct sockaddr **addr, int *sockfd, int cnt, int (action_acce
 
 void *socket_acceptor(void *UNUSED(p))
 {
-   run_listeners(CNF(oc_listen), CNF(oc_listen_fd), CNF(oc_listen_cnt), insert_anon_peer);
+   if (run_listeners(CNF(oc_listen), CNF(oc_listen_fd), CNF(oc_listen_cnt), insert_anon_peer) == -1)
+   {
+      log_msg(LOG_ERR, "failed to create listener, exiting...");
+      exit(1);
+   }
    return NULL;
 }
 
