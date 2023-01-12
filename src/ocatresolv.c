@@ -257,7 +257,8 @@ int oc_name_dn(const char *name, char *buf, int len)
       // decrease buffer length counter
       len -= llen + 1;
       name += llen;
-      name++;
+      if (*name != '\0')
+         name++;
    }
 
    return dlen;
