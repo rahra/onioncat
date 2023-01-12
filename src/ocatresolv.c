@@ -375,7 +375,7 @@ int oc_proc_request(char *buf, int msglen, int buflen)
    // check opcode
    if (dh->opcode != QUERY)
    {
-      log_msg(LOG_WARNING, "query opcode %d not implemented", dh->opcode);
+      log_msg(LOG_INFO, "query opcode %d not implemented", dh->opcode);
       dh->rcode = NOTIMP;
       dh->qr = 1;
       return msglen;
@@ -384,7 +384,7 @@ int oc_proc_request(char *buf, int msglen, int buflen)
    // basic header check
    if (dh->qr || dh->qdcount != htons(1) || dh->ancount || dh->nscount)
    {
-      log_msg(LOG_WARNING, "query format error");
+      log_msg(LOG_INFO, "query format error");
       dh->rcode = FORMERR;
       dh->qr = 1;
       return msglen;
