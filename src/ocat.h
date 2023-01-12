@@ -540,6 +540,7 @@ typedef struct OcatThread
    void *parm;
    int ready;              //!< thread is ready, i.e. every initialization is done
    time_t t_act;           //!< timestamp of latest activity
+   int flags;              //!< some flags, used for debugging
 } OcatThread_t;
 
 //! Data structure for SOCKS connections in progress.
@@ -741,6 +742,7 @@ int wait_thread_by_name_ready(const char *);
 int set_thread_ready(void);
 void update_thread_activity(void);
 int check_threads(void);
+int set_thread_flags(int);
 
 /* ocatcompat.c */
 #ifndef HAVE_STRLCAT

@@ -290,8 +290,9 @@ void print_threads(FILE *f)
             "entry = %p, "
             "parm = %p, "
             "age = %d, "
+            "flags = 0x%04x, "
             "detached = %d\n",
-            th->name, (long) th->handle, th->id, th->entry, th->parm, (int) (time(NULL) - th->t_act), th->detached);
+            th->name, (long) th->handle, th->id, th->entry, th->parm, (int) (time(NULL) - th->t_act), th->flags, th->detached);
    }
    pthread_mutex_unlock(&thread_mutex_);
 }
@@ -412,5 +413,30 @@ int check_threads(void)
       }
    pthread_mutex_unlock(&thread_mutex_);
    return e;
+}
+
+
+/*! This function checks all threads for their activity (meaning if they are
+ * still alive).
+ * @return If all threads are alive, 0 is returned. Otherwise the id of the
+ * first inactive (dead) thread is returned which is a number > 0.
+ */
+int set_thread_flags(int f)
+{
+   int f0;
+   OcatThread_t *th;
+   pthread_t thread = pthread_self();
+
+   pthread_mutex_lock(&thread_mutex_);
+   for (th = octh_; th; th = th->next)
+      if (pthread_equal(th->handle, thread))
+      {
+         f0 = th->flags;
+         th->flags = f;
+         break;
+      }
+   pthread_mutex_unlock(&thread_mutex_);
+
+   return f0;
 }
 

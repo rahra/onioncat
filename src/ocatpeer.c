@@ -50,14 +50,19 @@ OcatPeer_t **get_first_peer_ptr(void)
 /*! Lock complete peer list. */
 int lock_peers(void)
 {
-   return pthread_mutex_lock(&peer_mutex_);
+   set_thread_flags(1);
+   int e = pthread_mutex_lock(&peer_mutex_);
+   set_thread_flags(2);
+   return e;
 }
 
 
 /*! Unlock peer list. */
 int unlock_peers(void)
 {
-   return pthread_mutex_unlock(&peer_mutex_);
+   int e = pthread_mutex_unlock(&peer_mutex_);
+   set_thread_flags(0);
+   return e;
 }
 
 
