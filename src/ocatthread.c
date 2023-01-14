@@ -277,24 +277,67 @@ int set_thread_ready(void)
 }
 
 
-void print_threads(FILE *f)
+/*! This function prints the thread list in human readable format into the
+ * buffer buf.
+ * @param buf Pointer to data buffer.
+ * @param len Size of buffer.
+ * @return The function does not write more than len bytes into the buffer,
+ * including the terminating \0. The function returns the number if bytes
+ * written excluding the \0. if the buffer was too small, len is returned and
+ * the buffer is filled but still \0 terminated.
+ */
+int snprint_threads(char *buf, int len, const char *delim)
 {
    OcatThread_t *th;
+   int wlen, tlen;
 
    pthread_mutex_lock(&thread_mutex_);
-   for (th = octh_; th; th = th->next)
+   for (tlen = 0, th = octh_; th; th = th->next)
    {
-      fprintf(f, "[%s] "
+      wlen = snprintf(buf, len,
+            "name = \"%s\", "
             "handle = 0x%08lx, "
             "id = %d, "
-            "entry = %p, "
+            //"entry = %p, "
             "parm = %p, "
             "age = %d, "
             "flags = 0x%04x, "
-            "detached = %d\n",
-            th->name, (long) th->handle, th->id, th->entry, th->parm, (int) (time(NULL) - th->t_act), th->flags, th->detached);
+            "detached = %d%s",
+            th->name, (long) th->handle, th->id, /*th->entry,*/ th->parm, (int) (time(NULL) - th->t_act), th->flags, th->detached, delim);
+      if (wlen >= len)
+      {
+         tlen += len;
+         break;
+      }
+      tlen += wlen;
+      buf += wlen;
+      len -= tlen;
    }
    pthread_mutex_unlock(&thread_mutex_);
+
+   return tlen;
+}
+
+
+void print_threads(FILE *f)
+{
+   char buf[4096];
+   int len;
+
+   if ((len = snprint_threads(buf, sizeof(buf), "\n")) >= (int) sizeof(buf))
+      log_msg(LOG_WARNING, "output buffer for thread list too small");
+   fprintf(f, "%s", buf);
+}
+
+
+void log_threads(void)
+{
+   char buf[4096];
+   int len;
+
+   if ((len = snprint_threads(buf, sizeof(buf), "; ")) >= (int) sizeof(buf))
+      log_msg(LOG_WARNING, "output buffer for thread list too small");
+   log_msg(LOG_INFO, "%s", buf);
 }
 
 

@@ -736,6 +736,7 @@ int set_thread_name(const char *);
 int join_threads(void);
 void detach_thread(void);
 void print_threads(FILE *);
+void log_threads(void);
 int term_req(void);
 void set_term_req(void);
 int wait_thread_by_name_ready(const char *);
