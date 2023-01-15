@@ -460,14 +460,14 @@ int check_threads(void)
 }
 
 
-/*! This function checks all threads for their activity (meaning if they are
- * still alive).
- * @return If all threads are alive, 0 is returned. Otherwise the id of the
- * first inactive (dead) thread is returned which is a number > 0.
+/*! This function set the flags of the current thread. These flags are used
+ * internally by OnionCat, currently just for debugging.
+ * @return Returns the previous value of the flags. If the current thread is
+ * not found in OnionCat's internal thread list, -1 is returned.
  */
 int set_thread_flags(int f)
 {
-   int f0;
+   int f0 = -1;
    OcatThread_t *th;
    pthread_t thread = pthread_self();
 
