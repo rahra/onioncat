@@ -52,6 +52,7 @@ void init_ocat_thread_struct(OcatThread_t *th)
 {
    // init ocat thread structure
    th->handle = pthread_self();
+   th->t_act = time(NULL);
    pthread_mutex_lock(&thread_mutex_);
    th->id = highest_id() + 1;
    th->next = octh_;
