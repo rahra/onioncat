@@ -177,16 +177,6 @@ void *packet_dequeuer(void *p)
 #endif
 
 
-void cleanup_socket(int fd, OcatPeer_t *peer)
-{
-   log_msg(LOG_INFO | LOG_FCONN, "fd %d reached EOF, closing.", fd);
-   oe_close(fd);
-   lock_peers();
-   delete_peer(peer);
-   unlock_peers();
-}
-
-
 #ifdef HANDLE_HTTP
 #define BSTRLEN 1024
 
@@ -641,7 +631,7 @@ void *socket_receiver(void *UNUSED(p))
                break;
             }
          }
-         else if (!(peer = peer->next))
+         else if ((peer = get_next_peer(peer)) == NULL)
          {
             log_msg(LOG_DEBUG, "fd ready but no peer found, probably cleaned");
             unlock_peers();
@@ -680,6 +670,9 @@ void *socket_receiver(void *UNUSED(p))
          {
             log_msg(LOG_INFO | LOG_FCONN, "fd %d reached EOF, closing.", peer->tcpfd);
             oe_close(peer->tcpfd);
+
+            log_debug("mark peer with fd %d for deletion", peer->tcpfd);
+            peer->state = PEER_DELETE;
             // restart connection of permanent peers
             if (peer->perm)
             {
@@ -687,13 +680,6 @@ void *socket_receiver(void *UNUSED(p))
                socks_queue(peer->addr, 1);
             }
             unlock_peer(peer);
-
-            // deleting peer
-            // FIXME: there might be a race-condition with restarted permanent peers
-            lock_peers();
-            delete_peer(peer);
-            unlock_peers();
-
             continue;
          }
 
@@ -794,14 +780,6 @@ void *socket_receiver(void *UNUSED(p))
             }
          } // while (peer->fraglen)
 
-         if (peer->state == PEER_DELETE)
-         {
-            unlock_peer(peer);
-            lock_peers();
-            delete_peer(peer);
-            unlock_peers();
-            continue;
-         }
          unlock_peer(peer);
       } // while (maxfd)
    } // for (;;)
@@ -1249,7 +1227,7 @@ int send_keepalive(OcatPeer_t *peer)
 
 void cleanup_peers(void)
 {
-   OcatPeer_t *peer, **p;
+   OcatPeer_t **p;
    time_t act_time = time(NULL);
 
    // cleanup peers
@@ -1267,22 +1245,20 @@ void cleanup_peers(void)
             send_keepalive(*p);
             (*p)->time = act_time;
          }
-         unlock_peer(*p);
       }
       // handle temporary connections
-      else if ((*p)->state && act_time - (*p)->time >= MAX_IDLE_TIME)
+      else if ((*p)->state && (*p)->state != PEER_DELETE && act_time - (*p)->time >= MAX_IDLE_TIME)
       {
-         peer = *p;
-         *p = peer->next;
-         log_msg(LOG_INFO | LOG_FCONN, "peer %d timed out, closing.", peer->tcpfd);
-         oe_close(peer->tcpfd);
-         unlock_peer(peer);
-         delete_peer(peer);
-         if (!(*p))
-         {
-            log_debug("last peer in list deleted, breaking loop");
-            break;
-         }
+         log_msg(LOG_INFO | LOG_FCONN, "peer %d timed out, closing and marking for deletion", (*p)->tcpfd);
+         oe_close((*p)->tcpfd);
+         (*p)->state = PEER_DELETE;
+      }
+
+      if ((*p)->state == PEER_DELETE)
+      {
+         delete_peer0(p);
+         // restart loop at beginning
+         p = get_first_peer_ptr();
       }
       else
          unlock_peer(*p);
@@ -1393,7 +1369,15 @@ int loopback_loop(int fd)
 
       FD_ZERO(&rset);
       FD_SET(fd, &rset);
-      if ((maxfd = oc_select(fd + 1, &rset, NULL, NULL)) <= 0)
+      if ((maxfd = oc_select(fd + 1, &rset, NULL, NULL)) == -1)
+      {
+         if (errno == EINTR)
+            continue;
+         else
+            break;
+      }
+
+      if (!maxfd)
          continue;
 
       if (!FD_ISSET(fd, &rset))

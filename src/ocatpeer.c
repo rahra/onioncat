@@ -40,6 +40,25 @@ OcatPeer_t *get_first_peer(void)
 }
 
 
+/*! Return pointer to next peer after peer. This function checks if peer exists
+ * before dereferencing (since it may have been deleted).
+ * @param peer Pointer to element whose next element should be returned.
+ * @return Returns a pointer to the next element or NULL if either the elemnt
+ * was deleted or there is no next element. Errno is set to EADDRNOTAVAIL if
+ * the element seems to be deleted.
+ */
+OcatPeer_t *get_next_peer(const OcatPeer_t *peer)
+{
+   OcatPeer_t *p;
+
+   for (p = get_first_peer(); p != NULL; p = p->next)
+      if (p == peer)
+         return p->next;
+   errno = EADDRNOTAVAIL;
+   return NULL;
+}
+
+
 /*! Return double pointer to first peer. */
 OcatPeer_t **get_first_peer_ptr(void)
 {
@@ -130,28 +149,41 @@ OcatPeer_t *get_empty_peer(void)
 }
 
 
-/*! peer list MUST be locked with lock_peers() in advance!
+/*! Peer list MUST be locked with lock_peers() in advance!
  *  @param peer pointer to peer that shall be deleted.
  */
 void delete_peer(OcatPeer_t *peer)
 {
-   int rc;
    OcatPeer_t **p;
 
    for (p = &peer_; *p; p = &(*p)->next)
       if (*p == peer)
       {
-         log_debug("going to delete peer at %p", peer);
-         // unlink peer from list
          lock_peer(peer);
-         *p = peer->next;
-         unlock_peer(peer);
-
-         // effectively delete it
-         if ((rc = pthread_mutex_destroy(&peer->mutex)))
-            log_msg(LOG_EMERG, "cannot destroy mutex: \"%s\"", strerror(rc));
-         free(peer);
+         delete_peer0(p);
          return;
       }
+}
+
+
+/*! Peer list and peer MUST both be locked with lock_peers() and lock_peer()!
+ *  @param p pointer to peer pointer that shall be deleted.
+ */
+void delete_peer0(OcatPeer_t **p)
+{
+   int rc;
+   OcatPeer_t *peer;
+
+   // save peer address
+   peer = *p;
+   log_debug("going to delete peer at %p", peer);
+   // remove from list
+   *p = (*p)->next;
+   // unlock and delete mutex
+   unlock_peer(peer);
+   if ((rc = pthread_mutex_destroy(&peer->mutex)))
+      log_msg(LOG_ERR, "cannot destroy mutex: \"%s\"", strerror(rc));
+   // free memory
+   free(peer);
 }
 

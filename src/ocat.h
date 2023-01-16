@@ -755,6 +755,7 @@ size_t strlcpy(char*, const char*, size_t);
 
 /* ocatpeer.c */
 OcatPeer_t *get_first_peer(void);
+OcatPeer_t *get_next_peer(const OcatPeer_t *);
 OcatPeer_t **get_first_peer_ptr(void);
 int lock_peers(void);
 int unlock_peers(void);
@@ -763,6 +764,7 @@ int unlock_peer(OcatPeer_t *);
 OcatPeer_t *search_peer(const struct in6_addr *);
 OcatPeer_t *get_empty_peer(void);
 void delete_peer(OcatPeer_t *);
+void delete_peer0(OcatPeer_t **);
 
 /* ocatsetup.c */
 #define CNF(x) setup_.x
