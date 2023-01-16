@@ -233,7 +233,9 @@ int oc_select0(int maxfd, fd_set *rset, fd_set *wset, fd_set *eset, int t)
    log_debug2("selecting (maxfd = %d)", maxfd);
    if ((maxfd = select(maxfd + 1, rset, wset, eset, &tv)) == -1)
    {
+      int e = errno;
       log_debug("select returned: \"%s\"", strerror(errno));
+      errno = e;
    }
    else
    {
