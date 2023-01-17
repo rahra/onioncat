@@ -1,4 +1,4 @@
-/* Copyright 2008-2019 Bernhard R. Fischer.
+/* Copyright 2008-2023 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -23,7 +23,7 @@
  *  his P2PVPN project (http://www.p2pvpn.org/) and was by his permission
  *  adapted (thanks) to the needs for OnionCat.
  *  \author Bernhard R. Fischer, <bf@abenteuerland.at>
- *  \date 2019/09/08
+ *  \date 2023/01/17
  */
  
 #ifdef __CYGWIN__
@@ -80,7 +80,7 @@ int findTapDevice(char *deviceID, int deviceIDLen, char *deviceName, int deviceN
     
    if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, ADAPTER_KEY, 0, KEY_READ, &adapterKey) != ERROR_SUCCESS)
    {
-      log_msg(LOG_ERR, "RegOpenKeyEx \"%s\" failed. Error = %ld", ADAPTER_KEY, GetLastError());
+      log_msg(LOG_ERR, "RegOpenKeyEx \"%s\" failed. Error = %d", ADAPTER_KEY, GetLastError());
       return -1;
    }
 
@@ -92,7 +92,7 @@ int findTapDevice(char *deviceID, int deviceIDLen, char *deviceName, int deviceN
 
       if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, keyName, 0, KEY_READ, &key) != ERROR_SUCCESS)
       {
-         log_msg(LOG_ERR, "RegOpenKeyEx \"%s\" failed. Error = %ld", keyName, GetLastError());
+         log_msg(LOG_ERR, "RegOpenKeyEx \"%s\" failed. Error = %d", keyName, GetLastError());
          return -1;
       }
         
@@ -116,14 +116,14 @@ int findTapDevice(char *deviceID, int deviceIDLen, char *deviceName, int deviceN
    snprintf(keyName, sizeof(keyName), "%s\\%s\\Connection", NETWORK_CONNECTIONS_KEY, deviceID);
    if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, keyName, 0, KEY_READ, &key) != ERROR_SUCCESS)
    {
-      log_msg(LOG_ERR, "RegOpenKeyEx \"%s\" failed. Error = %ld", keyName, GetLastError());
+      log_msg(LOG_ERR, "RegOpenKeyEx \"%s\" failed. Error = %d", keyName, GetLastError());
       return -1;
    }
 
    len = deviceNameLen;
    if (RegQueryValueEx(key, "Name", NULL, NULL, deviceName, &len) != ERROR_SUCCESS)
    {
-      log_msg(LOG_ERR, "RegQueryValueEx \"%s\" failed. Error = %ld", key, GetLastError());
+      log_msg(LOG_ERR, "RegQueryValueEx \"%s\" failed. Error = %d", key, GetLastError());
       RegCloseKey(key);
       return -1;
    }
@@ -139,7 +139,7 @@ int win_open_tun(char *dev, int s)
    char deviceId[SIZE_256], deviceName[SIZE_256], tapPath[SIZE_256];
    TapData_t *tapData = &tapData_;
    DWORD len = 0;
-   int status, i;
+   int status = -1, i;
 
    for (i = 0; tap_component_id_[i] != NULL; i++)
       if ((status = findTapDevice(deviceId, sizeof(deviceId), deviceName, sizeof(deviceName), tap_component_id_[i])) != -1)
@@ -148,6 +148,8 @@ int win_open_tun(char *dev, int s)
    if (status == -1)
    {
       log_msg(LOG_ALERT, "could not find TAP driver with valid componentId. Probly not installed");
+      strlcpy(dev, tap_component_id_[0], s);
+      errno = ENODEV;
       return -1;
    }
 
@@ -160,7 +162,8 @@ int win_open_tun(char *dev, int s)
     
    if (tapData->fd == INVALID_HANDLE_VALUE)
    {
-      log_msg(LOG_ALERT, "CreateFile failed. Error = %ld", GetLastError());
+      log_msg(LOG_ALERT, "CreateFile failed. Error = %d", GetLastError());
+      errno = EBADF;
       return -1;
    }
 
@@ -197,7 +200,7 @@ int win_close_tun(void)
 {
    if (!CloseHandle(tapData_.fd))
    {
-      log_msg(LOG_ERR, "CloseHandle failed. Error = %ld", GetLastError());
+      log_msg(LOG_ERR, "CloseHandle failed. Error = %d", GetLastError());
       return -1;
    }
    return 0;
@@ -214,7 +217,7 @@ int win_write_tun(const char *jb, int len)
    {
       if ((err = GetLastError()) != ERROR_IO_PENDING)
       {   
-         log_msg(LOG_ERR, "error writing %ld", err);
+         log_msg(LOG_ERR, "error writing %d", err);
          return -1;
       }
       else
@@ -223,14 +226,16 @@ int win_write_tun(const char *jb, int len)
          if (!GetOverlappedResult(tapData->fd, &tapData->write_overlapped, &written, FALSE))
          {
             err = GetLastError();
-            log_debug("GetOverlappedResult failed. Error = %ld", err);
+            log_debug("GetOverlappedResult failed. Error = %d", err);
             if (err == ERROR_IO_INCOMPLETE)
             {
                log_debug("IO_COMPLETE, WaitForSingleObject");
                if ((err = WaitForSingleObject(tapData->write_event, INFINITE)) == WAIT_FAILED)
-                  log_msg(LOG_ERR, "WaitForSingleObject failed. Error = %ld", GetLastError());
+                  log_msg(LOG_ERR, "WaitForSingleObject failed. Error = %d", GetLastError());
                else
-                  log_debug("WaitForSingleObject returen %08lx", err);
+               {
+                  log_debug("WaitForSingleObject returned 0x%08x", err);
+               }
             }
             written = -1;
          }
@@ -258,8 +263,8 @@ int win_read_tun(char *buf, int n)
          {
             log_debug("ReadFile pending...");
             if ((err = WaitForSingleObject(tapData->read_event, SELECT_TIMEOUT * 1000)) == WAIT_FAILED)
-               log_msg(LOG_ERR, "WaitForSingleObject failed. Error = %ld", GetLastError());
-            log_debug("WaitForSingleObject returned %08lx", err);
+               log_msg(LOG_ERR, "WaitForSingleObject failed. Error = %d", GetLastError());
+            log_debug("WaitForSingleObject returned 0x%08x", err);
          }
 
          if (!GetOverlappedResult(tapData->fd, &tapData->read_overlapped, &len, FALSE))
@@ -269,13 +274,17 @@ int win_read_tun(char *buf, int n)
             if (err == ERROR_IO_INCOMPLETE)
                log_msg(LOG_WARNING, "GetOverlappedResult return INCOMPLETE...unhandled");
             else
-               log_msg(LOG_WARNING, "GetOverlappedResult failed. Error = %ld", err);
+               log_msg(LOG_WARNING, "GetOverlappedResult failed. Error = %d", err);
          }
          else
-            log_debug("overlapped_read returned %ld bytes", len);
+         {
+            log_debug("overlapped_read returned %d bytes", len);
+         }
       }
       else
-         log_debug("ReadFile returned %ld bytes", err);
+      {
+         log_debug("ReadFile returned %d bytes", err);
+      }
    }
 
    return len;

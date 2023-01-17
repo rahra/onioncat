@@ -1,4 +1,4 @@
-/* Copyright 2008-2019 Bernhard R. Fischer.
+/* Copyright 2008-2023 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -19,7 +19,7 @@
  *  These functions create and initialized the TUN/TAP device.
  *
  *  @author Bernhard R. Fischer <rahra _at_ cypherpunk at>
- *  \date 2019/09/08
+ *  \date 2023/01/17
  */
 
 
@@ -43,12 +43,17 @@ int system_w(const char *s)
 {
    int e;
 
-   log_debug("running command \"%s\"", s);
+   log_msg(LOG_INFO, "running command \"%s\"", s);
    if ((e = system(s)) == -1)
       log_msg(LOG_ERR, "could not exec \"%s\": \"%s\"", s, strerror(errno));
-   else if (WEXITSTATUS(e))
-      log_msg(LOG_ERR, "exit status = %d", WEXITSTATUS(e));
-   log_debug("exit status = %d", WEXITSTATUS(e));
+   else if (WIFEXITED(e))
+   {
+      if (WEXITSTATUS(e))
+         log_msg(LOG_ERR, "exit status = %d", WEXITSTATUS(e));
+   }
+   else
+      log_msg(LOG_ERR, "command did not exit properly");
+   log_debug("system(3) returned %d", e);
 
    return e;
 }
@@ -321,6 +326,7 @@ int tun_ipv6_config(const char *dev, const struct in6_addr *addr, int prefix_len
 #ifdef __CYGWIN__
    char buf[IFCBUF];
 
+   log_msg(LOG_WARNING, "Setting IPv6 address might not work. Use option -e and run ifup-script 'ocat-ifup.bat'.");
    snprintf(buf, sizeof(buf), "netsh interface ipv6 add address \"%s\" %s/%d", dev, astr, prefix_len);
    system_w(buf);
 
@@ -564,7 +570,7 @@ int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
    if ((fd = open(tun_dev_, O_RDWR)) == -1)
 #endif
    {
-      log_msg(LOG_EMERG, "could not open tundev %s: %s", tun_dev_, strerror(errno));
+      log_msg(LOG_ERR, "could not open tundev %s: %s", tun_dev_, strerror(errno));
       return -1;
    }
 
