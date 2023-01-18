@@ -5,5 +5,5 @@ oc_statedir = $(localstatedir)/onioncat
 AM_CFLAGS = -DSYSCONFDIR=\"$(sysconfdir)\" -DSTATEDIR=\"$(oc_statedir)\"
 
 install-data-hook:
-	$(MKDIR_P) $(oc_statedir)
+	$(MKDIR_P) $(DESTDIR)$(oc_statedir)
 
