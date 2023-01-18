@@ -39,7 +39,7 @@
 #define ADAPTER_KEY "SYSTEM\\CurrentControlSet\\Control\\Class\\{4D36E972-E325-11CE-BFC1-08002BE10318}"
 // this registry directory contains also information about network drivers
 #define NETWORK_CONNECTIONS_KEY "SYSTEM\\CurrentControlSet\\Control\\Network\\{4D36E972-E325-11CE-BFC1-08002BE10318}"
-const char *tap_component_id_[] = {"tap0901", "tapoas", "tap0801", NULL};
+const char *tap_component_id_[] = {"root\\tap0901", "tap0901", "tapoas", "tap0801", NULL};
 
 #define USERMODEDEVICEDIR "\\\\.\\Global\\"
 #define TAPSUFFIX         ".tap"
