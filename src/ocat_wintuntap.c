@@ -23,7 +23,7 @@
  *  his P2PVPN project (http://www.p2pvpn.org/) and was by his permission
  *  adapted (thanks) to the needs for OnionCat.
  *  \author Bernhard R. Fischer, <bf@abenteuerland.at>
- *  \date 2023/01/17
+ *  \date 2023/01/18
  */
  
 #ifdef __CYGWIN__

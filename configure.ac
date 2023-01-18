@@ -1,7 +1,7 @@
 
 AC_PREREQ([2.62])
 #define([svnversion], esyscmd([sh -c "echo -n $(wc -l <GitLog)"]))dnl
-AC_INIT([onioncat],[[4.10.0]],[bf@abenteuerland.at])
+AC_INIT([onioncat],[[4.10.1]],[bf@abenteuerland.at])
 AM_INIT_AUTOMAKE([-Wall -Werror])
 AC_SUBST([CFLAGS], [["$CFLAGS -Wall -Wextra"]])
 AC_CONFIG_HEADERS([config.h])
