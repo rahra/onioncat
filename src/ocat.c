@@ -1,4 +1,4 @@
-/* Copyright 2008-2022 Bernhard R. Fischer.
+/* Copyright 2008-2023 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -18,7 +18,7 @@
 /*! \file ocat.c
  * This is the main file OnionCat. It initializes everything, runs all threads,
  * and finally terminates OnionCat again.
- * \date 2022/07/28
+ * \date 2023/01/19
  * \author Bernhard R. Fischer, <bf@abenteuerland.at>
  */
 
@@ -32,6 +32,12 @@
 volatile int sig_term_ = 0, sig_usr1_ = 0;
 
 
+static const char *enabled(int n)
+{
+   return n ? "enabled" : "disabled";
+}
+
+
 void usage(const char *s)
 {
    fprintf(stderr, 
@@ -42,10 +48,10 @@ void usage(const char *s)
          "   -b                    daemonize (default = %d)\n"
          "   -B                    do not daemonize (default = %d)\n"
          "   -h                    display usage message\n"
-         "   -H                    Disable hosts lookup (default = %d, meaning lookup enabled). See also option -g.\n"
+         "   -H                    Disable hosts lookup (default = %d, meaning lookup %s). See also option -g.\n"
          "   -C                    disable local controller interface\n"
          "   -d <n>                set debug level to n, default = %d\n"
-         "   -D                    Disable OnionCat DNS lookups, default = %d.\n"
+         "   -D                    Disable OnionCat DNS lookups (default = %d, meaning lookup %s).\n"
          "   -e <ifup-script>      execute ifup-script after opening interface\n"
          "   -E <n>                expire hosts entries after <n> seconds. (default = %d)\n"
          "   -f <config_file>      read config from config_file (default = %s)\n"
@@ -63,7 +69,7 @@ void usage(const char *s)
          "   -r                    run as root, i.e. do not change uid/gid\n"
          "   -R                    generate a random local onion URL\n"
          "   -s <port>             set hidden service virtual port, default = %d\n"
-         "   -S                    Disable OnionCat name service, default = %d\n"
+         "   -S                    Disable OnionCat name service (default = %d, meaning DNS %s).\n"
          "   -t [<ip>:]<port>      set Tor SOCKS address and port, default = 127.0.0.1:%d\n"
 #ifndef WITHOUT_TUN
          "   -T <tun_device>       path to tun character device, default = \"%s\"\n"
@@ -78,10 +84,10 @@ void usage(const char *s)
          , CNF(version), s,
          // option defaults start here
          OCAT_DIR, NDESC(clog_file), CNF(create_clog), 
-         CNF(daemon), CNF(daemon) ^ 1, CNF(hosts_lookup), CNF(debug_level),
-         CNF(dns_lookup), CNF(expire), CNF(config_file), CNF(hosts_path),
+         CNF(daemon), CNF(daemon) ^ 1, !CNF(hosts_lookup), enabled(CNF(hosts_lookup)), CNF(debug_level),
+         !CNF(dns_lookup), enabled(CNF(dns_lookup)), CNF(expire), CNF(config_file), CNF(hosts_path),
          NDESC(listen_port), CNF(pid_file), CNF(ocat_dest_port),
-         CNF(dns_server), ntohs(CNF(socks_dst)->sin_port),
+         !CNF(dns_server), enabled(CNF(dns_server)), ntohs(CNF(socks_dst)->sin_port),
 #ifndef WITHOUT_TUN
          TUN_DEV,
 #endif
