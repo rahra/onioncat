@@ -1,4 +1,4 @@
-/* Copyright 2008 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2023 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -18,8 +18,8 @@
 /*! ocateth.c
  *  Contains Ethernet (for TAP) and ICMPv6 (for NDP) code.
  *
- *  @author Bernhard Fischer <rahra _at_ cypherpunk at>
- *  @version 2008/10/10
+ *  @author Bernhard Fischer <bf@abenteuerland.at>
+ *  @version 2023/01/24
  */
 
 
@@ -45,7 +45,7 @@ static pthread_mutex_t mac_mutex_ = PTHREAD_MUTEX_INITIALIZER;
  * IPv4 Ethernet Multicast: 01:00:5e:0xx:xx:xx, */
 
 
-void print_mac_tbl(FILE *f)
+void print_mac_tbl(int fd)
 {
    int i;
    char buf[INET6_ADDRSTRLEN];
@@ -55,10 +55,10 @@ void print_mac_tbl(FILE *f)
 
    for (i = 0; i < mac_cnt_; i++)
    {
-      fprintf(f, "%3d %3d %s ", i, (int) (time(NULL) - mac_tbl_[i].age), ether_ntoa_r((struct ether_addr*) mac_tbl_[i].hwaddr, buf));
-      fprintf(f, "%s ", mac_tbl_[i].family == AF_INET6 ? "IN6" : "IN ");
+      dprintf(fd, "%3d %3d %s ", i, (int) (time(NULL) - mac_tbl_[i].age), ether_ntoa_r((struct ether_addr*) mac_tbl_[i].hwaddr, buf));
+      dprintf(fd, "%s ", mac_tbl_[i].family == AF_INET6 ? "IN6" : "IN ");
       inet_ntop(mac_tbl_[i].family, &mac_tbl_[i].in6addr, buf, INET6_ADDRSTRLEN);
-      fprintf(f, "%s\n", buf);
+      dprintf(fd, "%s\n", buf);
    }
 
    pthread_mutex_unlock(&mac_mutex_);

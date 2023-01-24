@@ -1,4 +1,4 @@
-/* Copyright 2008-2022 Bernhard R. Fischer.
+/* Copyright 2008-2023 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -19,7 +19,7 @@
  * This file is the central header file of OnionCat. It includes all other
  * headers and contains all macros, structures, typedefs,...
  * \author Bernhard R. Fischer <bf@abenteuerland.at>
- * \date 2022/07/28
+ * \date 2023/01/24
  */
 
 #ifndef OCAT_H
@@ -735,6 +735,7 @@ const OcatThread_t *get_thread(void);
 int set_thread_name(const char *);
 int join_threads(void);
 void detach_thread(void);
+int snprint_threads(char *, int , const char *);
 void print_threads(FILE *);
 void log_threads(void);
 int term_req(void);
@@ -769,7 +770,7 @@ void delete_peer0(OcatPeer_t **);
 /* ocatsetup.c */
 #define CNF(x) setup_.x
 extern struct OcatSetup setup_;
-void print_setup_struct(FILE *);
+void print_setup_struct(int);
 void init_setup(void);
 void post_init_setup(void);
 void lock_setup(void);
@@ -777,13 +778,13 @@ void unlock_setup(void);
 
 /* ocatipv4route.c */
 struct in6_addr *ipv4_lookup_route(uint32_t);
-int parse_route(const char *);
-void print_routes(FILE *);
+int ipv4_add_route_a(const char *, const char *, const char *);
+void print_routes(int);
 
 /* ocateth.c */
 int eth_check(char *, int);
 int mac_set(const struct in6_addr *, uint8_t *);
-void print_mac_tbl(FILE *);
+void print_mac_tbl(int);
 void mac_cleanup(void);
 char *mac_hw2str(const uint8_t *, char *);
 int ndp_solicit(const struct in6_addr *, const struct in6_addr *);
@@ -796,7 +797,7 @@ uint16_t *malloc_ckbuf(struct in6_addr, struct in6_addr, uint16_t, uint8_t, cons
 
 /* ocatsocks.c */
 void socks_queue(struct in6_addr, int);
-void print_socks_queue(FILE *);
+void print_socks_queue(int);
 void sig_socks_connector(void);
 void *socks_connector_sel(void *);
 int test_socks_server(void);
@@ -815,9 +816,9 @@ int oc_select0(int, fd_set *, fd_set *, fd_set *, int);
 
 /* ocatipv6route.c */
 struct in6_addr *ipv6_lookup_route(const struct in6_addr *);
-void ipv6_print_routes(FILE *);
-int ipv6_parse_route(const char *);
+void ipv6_print_routes(int);
 int ipv6_add_route(const IPv6Route_t *);
+int ipv6_add_route_a(const char *, const char *, const char *);
 
 #ifdef __CYGWIN__
 /* ocat_wintuntap.c */

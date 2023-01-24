@@ -1,4 +1,4 @@
-/* Copyright 2008-2009 Bernhard R. Fischer.
+/* Copyright 2008-2023 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -15,201 +15,125 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*! \file ocatfdbuf.c
+ * This file contains functions which implements buffer IO based on file
+ * descriptors similar to the f...-functions.
+ * \author Bernhard R. Fischer <bf@abenteuerland.at>
+ * \date 2023/01/23
+ */
 
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <fcntl.h>
+#include <errno.h>
 
+#include "ocat.h"
 #include "ocatfdbuf.h"
 
 
-/*! Init fdFile_t structure.
- *  The function allocates memory, hence,
- *  it must be freed again with fdf_free().
- *  @param fd File descriptor if open file.
- *  @param delim Delimiting character.
- *  @return Pointer to fdFile_t structure or NULL in case of error.
- *          In the latter case errno is set appropriately.
- **/
-fdFile_t* fdf_init(int fd, char delim)
+int fd_init0(fdbuf_t *fdb, int fd, char delim)
 {
-   fdFile_t *fdf;
-   long flags;
-
-   // set fd in non-blocking mode
-   if ((flags = fcntl(fd, F_GETFL, 0)) == -1)
-      return NULL;
-   if ((fcntl(fd, F_SETFL, flags | O_NONBLOCK)) == -1)
-      return NULL;
-
-   if (!(fdf = malloc(sizeof(fdFile_t))))
-      return NULL;
-
-   fdf->fd = fd;
-   fdf->wp = fdf->rp = fdf->buf;
-   fdf->len = 0;
-   fdf->delim = delim;
-   fdf->eof = 0;
-
-   return fdf;
+   memset(fdb, 0, sizeof(*fdb));
+   fdb->size = sizeof(fdb->buf);
+   fdb->delim = delim;
+   fdb->fd = fd;
+   return 0;
 }
 
 
-void fdf_free(fdFile_t *fdf)
+int fd_init(fdbuf_t *fdb, int fd)
 {
-   free(fdf);
+   return fd_init0(fdb, fd, '\n');
 }
 
 
-/*! Block and read data into buffer as soon as it is available.
- *  @param fdf Pointer to fdFile_t structure.
- *  @return Number of bytes read or -1 if an error occured. In the
- *          latter case errno is set appropriately. If the number of
- *          bytes is 0, then the buffer is full.
+/*! This function copies len bytes out of fdb into the buffer buf but never
+ * more than size bytes. If len is greater then the number of bytes available
+ * in fdb, just the number of bytes available are copied. The data in the
+ * destination buffer will be \0-terminated in any case.
+ * The bytes copied are removed from fdb.
+ * @param fdb Pointer to fdbuf_t structure.
+ * @param buf Pointer to destinaton buffer.
+ * @param size Size of destination buffer buf.
+ * @param len Number of bytes to copy.
+ * @return The function returns the number of bytes copied exluding the
+ * terminating \0. If the buffer was too small, size is returned.
  */
-int fdf_fill(fdFile_t *fdf)
+int fdcopy(fdbuf_t *fdb, char *buf, int size, int len)
 {
-   fd_set rset;
-   int maxfd = -1, len;
+   int sb = 0;
 
-   // cycle write position
-   if (fdf->wp >= fdf->buf + FDBUF_SIZE)
-      fdf->wp = fdf->buf;
+   if (len > fdb->len)
+      len = fdb->len;
 
-   FD_ZERO(&rset);
-   FD_SET(fdf->fd, &rset);
+   if (len >= size)
+   {
+      len = size - 1;
+      sb = 1;
+   }
 
-   if ((maxfd = select(fdf->fd + 1, &rset, NULL, NULL, NULL)) == -1)
-      return -1;
+   memcpy(buf, fdb->buf, len);
+   buf[len] = '\0';
 
-   if (maxfd != 1)
-      // Fatal error. This should never happen.
-      exit(1);
+   memmove(fdb->buf, fdb->buf + len, fdb->len - len);
+   fdb->len -= len;
 
-   // test if write position is behind read position
-   if (fdf->wp > fdf->rp)
-      len = FDBUF_SIZE - (fdf->wp - fdf->buf);
-   // test if write position is before read position
-   else if (fdf->wp < fdf->rp)
-      len = fdf->rp - fdf->wp;
-   // if equal, test if buffer is full
-   else if (fdf->len)
-      return 0;
-   // else the buffer is empty, read to the end
-   else
-      len = FDBUF_SIZE - (fdf->wp - fdf->buf);
-
-   // read bytes into buffer
-   if ((len = read(fdf->fd, fdf->wp, len)) == -1)
-      return -1;
-
-   // test and set end-of-file
-   if (!len)
-      fdf->eof++;
-
-   // advance write position
-   fdf->wp += len;
-   // increase number of readable bytes
-   fdf->len += len;
-
-   return len;
+   return len + sb;
 }
 
 
-/*! Copy bytes sequentially out of buffer. fdf_memcpy() does
- *  correctly move the read position pointer and decreases
- *  the byte counter.
- *  @param fdf Pointer to fdFile_t structure.
- *  @param buf Pointer to destination memory.
- *  @param n Number of bytes to copy. fdf_memcpy() does not check
- *           memory boundaries, hence, n must not be larger than 
- *           fdf->rp - FDBUF_SIZE and buf must be large enough to
- *           receive all bytes.
- *  @return Number of bytes copied. This should always be n.
+/*! This function copies a string delimited by the delimiter of fdb (typically
+ * \n) into the buffer buf. The string will be \0 delimited. The function will
+ * copy size bytes at a maximium including the terminating \0.
+ * @param fdb Pointer to fdbuf strucutre.
+ * @param buf Pointer to data buffer to receive the string.
+ * @param size Number of bytes available in buf.
+ * @return The function returnes the number of bytes copied to buf excluding
+ * the terminating \0, i.e. the return value usually is 0 <= len < size. If the
+ * buffer is to small to receive the full data until the delimiter, size is
+ * returned. The string will still be \0-terminated, thus size - 1 bytes have
+ * been copied.
+ * If the data in fdbuf contains no delimiting character the length of the
+ * fdbuf data will be returned as a negative value.
  */
-int fdf_memcpy(fdFile_t *fdf, char *buf, int n)
+int fdgets(fdbuf_t *fdb, char *buf, int size)
 {
-   memcpy(buf, fdf->rp, n);
-   fdf->rp += n;
-   fdf->len -= n;
-   // set read position pointer to the beginning if it reached the end
-   if (fdf->rp >= fdf->buf + FDBUF_SIZE)
-      fdf->rp = fdf->buf;
-   return n;
+   char *c;
+
+   if ((c = memchr(fdb->buf, fdb->delim, fdb->len)) == NULL)
+      return -fdb->len;
+
+   return fdcopy(fdb, buf, size, c - fdb->buf + 1);
 }
 
 
-/*! This is similar to fdf_memcpy but it copies memory which is 
- *  wrapped around and it honors memory boundaries given by n and s.
- *  @param fdf Pointer to fdFile_t structure.
- *  @param buf Pointer to destination memory.
- *  @param n Number of bytes available in buf.
- *  @param s Number of bytes to copy.
- *  @return Number of bytes copied.
- */
-int fdf_wrpcpy(fdFile_t *fdf, char *buf, int n, int s)
-{
-   int len = fdf->buf + FDBUF_SIZE - fdf->rp;
-
-   // check if bytes to copy do wrap
-   if (s < len)
-      len = s;
-   // copy part starting at the read position
-   if (n < len)
-      return fdf_memcpy(fdf, buf, n);
-   fdf_memcpy(fdf, buf, len);
-   // copy part at the beginning
-   buf += len;
-   if (n < s)
-      return fdf_memcpy(fdf, buf, n - len) + len;
-   return fdf_memcpy(fdf, buf, s - len) + len;
-}
-
- 
-/*! Read n of bytes from file identified by fdf into buf.
- *  The bytes are copied to buf including the delimiter character
- *  except buf is too small. In that case it is filled to the
- *  maximum and of course does not include the delimiter.
- *  @param fdf Pointer to fdFile_t structure.
- *  @param buf Pointer to destination memory.
- *  @param n Number of bytes available in buf.
- *  @return Nuber of bytes actually read or -1 on error.
- */
-int fdf_read(fdFile_t *fdf, char *buf, int n)
+int fdfill(fdbuf_t *fdb)
 {
    int len;
-   char *s = NULL;
 
-   for (;;)
-   { 
-      // determine if read buffer is wrapped
-      if (fdf->rp + fdf->len <= fdf->buf + FDBUF_SIZE)
-         // no
-         len = fdf->len;
-      else
-         // yes
-         len = (fdf->buf + FDBUF_SIZE) - fdf->rp;
-
-      // search delimiter in unwrapped part behind read position
-      if ((s = memchr(fdf->rp, fdf->delim, len)))
-         return fdf_wrpcpy(fdf, buf, n, s - fdf->rp + 1);
-
-      // test if wrapped part at the beginning of the buffer exists
-      if ((fdf->len - len))
-         // test if delimiter is found in the wrapped part at the beginning of the buffer
-         if ((s = memchr(fdf->buf, fdf->delim, fdf->len - len)))
-            return fdf_wrpcpy(fdf, buf, n, s - fdf->buf + len);
-
-      // test if buffer is full
-      if (fdf->len >= FDBUF_SIZE)
-         return fdf_wrpcpy(fdf, buf, n, FDBUF_SIZE);
-
-      if (fdf->eof)
-         return 0;
-
-      if ((len = fdf_fill(fdf)) == -1)
-         return -1;
+   // check if buffer space is available
+   if (fdb->size - fdb->len <= 0)
+   {
+      errno = ENOBUFS;
+      return -1;
    }
+
+   // read data into buffer
+   if ((len = read(fdb->fd, fdb->buf + fdb->len, fdb->size - fdb->len)) == -1)
+      return -1;
+
+   // check for EOF
+   if (!len)
+      return 0;
+
+   log_debug("read %d bytes on %d", len, fdb->fd);
+
+   // check for ^D of telnet
+   if (len == 1 && fdb->buf[fdb->len] == 4)
+      return 0;
+
+   // increase data length value and return
+   fdb->len += len;
+   return len;
 }
 

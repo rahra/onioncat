@@ -1,4 +1,4 @@
-/* Copyright 2008-2022 Bernhard R. Fischer.
+/* Copyright 2008-2023 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -19,7 +19,7 @@
  *  This file contains the global settings structure.
  *
  *  @author Bernhard Fischer <bf@abenteuerland.at>
- *  \date 2022/07/28
+ *  \date 2023/01/24
  */
 
 
@@ -236,7 +236,7 @@ void post_init_setup(void)
 #define SBUF 100
 
 
-void print_setup_struct(FILE *f)
+void print_setup_struct(int fd)
 {
    char *c, ip[SBUF], nm[SBUF], ip6[SBUF], logf[SBUF], hw[SBUF];
    int i, t;
@@ -255,7 +255,7 @@ void print_setup_struct(FILE *f)
    t = time(NULL) - setup_.uptime;
 
 
-   fprintf(f,
+   dprintf(fd,
          "fhd_key[IPV4(%d)]       = 0x%04x\n"
          "fhd_key[IPV6(%d)]       = 0x%04x\n"
          "fhd_key_len            = %d\n"
@@ -368,7 +368,7 @@ void print_setup_struct(FILE *f)
    if (inet_ntops((struct sockaddr*) setup_.socks_dst, &sas))
    {
       c = sas.sstr_family == AF_INET6 ? "6" : "";
-      fprintf(f,
+      dprintf(fd,
          "socks_dst%s.sin_family   = 0x%04x\n"
          "socks_dst%s.sin_port     = %d\n"
          "socks_dst%s.sin_addr     = %s\n",
@@ -382,16 +382,16 @@ void print_setup_struct(FILE *f)
    for (i = 0; i < CNF(oc_listen_cnt); i++)
    {
       if (inet_ntops(CNF(oc_listen)[i], &sas))
-         fprintf(f, "oc_listen[%d]           = %s:%d\n", i, sas.sstr_addr, ntohs(sas.sstr_port));
+         dprintf(fd, "oc_listen[%d]           = %s:%d\n", i, sas.sstr_addr, ntohs(sas.sstr_port));
       else
          log_msg(LOG_WARNING, "could not convert struct sockaddr: \"%s\"", strerror(errno));
-      fprintf(f, "oc_listen_fd[%d]        = %d\n", i, CNF(oc_listen_fd)[i]);
+      dprintf(fd, "oc_listen_fd[%d]        = %d\n", i, CNF(oc_listen_fd)[i]);
    }
 
    for (i = 0; i < CNF(ctrl_listen_cnt); i++)
    {
       if (inet_ntops(ctrl_listen_ptr_[i], &sas))
-         fprintf(f, "ctrl_listen_ptr_[%d]    = %s:%d (0x%04x)\n", i, sas.sstr_addr, ntohs(sas.sstr_port), sas.sstr_family);
+         dprintf(fd, "ctrl_listen_ptr_[%d]    = %s:%d (0x%04x)\n", i, sas.sstr_addr, ntohs(sas.sstr_port), sas.sstr_family);
       else
          log_msg(LOG_WARNING, "could not convert struct sockaddr: \"%s\"", strerror(errno));
    }

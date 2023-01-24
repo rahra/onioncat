@@ -1,4 +1,4 @@
-/* Copyright 2008-2009 Bernhard R. Fischer.
+/* Copyright 2008-2023 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -22,21 +22,19 @@
 #define FDBUF_SIZE 2048
 
 
-typedef struct fdFile
+typedef struct fdbuf
 {
    int fd;                 //!< file descriptor
+   int len;                //!< bytes within buffer
+   int size;               //!< sizeof buffer
+   char delim;             //!< delimiter
    char buf[FDBUF_SIZE];   //!< buffer
-   char *wp;               //!< write position
-   char *rp;               //!< read position
-   int len;                //!< readable bytes starting at read position
-   char delim;             //!< delimiting character
-   int eof;                //!< flag is set if EOF
-} fdFile_t;
+} fdbuf_t;
 
 
-fdFile_t* fdf_init(int, char);
-void fdf_free(fdFile_t *);
-int fdf_read(fdFile_t *, char *, int);
+int fd_init(fdbuf_t *, int );
+int fdgets(fdbuf_t *, char *, int );
+int fdfill(fdbuf_t *);
 
 
 #endif

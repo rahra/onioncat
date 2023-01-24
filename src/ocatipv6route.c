@@ -1,4 +1,4 @@
-/* Copyright 2008 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2023 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -15,12 +15,12 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*! @file
+/*! @file ocatipv6route.c
  *  This file contains functions for managing IPv6 routing and
  *  forwarding.
  *
- *  @author Bernhard R. Fischer <rahra _at_ cypherpunk at>
- *  @version 2008/09/03-01
+ *  @author Bernhard R. Fischer <bf@abenteuerland.at>
+ *  @date 2023/01/24
  */
 
 
@@ -101,62 +101,43 @@ int ipv6_add_route(const IPv6Route_t *route)
 }
 
 
-void ipv6_print(IPv6Route_t *route, void *f)
+void ipv6_print(IPv6Route_t *route, int fd)
 {
    char addr[INET6_ADDRSTRLEN];
 
    inet_ntop(AF_INET6, &route->dest, addr, INET6_ADDRSTRLEN);
-   fprintf(f, "IN6 %s %3d ", addr, route->prefixlen);
+   dprintf(fd, "IN6 %s %3d ", addr, route->prefixlen);
    inet_ntop(AF_INET6, &route->gw, addr, INET6_ADDRSTRLEN);
-   fprintf(f, "%s %p\n", addr, route);
+   dprintf(fd, "%s %p\n", addr, route);
 }
 
 
-void ipv6_print_routes(FILE *f)
+void ipv6_print_routes(int fd)
 {
    int i;
 
    pthread_mutex_lock(&v6route_mutex_);
    for (i = 0; i < v6route_cnt_; i++)
-      ipv6_print(&v6route_[i], f);
+      ipv6_print(&v6route_[i], fd);
    pthread_mutex_unlock(&v6route_mutex_);
 }
 
 
-/*! Parse IPv6 route and add it to routing table.
- *  @return index of routing table entry (>= 0) or an integer < 0 on failure.
- */
-int ipv6_parse_route(const char *rs)
+int ipv6_add_route_a(const char *prefix, const char *prefixlen, const char *gw)
 {
-   char buf[strlen(rs) + 1], *s, *b;
    IPv6Route_t route6;
 
-   if (!rs)
-      return E_RT_NULLPTR;
-
-   log_debug("IPv6 route parser: \"%s\"", rs);
-
-   strlcpy(buf, rs, strlen(rs) + 1);
-   if (!(s = strtok_r(buf, " \t", &b)))
-      return E_RT_SYNTAX;
-
-   if (inet_pton(AF_INET6, s, &route6.dest) != 1)
-      return E_RT_SYNTAX;
-
-   if (!(s = strtok_r(NULL, " \t", &b)))
+   if (inet_pton(AF_INET6, prefix, &route6.dest) != 1)
       return E_RT_SYNTAX;
 
    errno = 0;
-   route6.prefixlen = strtol(s, NULL, 10);
+   route6.prefixlen = strtol(prefixlen, NULL, 10);
    if (errno)
       return E_RT_SYNTAX;
    if ((route6.prefixlen < 0) || (route6.prefixlen > 128))
       return E_RT_ILLNM;
 
-   if (!(s = strtok_r(NULL, " \t", &b)))
-      return E_RT_SYNTAX;
-
-   if (inet_pton(AF_INET6, s, &route6.gw) != 1)
+   if (inet_pton(AF_INET6, gw, &route6.gw) != 1)
       return E_RT_SYNTAX;
 
    if (!has_ocat_prefix(&route6.gw))

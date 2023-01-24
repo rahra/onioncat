@@ -1,4 +1,4 @@
-/* Copyright 2008-2019 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2023 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -19,7 +19,7 @@
  *  Contains functions for connecting to TOR via SOCKS.
  *
  *  @author Bernhard Fischer <rahra _at_ cypherpunk at>
- *  \date 2019/09/08
+ *  \date 2023/01/24
  */
 
 /* SOCKS5 is defined in RFC1928 */
@@ -342,20 +342,20 @@ void socks_unqueue(SocksQueue_t *squeue)
 }
 
 
-void print_socks_queue(FILE *f)
+void print_socks_queue(int fd)
 {
    SocksQueue_t sq;
 
    memset(&sq, 0, sizeof(sq));
-   sq.next = (SocksQueue_t*) f;
+   sq.next = (SocksQueue_t*) (intptr_t) fd;
    socks_pipe_request(&sq);
 }
 
 
-void socks_output_queue(FILE *f)
+void socks_output_queue(int fd)
 {
    int i;
-   char addrstr[INET6_ADDRSTRLEN], onstr[NDESC(name_size)], buf[SIZE_1K];
+   char addrstr[INET6_ADDRSTRLEN], onstr[NDESC(name_size)];
    SocksQueue_t *squeue;
 
    for (squeue = socks_queue_, i = 0; squeue; squeue = squeue->next, i++)
@@ -366,7 +366,7 @@ void socks_output_queue(FILE *f)
          strlcpy(addrstr, "ERROR", INET6_ADDRSTRLEN);
       }
 
-      snprintf(buf, SIZE_1K, "%d: %39s, %s%s, state = %d, %s(%d), retry = %d, connect_time = %d, restart_time = %d",
+      dprintf(fd, "%d: %39s, %s%s, state = %d, %s(%d), retry = %d, connect_time = %d, restart_time = %d\n",
             i, 
             addrstr, 
             ipv6tonion(&squeue->addr, onstr),
@@ -378,12 +378,7 @@ void socks_output_queue(FILE *f)
             (int) squeue->connect_time,
             (int) squeue->restart_time
             );
-//      log_debug("%s", buf);
-      write((int) (long) f, buf, strlen(buf));
-      write((int) (long) f, "\n", 1);
    }
-   write((int) (long) f, "\0", 1);
-   log_debug("socks_output_queue() finished");
 }
 
 
@@ -858,7 +853,7 @@ void *socks_connector_sel(void *UNUSED(p))
             if (sq.next)
             {
                log_debug("output of SOCKS request queue triggered");
-               socks_output_queue((FILE*) sq.next);
+               socks_output_queue((intptr_t) sq.next);
             }
             else if (IN6_IS_ADDR_UNSPECIFIED(&sq.addr))
             {

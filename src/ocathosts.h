@@ -1,4 +1,4 @@
-/* Copyright 2008-2021 Bernhard R. Fischer.
+/* Copyright 2008-2023 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -101,7 +101,7 @@ int hosts_add_entry(const struct in6_addr *, const char *, hsrc_t, time_t, int);
 void hosts_refresh(void);
 void hosts_cleanup(void);
 void hosts_init(const char*);
-int hosts_list(FILE *);
+int hosts_list(int);
 int sn_hosts_list(char*, int);
 time_t hosts_time(void);
 int hosts_save(const char *);

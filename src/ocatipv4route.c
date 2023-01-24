@@ -1,4 +1,4 @@
-/* Copyright 2008 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2023 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -15,12 +15,12 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*! ocatipv4route.c
+/*! \file ocatipv4route.c
  *  This file contains functions for managing IPv4 routing and
  *  forwarding.
  *
- *  @author Bernhard R. Fischer <rahra _at_ cypherpunk at>
- *  @version 2008/09/03-01
+ *  @author Bernhard R. Fischer <bf@abenteuerland.at>
+ *  @date 2023/01/24
  */
 
 
@@ -132,54 +132,39 @@ void ipv4_print(IPv4Route_t *route, void *f)
 {
    char addr[INET6_ADDRSTRLEN];
    struct in_addr iaddr;
+   int fd = (intptr_t) f;
 
    //if (!memcmp(&route->gw, &in6addr_any, sizeof(struct in6_addr)))
    if (IN6_ARE_ADDR_EQUAL(&route->gw, &in6addr_any))
       return;
 
    iaddr.s_addr = htonl(route->dest);
-   fprintf(f, "IN  %s ", inet_ntoa(iaddr));
+   dprintf(fd, "IN  %s ", inet_ntoa(iaddr));
    iaddr.s_addr = htonl(route->netmask);
-   fprintf(f, "%s ", inet_ntoa(iaddr));
+   dprintf(fd, "%s ", inet_ntoa(iaddr));
    inet_ntop(AF_INET6, &route->gw, addr, INET6_ADDRSTRLEN);
-   fprintf(f, "%s %p\n", addr, route);
+   dprintf(fd, "%s %p\n", addr, route);
 }
 
 
-void print_routes(FILE *f)
+void print_routes(int fd)
 {
-   ipv4_traverse(rroot_, ipv4_print, f);
+   ipv4_traverse(rroot_, ipv4_print, (void*)(intptr_t) fd);
 }
 
 
-int parse_route(const char *rs)
+int ipv4_add_route_a(const char *dest, const char *nm, const char *gw)
 {
-   char buf[strlen(rs) + 1], *s, *b;
    IPv4Route_t route;
    int r;
 
-   if (!rs)
-      return E_RT_NULLPTR;
-
-   log_debug("IPv4 route parser: \"%s\"", rs);
-
-   strlcpy(buf, rs, strlen(rs) + 1);
-   if (!(s = strtok_r(buf, " \t", &b)))
+   if (inet_pton(AF_INET, dest, &route.dest) != 1)
       return E_RT_SYNTAX;
 
-   if (inet_pton(AF_INET, s, &route.dest) != 1)
+   if (inet_pton(AF_INET, nm, &route.netmask) != 1)
       return E_RT_SYNTAX;
 
-   if (!(s = strtok_r(NULL, " \t", &b)))
-      return E_RT_SYNTAX;
-
-   if (inet_pton(AF_INET, s, &route.netmask) != 1)
-      return E_RT_SYNTAX;
-
-   if (!(s = strtok_r(NULL, " \t", &b)))
-      return E_RT_SYNTAX;
-
-   if (inet_pton(AF_INET6, s, &route.gw) != 1)
+   if (inet_pton(AF_INET6, gw, &route.gw) != 1)
       return E_RT_SYNTAX;
 
    if (!has_ocat_prefix(&route.gw))

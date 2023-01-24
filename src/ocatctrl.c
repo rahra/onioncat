@@ -1,4 +1,4 @@
-/* Copyright 2008 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2023 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -15,17 +15,35 @@
  * along with OnionCat. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*! @file
- *  Contains functions for local controller interface.
+/*! \file ocatctrl.c
+ *  This file contains all functions for local controller interface.
  *
- *  @author Bernhard Fischer <rahra _at_ cypherpunk at>
- *  @version 2008/02/03-01
+ *  \author Bernhard Fischer <bf@abenteuerland.at>
+ *  \version 2023/01/24
  */
 
 
 #include "ocat.h"
 #include "ocat_netdesc.h"
 #include "ocathosts.h"
+#include "ocatfdbuf.h"
+
+#define MAX_COMMANDS 32
+
+
+typedef struct ctrl_data
+{
+   int display_prompt;
+} ctrl_data_t;
+
+
+typedef struct ctrl_cmd
+{
+   const char *cmd;
+   int (*func)(fdbuf_t*, int, char**);
+   int min_argc;
+} ctrl_cmd_t;
+
 
 
 #ifdef WITH_DNS_RESOLVER
@@ -64,383 +82,487 @@ void ctrl_ns_response(void *p, struct in6_addr addr, int code)
 #endif
 
 
-void random_write(FILE *ff, int fd, int n)
+int ctrl_cmd_random_write(fdbuf_t *fdb, int UNUSED(argc), char **argv)
 {
-   char buf[2048];
+   char *buf;
    int i;
+
+   int fd = atoi(argv[1]);
+   int n = atoi(argv[2]);
 
    if (fd < 0)
    {
-      fprintf(ff, "ERR fd must be >= 0\n");
-      return;
+      dprintf(fdb->fd, "ERR fd must be >= 0\n");
+      return -1;
    }
    if (n < 1)
    {
-      fprintf(ff, "ERR n must be > 0\n");
-      return;
+      dprintf(fdb->fd, "ERR n must be > 0\n");
+      return -1;
    }
 
-   if (n > (int) sizeof(buf))
-      n = sizeof(buf);
+   if ((buf = malloc(n)) == NULL)
+   {
+      dprintf(fdb->fd, "ERR cannot get %d bytes of memory", n);
+      return -1;
+   }
 
    for (i = 0; i < n; i++)
       buf[i] = rand();
 
-   log_debug("writing %d random bytes to fd %d", n, fd);
-   fprintf(ff, "writing %d random bytes to fd %d\n", n, fd);
+   dprintf(fdb->fd, "writing %d random bytes to fd %d\n", n, fd);
    n = write(fd, buf, n);
    if (n == -1)
    {
-      fprintf(ff, "write failed: %s\n", strerror(errno));
-      log_debug("write failed: %s", strerror(errno));
+      n = errno;
+      dprintf(fdb->fd, "write failed: %s\n", strerror(n));
+      log_debug("write failed: %s", strerror(n));
    }
-   fprintf(ff, "%d bytes written\n", n);
-   log_debug("%d bytes written", n);
+   dprintf(fdb->fd, "%d bytes written\n", n);
+
+   free(buf);
+   return 1;
+}
+
+
+int ctrl_cmd_usage(fdbuf_t *fdb, int UNUSED(argc), char **UNUSED(argv))
+{
+   dprintf(fdb->fd,
+         "commands:\n"
+         "exit | quit .... exit from control interface\n"
+         "terminate ...... terminate OnionCat\n"
+         "close <n> ...... close file descriptor <n> of a peer\n"
+#ifdef WITH_DNS_RESOLVER
+         "dig <ipv6> ..... Do a hostname lookup.\n"
+#endif
+         "hosts .......... list hosts database\n"
+         "hreload ........ reload hosts database\n"
+         "status ......... list peer status\n"
+         "threads ........ show active threads\n"
+         "route .......... show routing table\n"
+         "route <dst IP> <netmask> <IPv6 gw>\n"
+         "   ............. add route to routing table\n"
+         "connect <.onion-URL> [\"perm\"]\n"
+         "   ............. connect to a hidden service. if \"perm\" is set,\n"
+         "   ............. connection will stay open forever\n"
+         "macs ........... show MAC address table\n"
+         "queue .......... list pending SOCKS connections\n"
+         "setup .......... show internal setup struct\n"
+         "version ........ show version\n"
+         "write <f> <n> .. write n random bytes to fd f\n"
+         );
+
+   return 1;
+}
+
+
+int ctrl_cmd_status(fdbuf_t *fdb, int UNUSED(argc), char **UNUSED(argv))
+{
+   char addrstr[INET6_ADDRSTRLEN], addrstr2[INET6_ADDRSTRLEN], onionstr[SIZE_256], timestr[32];
+   struct tm *tm;
+   OcatPeer_t *peer;
+
+   lock_peers();
+   for (peer = get_first_peer(); peer; peer = peer->next)
+      // FIXME: should peer be locked?
+      if (peer->state == PEER_ACTIVE)
+      {
+         tm = localtime(&peer->otime);
+         strftime(timestr, sizeof(timestr), "%c", tm);
+         if (hosts_get_name(&peer->addr, onionstr, sizeof(onionstr)) < 0)
+            ipv6tonion(&peer->addr, onionstr);
+
+         dprintf(fdb->fd, "[%s]\n fd = %d\n addr = %s\n dir = \"%s\" (%d)\n idle = %lds\n bytes_in = %ld\n bytes_out = %ld\n setup_delay = %lds\n opening_time = \"%s\"\n conn type = \"%s\" (%d)\n rand = 0x%08x\n saddr = %s\n sname = \"%s\"\n",
+               IN6_IS_ADDR_UNSPECIFIED(&peer->addr) ? "--unidentified--" : onionstr, peer->tcpfd,
+               inet_ntop(AF_INET6, &peer->addr, addrstr, INET6_ADDRSTRLEN),
+               peer->dir == PEER_INCOMING ? "IN" : "OUT", peer->dir,
+               (long) (time(NULL) - peer->time), peer->in, peer->out, (long) peer->sdelay, timestr,
+               peer->perm ? "PERMANENT" : "TEMPORARY", peer->perm, peer->rand,
+               inet_ntop(AF_INET6, &peer->saddr, addrstr2, sizeof(addrstr2)), peer->sname
+               );
+      }
+   unlock_peers();
+   return 1;
+}
+ 
+
+int ctrl_cmd_exit(fdbuf_t *UNUSED(fdb), int UNUSED(argc), char **UNUSED(argv))
+{
+   return 0;
+}
+
+
+int ctrl_cmd_dig(fdbuf_t *fdb, int UNUSED(argc), char **argv)
+{
+   struct in6_addr in6;
+
+   if (inet_pton(AF_INET6, argv[1], &in6) != 1)
+   {
+      dprintf(fdb->fd, "ERR param is no valid IPv6 address\n");
+      return -1;
+   }
+
+   int n = ocres_query_callback(&in6, ctrl_ns_response, (void*)(long) fdb->fd);
+   if (n >= 0)
+      dprintf(fdb->fd, "PTR query sent to %d nameservers\n", n);
+   else
+      dprintf(fdb->fd, "ERR ocres_query() failed\n");
+
+   return 1;
+}
+
+
+int ctrl_cmd_close(fdbuf_t *fdb, int UNUSED(argc), char **argv)
+{
+   OcatPeer_t *peer;
+
+   int fd = atoi(argv[1]);
+
+   lock_peers();
+   for (peer = get_first_peer(); peer; peer = peer->next)
+      if (peer->tcpfd == fd)
+      {
+         oe_close(fd);
+         delete_peer(peer);
+         log_msg(LOG_INFO | LOG_FCONN, "%d was successfully closed up on user request", fd);
+         break;
+      }
+
+   if (!peer)
+   {
+      log_msg(LOG_INFO, "no peer with fd %d exists\n", fd);
+      dprintf(fdb->fd, "no peer with fd %d exists\n", fd);
+   }
+
+   unlock_peers();
+   return 1;
+}
+ 
+
+int ctrl_cmd_threads(fdbuf_t *fdb, int UNUSED(argc), char **UNUSED(argv))
+{
+   char buf[4096];
+
+   snprint_threads(buf, sizeof(buf), "\n");
+   dprintf(fdb->fd, "%s", buf);
+   return 1;
+}
+
+
+int ctrl_cmd_term(fdbuf_t *UNUSED(fdb), int UNUSED(argc), char **UNUSED(argv))
+{
+   set_term_req();
+   return 1;
+}
+
+
+int ctrl_cmd_kill(fdbuf_t *UNUSED(fdb), int UNUSED(argc), char **UNUSED(argv))
+{
+   log_msg(LOG_NOTICE, "exit by controller request");
+   exit(0);
+}
+
+
+int ctrl_cmd_route(fdbuf_t *fdb, int argc, char **argv)
+{
+   char *s;
+   int c;
+
+   if (argc == 1)
+   {
+      print_routes(fdb->fd);
+      ipv6_print_routes(fdb->fd);
+      return 1;
+   }
+
+   if (argc != 4)
+   {
+      dprintf(fdb->fd, "ERR ill args\n");
+      return -1;
+   }
+
+   if ((c = ipv4_add_route_a(argv[1], argv[2], argv[3])) == E_RT_SYNTAX)
+      if ((c = ipv6_add_route_a(argv[1], argv[2], argv[3])) > 0)
+         c = 0;
+
+   switch (c)
+   {
+      case E_RT_NOTORGW:
+         s = "gateway has not TOR prefix";
+         break;
+
+      case E_RT_ILLNM:
+         s = "illegal netmask or prefix length";
+         break;
+
+      case E_RT_DUP:
+         s = "route already exists";
+         break;
+
+      case E_RT_GWSELF:
+         s = "gateway points to me";
+         break;
+
+      default:
+         s = "";
+   }
+
+   if (c)
+      dprintf(fdb->fd, "ERR %d %s\n", c, s);
+
+   return 1;
+}
+
+
+int ctrl_cmd_macs(fdbuf_t *fdb, int UNUSED(argc), char **UNUSED(argv))
+{
+   print_mac_tbl(fdb->fd);
+   return 1;
+}
+
+
+int ctrl_cmd_queue(fdbuf_t *fdb, int UNUSED(argc), char **UNUSED(argv))
+{
+   // (probably) FIXME: this is asynchronous
+   print_socks_queue(fdb->fd);
+   return 1;
+}
+
+
+int ctrl_cmd_setup(fdbuf_t *fdb, int UNUSED(argc), char **UNUSED(argv))
+{
+   print_setup_struct(fdb->fd);
+   return 1;
+}
+
+
+int ctrl_cmd_version(fdbuf_t *fdb, int UNUSED(argc), char **UNUSED(argv))
+{
+   dprintf(fdb->fd, "%s\n", CNF(version));
+   return 1;
+}
+
+
+int ctrl_cmd_hosts(fdbuf_t *fdb, int UNUSED(argc), char **UNUSED(argv))
+{
+   hosts_list(fdb->fd);
+   return 1;
+}
+
+
+int ctrl_cmd_hreload(fdbuf_t *UNUSED(fdb), int UNUSED(argc), char **UNUSED(argv))
+{
+   hosts_check();
+   return 1;
+}
+
+
+int ctrl_cmd_connect(fdbuf_t *fdb, int argc, char **argv)
+{
+   struct in6_addr in6;
+   int perm = 0;
+
+   if (validate_onionname(argv[1], &in6) == -1)
+   {
+      dprintf(fdb->fd, "ERR \"%s\" not valid .onion-URL\n", argv[1]);
+      return -1;
+   }
+
+   if (argc > 2 && !strcmp("perm", argv[2]))
+      perm = 1;
+
+   socks_queue(in6, perm);
+   return 1;
+}
+
+
+static ctrl_cmd_t cmd_[] =
+{
+   {"help", ctrl_cmd_usage, 1},
+   {"status", ctrl_cmd_status, 1},
+   {"exit", ctrl_cmd_exit, 1},
+   {"quit", ctrl_cmd_exit, 1},
+   {"dig", ctrl_cmd_dig, 2},
+   {"close", ctrl_cmd_close, 2},
+   {"write", ctrl_cmd_random_write, 3},
+   {"threads", ctrl_cmd_threads, 1},
+   {"terminate", ctrl_cmd_term, 1},
+   {"kill", ctrl_cmd_kill, 1},
+   {"route", ctrl_cmd_route, 1},
+   {"macs", ctrl_cmd_macs, 1},
+   {"queue", ctrl_cmd_queue, 1},
+   {"setup", ctrl_cmd_setup, 1},
+   {"version", ctrl_cmd_version, 1},
+   {"hosts", ctrl_cmd_hosts, 1},
+   {"hreload", ctrl_cmd_hreload, 1},
+   {"connect", ctrl_cmd_connect, 1},
+
+   {NULL, NULL, 0}
+};
+
+
+/*! Parse command line into argv array. As usual, the last entry in the list of
+ * arguments will be NULL.
+ * @param argv Array of char pointers.
+ * @param maxv Number of array elements, should be at least >= 2.
+ * @param buf Buffer to parse.
+ * @return Returns the number of elements found excluding the terminating NULL
+ * element. In case of error, -1 is returned. The only error condition is that
+ * maxc was < 2.
+ */
+int ctrl_parse_cmd(char **argv, int maxv, char *buf)
+{
+   const char *delim = " \r\n";
+   char *eptr;
+   int argc;
+
+   // safety ceck
+   if (maxv < 2)
+      return -1;
+   maxv -= 2;
+
+   if ((*argv = strtok_r(buf, delim, &eptr)) == NULL)
+      return 0;
+
+   for (argc = 1, argv++; maxv; maxv--, argv++, argc++)
+   {
+      if ((*argv = strtok_r(NULL, delim, &eptr)) == NULL)
+         break;
+   }
+   *argv = NULL;
+
+   return argc;
+}
+
+
+int ctrl_proc_line(fdbuf_t *fdb, char *buf)
+{
+#define MAX_CTRL_ARGV 10
+   char *argv[MAX_CTRL_ARGV];
+   int argc;
+   ctrl_cmd_t *cmd;
+
+   if ((argc = ctrl_parse_cmd(argv, MAX_CTRL_ARGV, buf)) <= 0)
+      return 1;
+
+   for (cmd = cmd_; cmd->cmd != NULL; cmd++)
+      if (!strcmp(cmd->cmd, argv[0]))
+      {
+         if (argc < cmd->min_argc)
+         {
+            dprintf(fdb->fd, "ERR missing args\n");
+            return -1;
+         }
+         return cmd->func(fdb, argc, argv);
+      }
+
+
+   dprintf(fdb->fd, "*** unknown command \"%s\"\n", argv[0]);
+   return 1;
+}
+
+
+int ctrl_loop(fdbuf_t *fdb, ctrl_data_t *cd)
+{
+   fd_set rset;
+   int maxfd, len;
+   char buf[1024];
+
+   update_thread_activity();
+   if (term_req())
+      return 0;
+
+   // command line prompt
+   if (cd->display_prompt)
+   {
+      cd->display_prompt = 0;
+      dprintf(fdb->fd, "%s> ", CNF(onion_url));
+   }
+
+   // get and handle data from buffer if available
+   if ((len = fdgets(fdb, buf, sizeof(buf))) > 0)
+   {
+      cd->display_prompt = 1;
+      return ctrl_proc_line(fdb, buf);
+   }
+
+   FD_ZERO(&rset);
+   FD_SET(fdb->fd, &rset);
+
+   // wait for data
+   maxfd = oc_select(fdb->fd + 1, &rset, NULL, NULL);
+   // check timeout
+   if (!maxfd)
+   {
+      return 1;
+   }
+   // check error
+   else if (maxfd == -1)
+   {
+      // interrupted
+      if (errno == EINTR)
+         return -1;
+      // other errors
+      return 0;
+   }
+
+   // read data into buffer
+   len = fdfill(fdb);
+   //check EOF
+   if (!len)
+   {
+      log_msg(LOG_INFO, "EOF received on fd %d", fdb->fd);
+      return 0;
+   }
+   // check error
+   if (len == -1)
+   {
+      if (errno == ENOBUFS)
+      {
+         log_msg(LOG_ERR, "input buffer full, clearing");
+         fdb->len = 0;
+         return -1;
+      }
+      log_msg(LOG_ERR, "read failed on %d: %s", fdb->fd, strerror(errno));
+      return 0;
+   }
+
+   return 1;
 }
 
 
 /*! ctrl_handler handles connections to local control port.
  *  @param p void* typcasted to int contains fd of connected socket.
  *  @return Currently always returns NULL.
- *
- *  FIXME: ctrl_handler probably is not thread-safe.
  */
 void *ctrl_handler(void *p)
 {
-   int fd, a, b, c;
-   FILE *ff, *fo;
-   char buf[FRAME_SIZE], addrstr[INET6_ADDRSTRLEN], addrstr2[INET6_ADDRSTRLEN], onionstr[SIZE_256], timestr[32], *s, *tokbuf, *bufp;
-   int rlen, cfd;
-   struct tm *tm;
-   OcatPeer_t *peer;
-   struct in6_addr in6;
-   int pfd[2];
+   ctrl_data_t cd;
+   fdbuf_t fdb;
 
    detach_thread();
 
-   if (pipe(pfd) == -1)
-      log_msg(LOG_EMERG, "couldn't create pipe: \"%s\"", strerror(errno)), exit(1);
-
-   fd = (long) p;
-   if (CNF(config_read))
-   {
-      if (!(ff = fdopen(fd, "r+")))
-      {
-         log_msg(LOG_ERR, "could not open %d for writing: %s", fd, strerror(errno));
-         oe_close(pfd[0]);
-         oe_close(pfd[1]);
-         return NULL;
-      }
-      log_debug("fd %d fdopen'ed \"r+\"", fd);
-      fo = ff;
-      if (setvbuf(ff, NULL, _IONBF, 0))
-         log_msg(LOG_ERR, "could not setup line buffering: %s", strerror(errno));
-   }
-   else
-   {
-      if (!(ff = fdopen(fd, "r")))
-      {
-         log_msg(LOG_ERR, "could not open %d for reading: %s", fd, strerror(errno));
-         CNF(config_read) = 1;
-         oe_close(pfd[0]);
-         oe_close(pfd[1]);
-         return NULL;
-      }
-      log_debug("fd %d fdopen'ed \"r\"", fd);
-      fo = CNF(logf) ? CNF(logf) : stderr;
-      //CNF(config_read) = 1;
-   }
+   memset(&cd, 0, sizeof(cd));
+   cd.display_prompt = 1;
+   fd_init(&fdb, (intptr_t) p);
 
    lock_setup();
    CNF(ctrl_active)++;
    unlock_setup();
 
-   fprintf(fo, "%s\n", CNF(version));
-   fprintf(fo, "*** ATTENTION! Controller interface not thread-safe yet! Usage could cause deadlocks. ***\n");
+   set_thread_ready();
 
-   for (;;)
-   {
-      update_thread_activity();
-      if (CNF(config_read))
-         fprintf(fo, "%s> ", CNF(onion_url));
+   dprintf(fdb.fd, "%s\n", CNF(version));
 
-      c = getc(ff);
-      if (c == EOF)
-      {
-         log_debug("EOF received.");
-         break;
-      }
-      else if (c == 4)
-      {
-         log_debug("^D received.");
-         break;
-      }
-      else if (c == 0x1b)
-      {
-         log_debug("ESC received");
-         if (ungetc(c, ff) == EOF)
-         {
-            log_debug("received EOF on ungetc");
-            break;
-         }
-      }
-      else
-      {
-         if (ungetc(c, ff) == EOF)
-         {
-            log_debug("received EOF on ungetc");
-            break;
-         }
-      }
+   while (ctrl_loop(&fdb, &cd));
 
-      if (!fgets(buf, FRAME_SIZE, ff))
-      {
-         if (!feof(ff))
-            log_msg(LOG_ERR, "error reading from %d", fd);
-         break;
-      }
-
-#ifdef DEBUG
-      for (c = 0; c < (int) strlen(buf); c++)
-         snprintf(&buf[strlen(buf) + 2 + c * 3], FRAME_SIZE - strlen(buf) - 2 - c * 3, "%02x ", buf[c]);
-      log_debug("xenc input buf: %s", &buf[strlen(buf) + 2]);
-#endif 
-
-      if (!(rlen = oe_remtr(buf)))
-         continue;
-
-      if (!(bufp = strtok_r(buf, " \t\r\n", &tokbuf)))
-         continue;
-
-      // "exit"/"quit" => terminate thread
-      if (!strncmp(bufp, "exit", 4) || !strncmp(bufp, "quit", 4))
-         break;
-      // "status"
-      else if (!strcmp(bufp, "status"))
-      {
-         lock_peers();
-         for (peer = get_first_peer(); peer; peer = peer->next)
-            // FIXME: should peer be locked?
-            if (peer->state == PEER_ACTIVE)
-            {
-               tm = localtime(&peer->otime);
-               strftime(timestr, 32, "%c", tm);
-               if (hosts_get_name(&peer->addr, onionstr, sizeof(onionstr)) < 0)
-                  ipv6tonion(&peer->addr, onionstr);
-               fprintf(fo, "[%s]\n fd = %d\n addr = %s\n dir = \"%s\" (%d)\n idle = %lds\n bytes_in = %ld\n bytes_out = %ld\n setup_delay = %lds\n opening_time = \"%s\"\n conn type = \"%s\" (%d)\n rand = 0x%08x\n saddr = %s\n sname = \"%s\"\n",
-                     IN6_IS_ADDR_UNSPECIFIED(&peer->addr) ? "--unidentified--" : onionstr, peer->tcpfd,
-                     inet_ntop(AF_INET6, &peer->addr, addrstr, INET6_ADDRSTRLEN),
-                     peer->dir == PEER_INCOMING ? "IN" : "OUT", peer->dir,
-                     (long) (time(NULL) - peer->time), peer->in, peer->out, (long) peer->sdelay, timestr,
-                     peer->perm ? "PERMANENT" : "TEMPORARY", peer->perm, peer->rand,
-                     inet_ntop(AF_INET6, &peer->saddr, addrstr2, sizeof(addrstr2)), peer->sname
-                     );
-            }
-         unlock_peers();
-      }
-      else if (!strcmp(bufp, "close"))
-      {
-         cfd = atoi(bufp +6);
-         lock_peers();
-         for (peer = get_first_peer(); peer; peer = peer->next)
-            if (peer->tcpfd == cfd)
-            {
-               oe_close(cfd);
-               delete_peer(peer);
-               log_msg(LOG_INFO | LOG_FCONN, "%d was successfully closed up on user request", cfd);
-               break;
-            }
-         if (!peer)
-         {
-            log_msg(LOG_INFO, "no peer with fd %d exists\n", cfd);
-            fprintf(fo, "no peer with fd %d exists\n", cfd);
-         }
-         unlock_peers();
-      }
-#ifdef WITH_DNS_RESOLVER
-      else if (!strcmp(bufp, "dig"))
-      {
-         if ((s = strtok_r(NULL, " \t\r\n", &tokbuf)) != NULL)
-         {
-            if (inet_pton(AF_INET6, s, &in6) == 1)
-            {
-               int n = ocres_query_callback(&in6, ctrl_ns_response, (void*)(long) fd);
-               if (n >= 0)
-                  fprintf(ff, "PTR query sent to %d nameservers\n", n);
-               else
-                  fprintf(ff, "ERR ocres_query() failed\n");
-            }
-            else
-               fprintf(ff, "ERR param is no valid IPv6 address\n");
-         }
-         else
-            fprintf(ff, "ERR missing args\n");
-      }
-#endif
-      else if (!strcmp(bufp, "write"))
-      {
-         if ((s = strtok_r(NULL, " \t\r\n", &tokbuf)) != NULL)
-         {
-            a = atoi(s);
-            if ((s = strtok_r(NULL, " \t\r\n", &tokbuf)) != NULL)
-            {
-               b = atoi(s);
-               random_write(ff, a, b);
-            }
-            else
-               fprintf(ff, "ERR missing args\n");
-         }
-         else
-            fprintf(ff, "ERR missing args\n");
-      }
-      else if (!strcmp(bufp, "threads"))
-      {
-         print_threads(ff);
-      }
-      else if (!strcmp(bufp, "terminate"))
-      {
-         log_msg(LOG_INFO, "terminate request from control port");
-         if (kill(getpid(), SIGINT) == -1)
-            log_msg(LOG_ERR, "kill() failed: %s", strerror(errno));
-      }
-      else if (!strcmp(bufp, "route"))
-      {
-         if (rlen > 6)
-         {
-            if ((c = parse_route(bufp + 6)) == E_RT_SYNTAX)
-               if ((c = ipv6_parse_route(bufp + 6)) > 0)
-                  c = 0;
-            switch (c)
-            {
-               case E_RT_NOTORGW:
-                  s = "gateway has not TOR prefix";
-                  break;
-
-               case E_RT_ILLNM:
-                  s = "illegal netmask or prefix length";
-                  break;
-
-               case E_RT_DUP:
-                  s = "route already exists";
-                  break;
-
-               case E_RT_GWSELF:
-                  s = "gateway points to me";
-                  break;
-
-               default:
-                  s = "";
-            }
-            if (c)
-               fprintf(ff, "ERR %d %s\n", c, s);
-         }
-         else
-         {
-            print_routes(fo);
-            ipv6_print_routes(fo);
-         }
-      }
-      else if (!strcmp(bufp, "connect"))
-      {
-         if ((s = strtok_r(NULL, " \t\r\n", &tokbuf)))
-         {
-            if ((strlen(s) != 16) || (oniontipv6(s, &in6) == -1))
-               fprintf(ff, "ERR \"%s\" not valid .onion-URL\n", bufp + 8);
-            else
-            {
-               if (!(s = strtok_r(NULL, " \t\r\n", &tokbuf)))
-                  socks_queue(in6, 0);
-               else if (!strcmp(s, "perm"))
-                  socks_queue(in6, 1);
-               else
-                  fprintf(ff, "ERR unknown param \"%s\"\n", s);
-            }
-         }
-         else
-            fprintf(ff, "ERR missing args\n");
-      }
-      else if (!strcmp(bufp, "macs"))
-      {
-         print_mac_tbl(ff);
-      }
-      else if (!strcmp(bufp, "queue"))
-      {
-         print_socks_queue((FILE*) (long) pfd[1]);
-         for (;;)
-         {
-            read(pfd[0], buf, 1);
-            if (!buf[0])
-               break;
-            fprintf(ff, "%c", buf[0]);
-         }
-      }
-      else if (!strcmp(bufp, "setup"))
-      {
-         print_setup_struct(ff);
-      }
-      else if (!strcmp(bufp, "version"))
-      {
-         fprintf(ff, "%s\n", CNF(version));
-      }
-      else if (!strcmp(bufp, "hosts"))
-      {
-         hosts_list(ff);
-      }
-      else if (!strcmp(bufp, "hreload"))
-      {
-         hosts_check();
-      }
-      else if (!strcmp(bufp, "help") || !strcmp(bufp, "?"))
-      {
-         fprintf(fo,
-               "commands:\n"
-               "exit | quit .... exit from control interface\n"
-               "terminate ...... terminate OnionCat\n"
-               "close <n> ...... close file descriptor <n> of a peer\n"
-#ifdef WITH_DNS_RESOLVER
-               "dig <ipv6> ..... Do a hostname lookup.\n"
-#endif
-               "hosts .......... list hosts database\n"
-               "hreload ........ reload hosts database\n"
-               "status ......... list peer status\n"
-               "threads ........ show active threads\n"
-               "route .......... show routing table\n"
-               "route <dst IP> <netmask> <IPv6 gw>\n"
-               "   ............. add route to routing table\n"
-               "connect <.onion-URL> [\"perm\"]\n"
-               "   ............. connect to a hidden service. if \"perm\" is set,\n"
-               "   ............. connection will stay open forever\n"
-               "macs ........... show MAC address table\n"
-               "queue .......... list pending SOCKS connections\n"
-               "setup .......... show internal setup struct\n"
-               "version ........ show version\n"
-               "write <f> <n> .. write n random bytes to fd f\n"
-               );
-      }
-      else
-      {
-         fprintf(fo, "ERR unknown command: \"%s\"\n", buf);
-      }
-   }
-
-   if (CNF(config_read))
-      fprintf(fo, "Good bye!\n");
-   log_msg(LOG_INFO | LOG_FCONN, "closing session %d", fd);
-   if (fclose(ff) == EOF)
-      log_msg(LOG_ERR, "error closing control stream: \"%s\"", strerror(errno));
-   // fclose also closes the fd according to the man page
-
-   if (!CNF(config_read))
-      CNF(config_read) = 1;
-
-   // close pipe
-   oe_close(pfd[0]);
-   oe_close(pfd[1]);
+   dprintf(fdb.fd, "Good bye!\n");
 
    lock_setup();
    CNF(ctrl_active)--;
    unlock_setup();
 
+   oe_close(fdb.fd);
    return NULL;
 }
 
