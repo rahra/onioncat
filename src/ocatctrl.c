@@ -323,8 +323,36 @@ int ctrl_cmd_macs(fdbuf_t *fdb, int UNUSED(argc), char **UNUSED(argv))
 
 int ctrl_cmd_queue(fdbuf_t *fdb, int UNUSED(argc), char **UNUSED(argv))
 {
-   // (probably) FIXME: this is asynchronous
-   print_socks_queue(fdb->fd);
+   char buf[4096];
+   int fd[2], len;
+
+   if (pipe(fd) == -1)
+   {
+      log_msg(LOG_ERR, "could not create pipe: %s", strerror(errno));
+      return -1;
+   }
+
+   print_socks_queue(fd[1]);
+   for (int e = 0; !e;)
+   {
+      len = read(fd[0], buf, sizeof(buf));
+      log_debug("read %d bytes on pipe %d", len, fd[0]);
+
+      if (!len)
+         break;
+      if (len == -1)
+         log_msg(LOG_ERR, "pipe read failed: %s", strerror(errno));
+
+      if (!buf[len - 1])
+      {
+         len--;
+         e++;
+      }
+      write(fdb->fd, buf, len);
+   }
+
+   oe_close(fd[0]);
+   oe_close(fd[1]);
    return 1;
 }
 

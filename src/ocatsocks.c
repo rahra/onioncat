@@ -379,6 +379,8 @@ void socks_output_queue(int fd)
             (int) squeue->restart_time
             );
    }
+   i = 0;
+   write(fd, &i, 1);
 }
 
 
