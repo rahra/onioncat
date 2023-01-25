@@ -82,6 +82,28 @@ void ctrl_ns_response(void *p, struct in6_addr addr, int code)
 #endif
 
 
+long unit_scale0(int depth, long n, const char **unit)
+{
+   static const char *units_[] = {"", "K", "M", "G", "T"};
+
+   *unit = units_[depth];
+   if (n <= 10240)
+      return n;
+
+   depth++;
+   if (depth >= (int) (sizeof(units_) / sizeof(*units_)))
+      return n;
+
+   return unit_scale0(depth, n >> 10, unit);
+}
+
+
+long unit_scale(long n, const char **unit)
+{
+   return unit_scale0(0, n, unit);
+}
+
+
 int ctrl_cmd_random_write(fdbuf_t *fdb, int UNUSED(argc), char **argv)
 {
    char *buf;
@@ -161,9 +183,16 @@ int ctrl_cmd_status(fdbuf_t *fdb, int argc, char **argv)
    struct tm *tm;
    OcatPeer_t *peer;
    int detail = 0;
+   long in, out;
+   const char *u[2];
 
-   if (argc > 1 && !strcmp("detail", argv[1]))
-      detail = 1;
+   if (argc > 1)
+   {
+      if (!strcmp("detail", argv[1]))
+         detail = 1;
+      else
+         log_msg_fd(fdb->fd, LOG_WARNING, "unknown parameter \"%s\"", argv[1]);
+   }
 
    lock_peers();
    for (peer = get_first_peer(); peer; peer = peer->next)
@@ -181,26 +210,29 @@ int ctrl_cmd_status(fdbuf_t *fdb, int argc, char **argv)
       // FIXME: should peer be locked?
       if (peer->state == PEER_ACTIVE)
       {
+         in = unit_scale(peer->in, &u[0]);
+         out = unit_scale(peer->out, &u[1]);
+
          if (detail)
          {
          tm = localtime(&peer->otime);
          strftime(timestr, sizeof(timestr), "%c", tm);
-         dprintf(fdb->fd, "[%s]\n fd = %d\n addr = %s\n dir = \"%s\" (%d)\n idle = %lds\n bytes_in = %ld\n bytes_out = %ld\n setup_delay = %lds\n opening_time = \"%s\"\n conn type = \"%s\" (%d)\n rand = 0x%08x\n saddr = %s\n sname = \"%s\"\n",
+         dprintf(fdb->fd, "[%s]\n fd = %d\n addr = %s\n dir = \"%s\" (%d)\n idle = %lds\n bytes_in = %ld (%ld%s)\n bytes_out = %ld (%ld%s)\n setup_delay = %lds\n opening_time = \"%s\"\n conn_type = \"%s\" (%d)\n rand = 0x%08x\n saddr = %s\n sname = \"%s\"\n",
                onionstr, peer->tcpfd,
                inet_ntop(AF_INET6, &peer->addr, addrstr, INET6_ADDRSTRLEN),
                peer->dir == PEER_INCOMING ? "IN" : "OUT", peer->dir,
-               (long) (time(NULL) - peer->time), peer->in, peer->out, (long) peer->sdelay, timestr,
+               (long) (time(NULL) - peer->time), peer->in, in, u[0], peer->out, out, u[1], (long) peer->sdelay, timestr,
                peer->perm ? "PERMANENT" : "TEMPORARY", peer->perm, peer->rand,
                inet_ntop(AF_INET6, &peer->saddr, addrstr2, sizeof(addrstr2)), peer->sname
                );
          }
          else
          {
-            dprintf(fdb->fd, "fd = %d, addr = %s, saddr = %s, idle = %ld, bytes_in = %ld, bytes_out = %ld, name = \"%s\"\n",
+            dprintf(fdb->fd, "fd = %d, addr = %s, saddr = %s, idle = %ld, bytes_in = %ld%s, bytes_out = %ld%s, name = \"%s\"\n",
                   peer->tcpfd,
                   inet_ntop(AF_INET6, &peer->addr, addrstr, sizeof(addrstr)),
                   inet_ntop(AF_INET6, &peer->saddr, addrstr2, sizeof(addrstr2)),
-                  time(NULL) - peer->time, peer->in, peer->out, onionstr
+                  time(NULL) - peer->time, in, u[0], out, u[1], onionstr
                   );
          }
       }
