@@ -197,15 +197,15 @@ int ctrl_cmd_dig(fdbuf_t *fdb, int UNUSED(argc), char **argv)
 
    if (inet_pton(AF_INET6, argv[1], &in6) != 1)
    {
-      log_msg_fd(fdb->fd, LOG_ERR, "param is no valid IPv6 address\n");
+      log_msg_fd(fdb->fd, LOG_ERR, "param is no valid IPv6 address");
       return -1;
    }
 
    int n = ocres_query_callback(&in6, ctrl_ns_response, (void*)(long) fdb->fd);
    if (n >= 0)
-      log_msg_fd(fdb->fd, LOG_INFO, "PTR query sent to %d nameservers\n", n);
+      log_msg_fd(fdb->fd, LOG_INFO, "PTR query sent to %d nameservers", n);
    else
-      log_msg_fd(fdb->fd, LOG_ERR, "ocres_query() failed\n");
+      log_msg_fd(fdb->fd, LOG_ERR, "ocres_query() failed");
 
    return 1;
 }
@@ -229,7 +229,7 @@ int ctrl_cmd_close(fdbuf_t *fdb, int UNUSED(argc), char **argv)
 
    if (!peer)
    {
-      log_msg_fd(fdb->fd, LOG_INFO, "no peer with fd %d exists\n", fd);
+      log_msg_fd(fdb->fd, LOG_INFO, "no peer with fd %d exists", fd);
    }
 
    unlock_peers();
@@ -275,7 +275,7 @@ int ctrl_cmd_route(fdbuf_t *fdb, int argc, char **argv)
 
    if (argc != 4)
    {
-      log_msg_fd(fdb->fd, LOG_ERR, "ill args\n");
+      log_msg_fd(fdb->fd, LOG_ERR, "ill args");
       return -1;
    }
 
@@ -306,7 +306,7 @@ int ctrl_cmd_route(fdbuf_t *fdb, int argc, char **argv)
    }
 
    if (c)
-      log_msg_fd(fdb->fd, LOG_ERR, "%d %s\n", c, s);
+      log_msg_fd(fdb->fd, LOG_ERR, "%d %s", c, s);
 
    return 1;
 }
