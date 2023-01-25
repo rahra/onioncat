@@ -136,7 +136,7 @@ int ctrl_cmd_usage(fdbuf_t *fdb, int UNUSED(argc), char **UNUSED(argv))
 #endif
          "hosts .......... list hosts database\n"
          "hreload ........ reload hosts database\n"
-         "status ......... list peer status\n"
+         "status [detail]. list peer status\n"
          "threads ........ show active threads\n"
          "route .......... show routing table\n"
          "route <dst IP> <netmask> <IPv6 gw>\n"
@@ -155,31 +155,56 @@ int ctrl_cmd_usage(fdbuf_t *fdb, int UNUSED(argc), char **UNUSED(argv))
 }
 
 
-int ctrl_cmd_status(fdbuf_t *fdb, int UNUSED(argc), char **UNUSED(argv))
+int ctrl_cmd_status(fdbuf_t *fdb, int argc, char **argv)
 {
    char addrstr[INET6_ADDRSTRLEN], addrstr2[INET6_ADDRSTRLEN], onionstr[SIZE_256], timestr[32];
    struct tm *tm;
    OcatPeer_t *peer;
+   int detail = 0;
+
+   if (argc > 1 && !strcmp("detail", argv[1]))
+      detail = 1;
 
    lock_peers();
    for (peer = get_first_peer(); peer; peer = peer->next)
+   {
+      if (IN6_IS_ADDR_UNSPECIFIED(&peer->addr))
+      {
+         strcpy(onionstr, "--unidentified--");
+      }
+      else
+      {
+         if (hosts_get_name(&peer->addr, onionstr, sizeof(onionstr)) < 0)
+            ipv6tonion(&peer->addr, onionstr);
+      }
+
       // FIXME: should peer be locked?
       if (peer->state == PEER_ACTIVE)
       {
+         if (detail)
+         {
          tm = localtime(&peer->otime);
          strftime(timestr, sizeof(timestr), "%c", tm);
-         if (hosts_get_name(&peer->addr, onionstr, sizeof(onionstr)) < 0)
-            ipv6tonion(&peer->addr, onionstr);
-
          dprintf(fdb->fd, "[%s]\n fd = %d\n addr = %s\n dir = \"%s\" (%d)\n idle = %lds\n bytes_in = %ld\n bytes_out = %ld\n setup_delay = %lds\n opening_time = \"%s\"\n conn type = \"%s\" (%d)\n rand = 0x%08x\n saddr = %s\n sname = \"%s\"\n",
-               IN6_IS_ADDR_UNSPECIFIED(&peer->addr) ? "--unidentified--" : onionstr, peer->tcpfd,
+               onionstr, peer->tcpfd,
                inet_ntop(AF_INET6, &peer->addr, addrstr, INET6_ADDRSTRLEN),
                peer->dir == PEER_INCOMING ? "IN" : "OUT", peer->dir,
                (long) (time(NULL) - peer->time), peer->in, peer->out, (long) peer->sdelay, timestr,
                peer->perm ? "PERMANENT" : "TEMPORARY", peer->perm, peer->rand,
                inet_ntop(AF_INET6, &peer->saddr, addrstr2, sizeof(addrstr2)), peer->sname
                );
+         }
+         else
+         {
+            dprintf(fdb->fd, "fd = %d, addr = %s, saddr = %s, idle = %ld, bytes_in = %ld, bytes_out = %ld, name = \"%s\"\n",
+                  peer->tcpfd,
+                  inet_ntop(AF_INET6, &peer->addr, addrstr, sizeof(addrstr)),
+                  inet_ntop(AF_INET6, &peer->saddr, addrstr2, sizeof(addrstr2)),
+                  time(NULL) - peer->time, peer->in, peer->out, onionstr
+                  );
+         }
       }
+   }
    unlock_peers();
    return 1;
 }
