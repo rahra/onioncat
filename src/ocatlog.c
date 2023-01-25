@@ -82,6 +82,27 @@ int open_connect_log(const char *dir)
 }
 
 
+static const char *level_color(int level)
+{
+   switch (level)
+   {
+      case LOG_INFO:
+      case LOG_NOTICE:
+         return "\033[32m";
+      case LOG_WARNING:
+         return "\033[33m";
+      case LOG_EMERG:
+      case LOG_ALERT:
+      case LOG_CRIT:
+      case LOG_ERR:
+         return "\033[31m";
+      case -1:
+      default:
+         return "\033[m";
+   }
+}
+
+
 /*! Log a message to a file.
  *  @param out Open FILE pointer
  *  @param lf Logging priority (equal to syslog)
@@ -123,7 +144,10 @@ void vlog_msgf(int out, int lf, const char *fmt, va_list ap)
    (void) pthread_mutex_lock(&log_mutex_);
    if (out)
    {
-      dprintf(out, "%s.%03d %s [%d:%-*s:%6s] ", timestr, (int) (tv.tv_usec / 1000), timez, th->id, THREAD_NAME_LEN - 1, th->name, flty_[level]);
+      if (lf & LOG_FFD)
+         dprintf(out, "[%s%s%s] ", level_color(level), flty_[level], level_color(-1));
+      else
+         dprintf(out, "%s.%03d %s [%d:%-*s:%6s] ", timestr, (int) (tv.tv_usec / 1000), timez, th->id, THREAD_NAME_LEN - 1, th->name, flty_[level]);
       vdprintf(out, fmt, ap);
       dprintf(out, "\n");
    }
@@ -145,25 +169,38 @@ void vlog_msgf(int out, int lf, const char *fmt, va_list ap)
  *  @param fmt Format string.
  *  @param ... arguments
  */
-void log_msg(int lf, const char *fmt, ...)
+void log_msg_fd(int fd, int lf, const char *fmt, ...)
 {
    va_list ap;
 
+   // standard logging
    va_start(ap, fmt);
    vlog_msgf(CNF(logfd), lf, fmt, ap);
    va_end(ap);
+
+   // connect log
    if (clog_ && (lf & LOG_FCONN))
    {
       va_start(ap, fmt);
       vlog_msgf(clog_, lf, fmt, ap);
       va_end(ap);
    }
+
+   // additional stderr
    if (lf & LOG_FERR)
    {
       va_start(ap, fmt);
-      vfprintf(stderr, fmt, ap);
+      vdprintf(2, fmt, ap);
       va_end(ap);
-      fprintf(stderr, "\n");
+      dprintf(2, "\n");
+   }
+
+   // ...and on some other fd
+   if (fd)
+   {
+      va_start(ap, fmt);
+      vlog_msgf(fd, lf | LOG_FFD, fmt, ap);
+      va_end(ap);
    }
 }
 

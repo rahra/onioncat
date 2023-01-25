@@ -232,6 +232,7 @@
 
 #define LOG_FCONN 0x400
 #define LOG_FERR 0x800
+#define LOG_FFD 0x1000
 
 #define E_SOCKS_SOCK -1
 #define E_SOCKS_CONN -2
@@ -671,7 +672,8 @@ void proc_signals(void);
 
 /* ocatlog.c */
 int open_connect_log(const char*);
-void log_msg(int, const char *, ...) __attribute__((format (printf, 2, 3)));
+void log_msg_fd(int, int, const char *, ...) __attribute__((format (printf, 3, 4)));
+#define log_msg(x...) log_msg_fd(0, ## x)
 #ifdef DEBUG
 #define log_debug(x...) log_msg(LOG_DEBUG, ## x)
 #ifdef DEBUG_EXCESSIVE
