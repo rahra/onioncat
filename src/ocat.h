@@ -424,7 +424,7 @@ struct OcatSetup
    char *pid_file;
    int create_pid_file;
    char *logfn;
-   FILE *logf;
+   int logfd;
    int use_syslog;
    int daemon;
    time_t uptime;

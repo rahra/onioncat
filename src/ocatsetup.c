@@ -80,7 +80,7 @@ struct OcatSetup setup_ =
    {0x00, 0x00, 0x6c, 0x00, 0x00, 0x00},   // ocat_hwaddr (OnionCat MAC address)
    PID_FILE,                               // pid_file
    0,                                      // create_pid_file
-   NULL, NULL,                             // logfile
+   NULL, 0,                                // logfile
    0,                                      // use_syslog
 #ifdef __CYGWIN__
    0,
@@ -238,7 +238,7 @@ void post_init_setup(void)
 
 void print_setup_struct(int fd)
 {
-   char *c, ip[SBUF], nm[SBUF], ip6[SBUF], logf[SBUF], hw[SBUF];
+   char *c, ip[SBUF], nm[SBUF], ip6[SBUF], hw[SBUF];
    int i, t;
    struct sockaddr_str sas;
 
@@ -247,13 +247,7 @@ void print_setup_struct(int fd)
    inet_ntop(AF_INET6, &setup_.ocat_addr, ip6, SBUF);
    ether_ntoa_r((struct ether_addr*) setup_.ocat_hwaddr, hw);
 
-   if (setup_.logf == stderr)
-      strlcpy(logf, "stderr", sizeof(logf));
-   else
-      snprintf(logf, sizeof(logf), "%p", setup_.logf);
-
    t = time(NULL) - setup_.uptime;
-
 
    dprintf(fd,
          "fhd_key[IPV4(%d)]       = 0x%04x\n"
@@ -288,7 +282,7 @@ void print_setup_struct(int fd)
          "ocat_hwaddr            = %s\n"
          "pid_file               = \"%s\"\n"
          "logfn                  = \"%s\"\n"
-         "logf                   = %s\n"
+         "logfd                  = %d\n"
          "daemon                 = %d\n"
          "uptime                 = %d days, %d:%02d\n"
          "version[%3d+1/%3d]     = \"%s\"\n"
@@ -342,7 +336,7 @@ void print_setup_struct(int fd)
          hw,
          setup_.pid_file,
          SSTR(setup_.logfn),
-         logf,
+         setup_.logfd,
          setup_.daemon,
          t / (3600 * 24), t / 3600 % 24, t / 60 % 60,
          (int) strlen(setup_.version), VERSION_STRING_LEN, setup_.version,

@@ -102,22 +102,19 @@ void usage(const char *s)
  */
 int open_logfile(void)
 {
-   FILE *f;
+   int fd;
 
    if (CNF(logfn))
    {
       log_debug("opening log file \"%s\"", CNF(logfn));
-      if ((f = fopen(CNF(logfn), "a")))
+      if ((fd = open(CNF(logfn), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR)) == -1)
       {
-         CNF(logf) = f;
-         log_debug("logfile %s opened", CNF(logfn));
-         if (setvbuf(CNF(logf), NULL, _IOLBF, 0))
-            log_msg(LOG_ERR, "could not setup line buffering: %s", strerror(errno));
-         fflush(CNF(logf));
-         return 0;
+         log_msg(LOG_ERR, "could not open logfile %s: %s.", CNF(logfn), strerror(errno));
+         return -1;
       }
-      //CNF(logf) = stderr;
-      log_msg(LOG_ERR, "could not open logfile %s: %s.", CNF(logfn), strerror(errno));
+
+      CNF(logfd) = fd;
+      return 0;
    }
    return -1;
 }
@@ -213,8 +210,8 @@ void background(void)
 
       default:
          log_debug("parent %d exits, background pid = %d", ppid, pid);
-         if (CNF(logf))
-            fclose(CNF(logf));
+         if (CNF(logfd))
+            oe_close(CNF(logfd));
          exit(0);
    }
 }
@@ -708,9 +705,9 @@ int main(int argc, char *argv[])
 
    // log to stderr if in foreground
    if (!CNF(daemon) && !CNF(use_syslog))
-      CNF(logf) = stderr;
+      CNF(logfd) = 2;
  
-   if ((open_logfile() == -1) && !CNF(logf))
+   if ((open_logfile() == -1) && !CNF(logfd))
       openlog(PACKAGE_NAME, LOG_NDELAY | LOG_PID, LOG_DAEMON);
 
    // init main thread

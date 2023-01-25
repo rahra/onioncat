@@ -34,7 +34,7 @@
 static pthread_mutex_t log_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static const char *flty_[8] = {"emerg", "alert", "crit", "err", "warning", "notice", "info", "debug"};
 //! FILE pointer to connect log
-static FILE *clog_ = NULL;
+static int clog_ = 0;
 
 
 /*! Open connect log.
@@ -71,9 +71,10 @@ int open_connect_log(const char *dir)
    strlcat(buf, NDESC(clog_file), CBUFLEN);
 
    log_debug("opening connect log \"%s\"", buf);
-   if (!(clog_ = fopen(buf, "a")))
+   if ((clog_ = open(buf, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR)) == -1)
    {
       log_msg(LOG_ERR, "could not open connect log \"%s\": \"%s\"", buf, strerror(errno));
+      clog_ = 0;
       return -1;
    }
    log_msg(LOG_NOTICE | LOG_FCONN, "connect log started");
@@ -87,7 +88,7 @@ int open_connect_log(const char *dir)
  *  @param fmt Format string
  *  @param ap Variable parameter list
  */
-void vlog_msgf(FILE *out, int lf, const char *fmt, va_list ap)
+void vlog_msgf(int out, int lf, const char *fmt, va_list ap)
 {
    struct timeval tv;
    struct tm *tm;
@@ -122,9 +123,9 @@ void vlog_msgf(FILE *out, int lf, const char *fmt, va_list ap)
    (void) pthread_mutex_lock(&log_mutex_);
    if (out)
    {
-      fprintf(out, "%s.%03d %s [%d:%-*s:%6s] ", timestr, (int) (tv.tv_usec / 1000), timez, th->id, THREAD_NAME_LEN - 1, th->name, flty_[level]);
-      vfprintf(out, fmt, ap);
-      fprintf(out, "\n");
+      dprintf(out, "%s.%03d %s [%d:%-*s:%6s] ", timestr, (int) (tv.tv_usec / 1000), timez, th->id, THREAD_NAME_LEN - 1, th->name, flty_[level]);
+      vdprintf(out, fmt, ap);
+      dprintf(out, "\n");
    }
    else
    {
@@ -149,14 +150,13 @@ void log_msg(int lf, const char *fmt, ...)
    va_list ap;
 
    va_start(ap, fmt);
-   vlog_msgf(CNF(logf), lf, fmt, ap);
+   vlog_msgf(CNF(logfd), lf, fmt, ap);
    va_end(ap);
    if (clog_ && (lf & LOG_FCONN))
    {
       va_start(ap, fmt);
       vlog_msgf(clog_, lf, fmt, ap);
       va_end(ap);
-      (void) fflush(clog_);
    }
    if (lf & LOG_FERR)
    {
