@@ -92,33 +92,32 @@ int ctrl_cmd_random_write(fdbuf_t *fdb, int UNUSED(argc), char **argv)
 
    if (fd < 0)
    {
-      dprintf(fdb->fd, "ERR fd must be >= 0\n");
+      log_msg_fd(fdb->fd, LOG_ERR, "fd must be >= 0");
       return -1;
    }
    if (n < 1)
    {
-      dprintf(fdb->fd, "ERR n must be > 0\n");
+      log_msg_fd(fdb->fd, LOG_ERR, "n must be > 0");
       return -1;
    }
 
    if ((buf = malloc(n)) == NULL)
    {
-      dprintf(fdb->fd, "ERR cannot get %d bytes of memory", n);
+      log_msg_fd(fdb->fd, LOG_ERR, "cannot get %d bytes of memory", n);
       return -1;
    }
 
    for (i = 0; i < n; i++)
       buf[i] = rand();
 
-   dprintf(fdb->fd, "writing %d random bytes to fd %d\n", n, fd);
+   log_msg_fd(fdb->fd, LOG_INFO, "writing %d random bytes to fd %d", n, fd);
    n = write(fd, buf, n);
    if (n == -1)
    {
       n = errno;
-      dprintf(fdb->fd, "write failed: %s\n", strerror(n));
-      log_debug("write failed: %s", strerror(n));
+      log_msg_fd(fdb->fd, LOG_ERR, "write failed: %s", strerror(n));
    }
-   dprintf(fdb->fd, "%d bytes written\n", n);
+   log_msg_fd(fdb->fd, LOG_INFO, "%d bytes written", n);
 
    free(buf);
    return 1;
@@ -198,15 +197,15 @@ int ctrl_cmd_dig(fdbuf_t *fdb, int UNUSED(argc), char **argv)
 
    if (inet_pton(AF_INET6, argv[1], &in6) != 1)
    {
-      dprintf(fdb->fd, "ERR param is no valid IPv6 address\n");
+      log_msg_fd(fdb->fd, LOG_ERR, "param is no valid IPv6 address\n");
       return -1;
    }
 
    int n = ocres_query_callback(&in6, ctrl_ns_response, (void*)(long) fdb->fd);
    if (n >= 0)
-      dprintf(fdb->fd, "PTR query sent to %d nameservers\n", n);
+      log_msg_fd(fdb->fd, LOG_INFO, "PTR query sent to %d nameservers\n", n);
    else
-      dprintf(fdb->fd, "ERR ocres_query() failed\n");
+      log_msg_fd(fdb->fd, LOG_ERR, "ocres_query() failed\n");
 
    return 1;
 }
@@ -230,8 +229,7 @@ int ctrl_cmd_close(fdbuf_t *fdb, int UNUSED(argc), char **argv)
 
    if (!peer)
    {
-      log_msg(LOG_INFO, "no peer with fd %d exists\n", fd);
-      dprintf(fdb->fd, "no peer with fd %d exists\n", fd);
+      log_msg_fd(fdb->fd, LOG_INFO, "no peer with fd %d exists\n", fd);
    }
 
    unlock_peers();
@@ -277,7 +275,7 @@ int ctrl_cmd_route(fdbuf_t *fdb, int argc, char **argv)
 
    if (argc != 4)
    {
-      dprintf(fdb->fd, "ERR ill args\n");
+      log_msg_fd(fdb->fd, LOG_ERR, "ill args\n");
       return -1;
    }
 
@@ -308,7 +306,7 @@ int ctrl_cmd_route(fdbuf_t *fdb, int argc, char **argv)
    }
 
    if (c)
-      dprintf(fdb->fd, "ERR %d %s\n", c, s);
+      log_msg_fd(fdb->fd, LOG_ERR, "%d %s\n", c, s);
 
    return 1;
 }
@@ -392,7 +390,7 @@ int ctrl_cmd_connect(fdbuf_t *fdb, int argc, char **argv)
 
    if (validate_onionname(argv[1], &in6) == -1)
    {
-      dprintf(fdb->fd, "ERR \"%s\" not valid .onion-URL\n", argv[1]);
+      log_msg_fd(fdb->fd, LOG_ERR, "\"%s\" not a valid .onion-URL", argv[1]);
       return -1;
    }
 
@@ -478,14 +476,13 @@ int ctrl_proc_line(fdbuf_t *fdb, char *buf)
       {
          if (argc < cmd->min_argc)
          {
-            dprintf(fdb->fd, "ERR missing args\n");
+            log_msg_fd(fdb->fd, LOG_ERR, "missing args");
             return -1;
          }
          return cmd->func(fdb, argc, argv);
       }
 
-
-   dprintf(fdb->fd, "*** unknown command \"%s\"\n", argv[0]);
+   log_msg_fd(fdb->fd, LOG_ERR, "unknown command \"%s\"", argv[0]);
    return 1;
 }
 
