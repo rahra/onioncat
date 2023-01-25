@@ -300,12 +300,11 @@ int snprint_threads(char *buf, int len, const char *delim)
             "name = \"%s\", "
             "handle = 0x%08lx, "
             "id = %d, "
-            //"entry = %p, "
             "parm = %p, "
             "age = %d, "
             "flags = 0x%04x, "
             "detached = %d%s",
-            th->name, (long) th->handle, th->id, /*th->entry,*/ th->parm, (int) (time(NULL) - th->t_act), th->flags, th->detached, delim);
+            th->name, (long) th->handle, th->id, th->parm, (int) (time(NULL) - th->t_act), th->flags, th->detached, delim);
       if (wlen >= len)
       {
          tlen += len;
@@ -313,7 +312,7 @@ int snprint_threads(char *buf, int len, const char *delim)
       }
       tlen += wlen;
       buf += wlen;
-      len -= tlen;
+      len -= wlen;
    }
    pthread_mutex_unlock(&thread_mutex_);
 
