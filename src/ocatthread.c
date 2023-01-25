@@ -31,6 +31,7 @@
 static pthread_mutex_t thread_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t thread_cond_ = PTHREAD_COND_INITIALIZER;
 static OcatThread_t *octh_ = NULL;
+static volatile sig_atomic_t term_req_ = 0;
 
 
 /*! Find highest thread number.
@@ -400,22 +401,14 @@ void detach_thread(void)
  */
 int term_req(void)
 {
-   int trq;
-
-   lock_setup();
-   trq = CNF(term_req);
-   unlock_setup();
-
-   return trq;
+   return term_req_;
 }
 
 
 /*! Set termination request. */
 void set_term_req(void)
 {
-   lock_setup();
-   CNF(term_req) = 1;
-   unlock_setup();
+   term_req_ = 1;
 }
 
 
@@ -424,6 +417,7 @@ void set_term_req(void)
  * */
 void update_thread_activity(void)
 {
+#ifdef DEBUG
    OcatThread_t *th;
    pthread_t thread = pthread_self();
 
@@ -435,6 +429,7 @@ void update_thread_activity(void)
          break;
       }
    pthread_mutex_unlock(&thread_mutex_);
+#endif
 }
 
 
@@ -445,6 +440,7 @@ void update_thread_activity(void)
  */
 int check_threads(void)
 {
+#ifdef DEBUG
    int e = 0;
    OcatThread_t *th;
 
@@ -457,6 +453,9 @@ int check_threads(void)
       }
    pthread_mutex_unlock(&thread_mutex_);
    return e;
+#else
+   return 0;
+#endif
 }
 
 
@@ -467,6 +466,7 @@ int check_threads(void)
  */
 int set_thread_flags(int f)
 {
+#ifdef DEBUG
    int f0 = -1;
    OcatThread_t *th;
    pthread_t thread = pthread_self();
@@ -482,5 +482,8 @@ int set_thread_flags(int f)
    pthread_mutex_unlock(&thread_mutex_);
 
    return f0;
+#else
+   return 0;
+#endif
 }
 
