@@ -57,6 +57,7 @@ void usage(const char *s)
          "   -f <config_file>      read config from config_file (default = %s)\n"
          "   -g <hosts_path>       set path to hosts file for hosts lookup (default  = \"%s\").\n"
          "                         This option implicitly activates -H.\n"
+         "   -G <hosts_cache>      Hosts cache file (default = \"%s\").\n"
          "   -i                    convert onion hostname to IPv6 and exit\n"
          "   -I                    GarliCat mode, use I2P instead of Tor\n"
          "   -J                    Disable remote hostname validation.\n"
@@ -86,7 +87,7 @@ void usage(const char *s)
          OCAT_DIR, NDESC(clog_file), CNF(create_clog), 
          CNF(daemon), CNF(daemon) ^ 1, !CNF(hosts_lookup), enabled(CNF(hosts_lookup)), CNF(debug_level),
          !CNF(dns_lookup), enabled(CNF(dns_lookup)), CNF(expire), CNF(config_file), CNF(hosts_path),
-         NDESC(listen_port), CNF(pid_file), CNF(ocat_dest_port),
+         CNF(hosts_cache), NDESC(listen_port), CNF(pid_file), CNF(ocat_dest_port),
          !CNF(dns_server), enabled(CNF(dns_server)), ntohs(CNF(socks_dst)->sin_port),
 #ifndef WITHOUT_TUN
          TUN_DEV,
@@ -326,7 +327,7 @@ void cleanup_system(void)
       sleep(SELECT_TIMEOUT);
    }
 
-   hosts_save(OCAT_HOSTS_STATE);
+   hosts_save(CNF(hosts_cache));
 
    delete_listeners(CNF(oc_listen), CNF(oc_listen_fd), CNF(oc_listen_cnt));
 
@@ -468,7 +469,7 @@ int parse_opt(int argc, char *argv[])
    log_debug("parse_opt()");
    opterr = 1;
    optind = 1;
-   while ((c = getopt(argc, argv, "f:IA:abBCd:De:E:g:hHrRiJopl:t:T:s:SUu:V245:L:P:n:")) != -1)
+   while ((c = getopt(argc, argv, "f:IA:abBCd:De:E:g:G:hHrRiJopl:t:T:s:SUu:V245:L:P:n:")) != -1)
    {
       log_debug("getopt(): c = %c, optind = %d, opterr = %d, optarg = \"%s\"", c, optind, opterr, SSTR(optarg));
       switch (c)
@@ -538,6 +539,10 @@ int parse_opt(int argc, char *argv[])
             CNF(hosts_path) = optarg;
             //hosts_set_path(CNF(hosts_path));
             //CNF(hosts_lookup) = 1;
+            break;
+
+         case 'G':
+            CNF(hosts_cache) = optarg;
             break;
 
          case 'i':
@@ -876,7 +881,7 @@ int main(int argc, char *argv[])
    {
       parse_opt_late(argc, argv);
       // pull in cached hosts file
-      hosts_read(time(NULL), OCAT_HOSTS_STATE);
+      hosts_read(time(NULL), CNF(hosts_cache));
       // pull in static hosts file
       hosts_check();
    }

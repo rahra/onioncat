@@ -100,8 +100,6 @@ struct OcatSetup setup_ =
    0,
    {0},
    sizeof(struct OcatSetup),
-   //! term_req
-   0,
    PTHREAD_MUTEX_INITIALIZER,
    // ctrl_listen
    ctrl_listen_ptr_,
@@ -130,6 +128,8 @@ struct OcatSetup setup_ =
    0,
    // hosts_path
    SYSCONFDIR"/tor/onioncat.hosts",
+   // hosts cache
+   OCAT_HOSTS_STATE,
    // domain
    "",
    // dns_loopup
@@ -287,7 +287,6 @@ void print_setup_struct(int fd)
          "uptime                 = %d days, %d:%02d\n"
          "version[%3d+1/%3d]     = \"%s\"\n"
          "sizeof_setup           = %d\n"
-         "term_req               = %d\n"
          "net_type               = %d (%s)\n"
          "max_ctrl               = %d\n"
          "ctrl_active            = %d\n"
@@ -297,6 +296,7 @@ void print_setup_struct(int fd)
          "unidirectional         = %d\n"
          "hosts_lookup           = %d\n"
          "hosts_path             = %s\n"
+         "hosts_cache            = %s\n"
          "domain                 = \"%s\"\n"
          "dns_lookup             = %d\n"
          "dns_server             = %d\n"
@@ -341,7 +341,6 @@ void print_setup_struct(int fd)
          t / (3600 * 24), t / 3600 % 24, t / 60 % 60,
          (int) strlen(setup_.version), VERSION_STRING_LEN, setup_.version,
          setup_.sizeof_setup,
-         setup_.term_req,
          setup_.net_type, setup_.net_type == NTYPE_TOR ? "NTYPE_TOR" : setup_.net_type == NTYPE_I2P ? "NTYPE_I2P" : "unknown",
          setup_.max_ctrl, setup_.ctrl_active,
          setup_.pid_fd[0], setup_.pid_fd[1],
@@ -350,6 +349,7 @@ void print_setup_struct(int fd)
          setup_.unidirectional,
          setup_.hosts_lookup,
          SSTR(setup_.hosts_path),
+         setup_.hosts_cache,
          setup_.domain,
          setup_.dns_lookup,
          setup_.dns_server,

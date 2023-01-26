@@ -443,7 +443,6 @@ struct OcatSetup
    int rand_addr;
    char version[VERSION_STRING_LEN];
    int sizeof_setup;
-   int term_req;
    pthread_mutex_t mutex;
    //! listening sockets for controller interface
    struct sockaddr **ctrl_listen;
@@ -462,6 +461,7 @@ struct OcatSetup
    int unidirectional;
    int hosts_lookup;
    char *hosts_path;       //!< path to hosts file, defaults to system hosts file if NULL
+   char *hosts_cache;      //!< path to hosts cache file
    const char *domain;     //!< domain name appended to network host name
    int dns_lookup;         //!< do OnionCat DNS reverse queries
    int dns_server;         //!< run OnionCat DNS server

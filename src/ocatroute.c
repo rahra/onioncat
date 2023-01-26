@@ -1297,7 +1297,7 @@ void *socket_cleaner(void *UNUSED(ptr))
       if (is_hosts_db_modified() && act_time - saved_time > HOSTS_TIME)
       {
          saved_time = act_time;
-         hosts_save(OCAT_HOSTS_STATE);
+         hosts_save(CNF(hosts_cache));
       }
 
       // stats output
