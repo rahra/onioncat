@@ -527,15 +527,9 @@ int ctrl_parse_cmd(char **argv, int maxv, char *buf)
 }
 
 
-int ctrl_proc_line(fdbuf_t *fdb, char *buf)
+int ctrl_exec(fdbuf_t *fdb, int argc, char **argv)
 {
-#define MAX_CTRL_ARGV 10
-   char *argv[MAX_CTRL_ARGV];
-   int argc;
    ctrl_cmd_t *cmd;
-
-   if ((argc = ctrl_parse_cmd(argv, MAX_CTRL_ARGV, buf)) <= 0)
-      return 1;
 
    for (cmd = cmd_; cmd->cmd != NULL; cmd++)
       if (!strcmp(cmd->cmd, argv[0]))
@@ -550,6 +544,19 @@ int ctrl_proc_line(fdbuf_t *fdb, char *buf)
 
    log_msg_fd(fdb->fd, LOG_ERR, "unknown command \"%s\"", argv[0]);
    return 1;
+}
+
+
+int ctrl_proc_line(fdbuf_t *fdb, char *buf)
+{
+#define MAX_CTRL_ARGV 10
+   char *argv[MAX_CTRL_ARGV];
+   int argc;
+
+   if ((argc = ctrl_parse_cmd(argv, MAX_CTRL_ARGV, buf)) <= 0)
+      return 1;
+
+   return ctrl_exec(fdb, argc, argv);
 }
 
 
