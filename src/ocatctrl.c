@@ -167,6 +167,7 @@ int ctrl_cmd_usage(fdbuf_t *fdb, int UNUSED(argc), char **UNUSED(argv))
          "   ............. connect to a hidden service. if \"perm\" is set,\n"
          "   ............. connection will stay open forever\n"
          "macs ........... show MAC address table\n"
+         "ns ............. List OnionCat peer nameservers.\n"
          "queue .......... list pending SOCKS connections\n"
          "setup .......... show internal setup struct\n"
          "version ........ show version\n"
@@ -459,6 +460,13 @@ int ctrl_cmd_connect(fdbuf_t *fdb, int argc, char **argv)
 }
 
 
+int ctrl_cmd_ns(fdbuf_t *fdb, int UNUSED(argc), char **UNUSED(argv))
+{
+   print_ns(fdb->fd);
+   return 1;
+}
+
+
 static ctrl_cmd_t cmd_[] =
 {
    {"help", ctrl_cmd_usage, 1},
@@ -479,6 +487,7 @@ static ctrl_cmd_t cmd_[] =
    {"hosts", ctrl_cmd_hosts, 1},
    {"hreload", ctrl_cmd_hreload, 1},
    {"connect", ctrl_cmd_connect, 1},
+   {"ns", ctrl_cmd_ns, 1},
 
    {NULL, NULL, 0}
 };

@@ -71,6 +71,7 @@ static char *path_hosts_ = NULL;
 static pthread_mutex_t hosts_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static int hosts_db_modified_ = 0;
 static ns_ent_t ns_[MAX_NS];
+static pthread_mutex_t ns_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 
 
 int hosts_add_entry_unlocked(const struct in6_addr *addr, const char *name, hsrc_t source, time_t age, int ttl);
@@ -423,7 +424,7 @@ int hosts_get_name(const struct in6_addr *addr, char *buf, int s)
  * @return Returns index of an empty slot which is 0 <= index < MAX_NS. If not
  * empty slot was found, MAX_NS is returned.
  */
-int hosts_search_ns_metric_lt(int m)
+static int hosts_search_ns_metric_lt(int m)
 {
    int i;
 
@@ -438,7 +439,7 @@ int hosts_search_ns_metric_lt(int m)
  * @return Returns index of an empty slot which is 0 <= index < MAX_NS. If not
  * empty slot was found, MAX_NS is returned.
  */
-int hosts_search_ns_empty(void)
+static int hosts_search_ns_empty(void)
 {
    int i;
 
@@ -454,7 +455,7 @@ int hosts_search_ns_empty(void)
  * @return Returns index in NS list which is 0 <= index < MAX_NS. If the
  * address is not found, MAX_NS is returned.
  */
-int hosts_search_ns(const struct in6_addr *addr)
+static int hosts_search_ns(const struct in6_addr *addr)
 {
    int i;
 
@@ -494,6 +495,7 @@ static int hosts_update_ns0(void)
       if (hosts_.hosts_ent[i].source <= HSRC_SELF)
          continue;
 
+      pthread_mutex_lock(&ns_mutex_);
       // look of NS entry was already in the list
       if ((j = hosts_search_ns(&hosts_.hosts_ent[i].addr)) < MAX_NS)
       {
@@ -527,15 +529,18 @@ static int hosts_update_ns0(void)
             }
          }
       }
+      pthread_mutex_unlock(&ns_mutex_);
    }
 
    // finally cleanup now unused NS slots
+   pthread_mutex_lock(&ns_mutex_);
    for (i = 0; i < MAX_NS; i++)
       if (!mod[j])
          ns_[j].metric = 0;
 
    // sort list
    qsort(ns_, MAX_NS, sizeof(ns_[0]), cmp_ns);
+   pthread_mutex_unlock(&ns_mutex_);
 
    pthread_mutex_unlock(&hosts_mutex_);
 
@@ -582,7 +587,7 @@ int hosts_get_ns_rr_metric(struct in6_addr *addr, hsrc_t *ns_src, int *nptr)
    // safety check
    if (n < 0) n = 0;
 
-   pthread_mutex_lock(&hosts_mutex_);
+   pthread_mutex_lock(&ns_mutex_);
    for (i = 0; i < MAX_NS; i++)
    {
       j = (i + n) % MAX_NS;
@@ -595,7 +600,7 @@ int hosts_get_ns_rr_metric(struct in6_addr *addr, hsrc_t *ns_src, int *nptr)
          break;
       }
    }
-   pthread_mutex_unlock(&hosts_mutex_);
+   pthread_mutex_unlock(&ns_mutex_);
 
    if (i >= MAX_NS)
       return -1;
@@ -604,56 +609,6 @@ int hosts_get_ns_rr_metric(struct in6_addr *addr, hsrc_t *ns_src, int *nptr)
       *nptr = j + 1;
 
    return j + 1;
-}
-
-
-/*! Get address of a name server from the hosts db in round robin order.
- * @param addr Pointer to memory which will receive the address.
- * @param ns_src Pointer will receive the NS source (hsrc_t).
- * @param nptr Pointer to index in hosts DB to get NS from. This will be
- * increased by 1 on each call (and set back to 0 at the end of the list).
- * @return The function returns the index in the hosts table of the entry which
- * is always >= 0. On error, -1 is returned.
- */
-int hosts_get_ns_rr(struct in6_addr *addr, hsrc_t *ns_src, int *nptr)
-{
-   int n;
-
-   // safety check
-   if (addr == NULL || nptr == NULL)
-      return -1;
-
-   n = *nptr;
-   n++;
-
-   // safety check
-   if (n < 0) n = 0;
-
-   pthread_mutex_lock(&hosts_mutex_);
-
-   // make sure n is smaller than table num of entries (i.e. if length of list decreased since the last call)
-   if (n >= hosts_.hosts_ent_cnt)
-      n = 0;
-
-   for (; n < hosts_.hosts_ent_cnt; n++)
-      if (hosts_.hosts_ent[n].source > HSRC_SELF)
-      {
-         IN6_ADDR_COPY(addr, &hosts_.hosts_ent[n].addr);
-         if (ns_src != NULL)
-            *ns_src = hosts_.hosts_ent[n].source;
-         break;
-      }
-   pthread_mutex_unlock(&hosts_mutex_);
-
-   *nptr = n;
-   return n < hosts_.hosts_ent_cnt ? n : -1;
-}
-
-
-int hosts_get_ns(struct in6_addr *addr, hsrc_t *ns_src)
-{
-   static int n = 0;
-   return hosts_get_ns_rr(addr, ns_src, &n);
 }
 
 
@@ -1099,6 +1054,25 @@ int is_hosts_db_modified(void)
    pthread_mutex_unlock(&hosts_mutex_);
 
    return m;
+}
+
+
+void print_ns(int fd)
+{
+   char in6[256];
+
+   hosts_update_ns();
+   log_debug("printing ns list");
+   pthread_mutex_lock(&ns_mutex_);
+   for (int i = 0; i < MAX_NS; i++)
+   {
+      if (!ns_[i].metric)
+         continue;
+      inet_ntop(AF_INET6, &ns_[i].addr, in6, sizeof(in6));
+      dprintf(fd, "nameserver %s # metric = %d, src = %d, source_str = \"%s\"\n",
+            in6, ns_[i].metric, ns_[i].source, hosts_source(ns_[i].source));
+   }
+   pthread_mutex_unlock(&ns_mutex_);
 }
 
 
