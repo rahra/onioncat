@@ -180,47 +180,6 @@ void delete_listeners(struct sockaddr **addr, int *fd, int cnt)
 }
 
 
-int fdaprintf(int fd, int bsiz, const char *fmt, va_list ap)
-{
-   char buf[bsiz];
-   int s, e;
-
-   if ((s = vsnprintf(buf, bsiz, fmt, ap)) >= bsiz)
-   {
-      return fdaprintf(fd, s + 1, fmt, ap);
-   }
-   else if (s == -1)
-   {
-      e = errno;
-      log_msg(LOG_WARNING, "vnsprintf failed: \"%s\"", strerror(e));
-      errno = e;
-      return -1;
-   }
-
-   if ((s = write(fd, buf, s)) == -1)
-   {
-      e = errno;
-      log_msg(LOG_WARNING, "write failed: \"%s\"", strerror(e));
-      errno = e;
-      return -1;
-   }
-   return s;
-}
-
-
-/*! Output formatted string to file using with a file descriptor.
- *  This function behaves like fprintf().
- *  @param fd File descriptor of file.
- *  @param fmt Format string.
- *  @param ap Variable parameter list.
- *  @return number of bytes written (not including '\0').
- */
-int fdprintf(int fd, const char *fmt, va_list ap)
-{
-   return fdaprintf(fd, SIZE_256, fmt, ap);
-}
-
-
 /*! Generic implementation of the select(2) call suitable for OnionCat. All
  * parameters are equal to the original select(2) call except t. t is used to
  * fill in a timeval structure.
