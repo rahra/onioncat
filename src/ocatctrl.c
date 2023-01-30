@@ -563,7 +563,7 @@ int ctrl_proc_line(fdbuf_t *fdb, char *buf)
 int ctrl_loop(fdbuf_t *fdb, ctrl_data_t *cd)
 {
    fd_set rset;
-   int maxfd, len;
+   int len;
    char buf[1024];
 
    update_thread_activity();
@@ -578,7 +578,7 @@ int ctrl_loop(fdbuf_t *fdb, ctrl_data_t *cd)
    }
 
    // get and handle data from buffer if available
-   if ((len = fdgets(fdb, buf, sizeof(buf))) > 0)
+   if ((len = fd_bufgets(fdb, buf, sizeof(buf))) > 0)
    {
       cd->display_prompt = 1;
       return ctrl_proc_line(fdb, buf);
@@ -588,24 +588,23 @@ int ctrl_loop(fdbuf_t *fdb, ctrl_data_t *cd)
    FD_SET(fdb->fd, &rset);
 
    // wait for data
-   maxfd = oc_select(fdb->fd + 1, &rset, NULL, NULL);
-   // check timeout
-   if (!maxfd)
+   switch (oc_select(fdb->fd + 1, &rset, NULL, NULL))
    {
-      return 1;
-   }
-   // check error
-   else if (maxfd == -1)
-   {
-      // interrupted
-      if (errno == EINTR)
-         return -1;
-      // other errors
-      return 0;
+      // timeout
+      case 0:
+         return 1;
+
+      // check error
+      case -1:
+         // interrupted
+         if (errno == EINTR)
+            return -1;
+         // other errors
+         return 0;
    }
 
    // read data into buffer
-   len = fdfill(fdb);
+   len = fd_fill(fdb);
    //check EOF
    if (!len)
    {
@@ -615,12 +614,6 @@ int ctrl_loop(fdbuf_t *fdb, ctrl_data_t *cd)
    // check error
    if (len == -1)
    {
-      if (errno == ENOBUFS)
-      {
-         log_msg(LOG_ERR, "input buffer full, clearing");
-         fdb->len = 0;
-         return -1;
-      }
       log_msg(LOG_ERR, "read failed on %d: %s", fdb->fd, strerror(errno));
       return 0;
    }

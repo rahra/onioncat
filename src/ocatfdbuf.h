@@ -33,8 +33,11 @@ typedef struct fdbuf
 
 
 int fd_init(fdbuf_t *, int );
-int fdgets(fdbuf_t *, char *, int );
-int fdfill(fdbuf_t *);
+int fd_full(const fdbuf_t *);
+int fd_copy(fdbuf_t *, char *, int , int );
+int fd_bufgets(fdbuf_t *, char *, int );
+int fd_gets(fdbuf_t *, char *, int );
+int fd_fill(fdbuf_t *);
 
 
 #endif
