@@ -671,7 +671,6 @@ int main(int argc, char *argv[])
    if (strstr(argv[0], "gcat"))
    {
       CNF(net_type) = NTYPE_I2P;
-      snprintf(def, 100, "127.0.0.1:%d", NDESC(listen_port));
       post_init_setup();
       mode_detect = 1;
    }
@@ -682,10 +681,7 @@ int main(int argc, char *argv[])
    parse_opt_early(argc, argv);
 
    if (!mode_detect)
-   {
-      snprintf(def, 100, "127.0.0.1:%d", NDESC(listen_port));
       post_init_setup();
-   }
 
    if ((c = open(CNF(config_file), O_RDONLY)) == -1)
    {
@@ -811,7 +807,21 @@ int main(int argc, char *argv[])
       mk_pid_file();
 
    if (!CNF(oc_listen_cnt))
-      add_listener(def);
+   {
+      if (CNF(socks5) == CONNTYPE_DIRECT)
+      {
+         snprintf(def, 100, "[::]:%d", NDESC(listen_port));
+         add_listener(def);
+      }
+      // add default listener
+      else
+      {
+         snprintf(def, 100, "[::1]:%d", NDESC(listen_port));
+         add_listener(def);
+         snprintf(def, 100, "127.0.0.1:%d", NDESC(listen_port));
+         add_listener(def);
+      }
+   }
 
    // start socket receiver thread
    run_ocat_thread("receiver", socket_receiver, NULL);
