@@ -19,7 +19,7 @@
  * This file contains the code of the hosts file handling and OnionCat's
  * internal database of hosts.
  * \author Bernhard R. Fischer <bf@abenteuerland.at>
- * \dat 2023/01/24
+ * \dat 2023/01/31
  */
 
 #ifdef HAVE_CONFIG_H
@@ -35,6 +35,7 @@
 #define log_debug(x...) log_msg(LOG_DEBUG, ## x)
 #endif
 #include "ocathosts.h"
+#include "ocatfdbuf.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -173,14 +174,11 @@ int hosts_read(time_t age, const char *phosts)
    int e, n, o = 0, c, src, ttl;
    char buf[HOSTS_LINE_LENGTH + 1], *s, *nptr, *rem, *host;
    struct addrinfo hints, *res;
-   FILE *f;
+   fdbuf_t fdb;
 
    log_msg(LOG_INFO, "reading hosts file %s", phosts);
-   if ((f = fopen(phosts, "r")) == NULL)
-   {
-      log_msg(LOG_ERR, "fopen(\"%s\"...) failed: \"%s\"", phosts, strerror(errno));
+   if (fd_open(&fdb, phosts, O_RDONLY) == -1)
       return -1;
-   }
 
    pthread_mutex_lock(&hosts_mutex_);
    // expire all hosts file entries in memory DB
@@ -191,7 +189,7 @@ int hosts_read(time_t age, const char *phosts)
    memset(&hints, 0, sizeof(hints));
    hints.ai_family = AF_INET6;
    hints.ai_flags = AI_NUMERICHOST;
-   while (fgets(buf, HOSTS_LINE_LENGTH, f) != NULL)
+   while (fd_gets(&fdb, buf, sizeof(buf)) > 0)
    {
       // skip leading spaces
       s = buf;
@@ -286,7 +284,7 @@ int hosts_read(time_t age, const char *phosts)
    }
 
    pthread_mutex_unlock(&hosts_mutex_);
-   (void) fclose(f);
+   oe_close(fdb.fd);
 
    hosts_cleanup();
    log_debug("found %d valid IPv6 records in %s (total %d)", o, phosts, hosts_.hosts_ent_cnt);

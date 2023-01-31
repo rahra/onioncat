@@ -16,10 +16,14 @@
  */
 
 /*! \file ocatfdbuf.c
- * This file contains functions which implements buffer IO based on file
- * descriptors similar to the f...-functions.
+ * This file contains functions which implements bufferd IO based on file
+ * descriptors similar to the f...-functions. The advantage of this
+ * implementation is that it is "officially" based on a filedescriptor which
+ * makes it possible to select(2) on them. Use fd_fill() and fd_bufgets() for
+ * that case.
+ *
  * \author Bernhard R. Fischer <bf@abenteuerland.at>
- * \date 2023/01/23
+ * \date 2023/01/31
  */
 
 #include <string.h>
@@ -31,19 +35,40 @@
 #include "ocatfdbuf.h"
 
 
-int fd_init0(fdbuf_t *fdb, int fd, char delim)
+void fd_init0(fdbuf_t *fdb, int fd, char delim)
 {
    memset(fdb, 0, sizeof(*fdb));
    fdb->size = sizeof(fdb->buf);
    fdb->delim = delim;
    fdb->fd = fd;
-   return 0;
 }
 
 
-int fd_init(fdbuf_t *fdb, int fd)
+void fd_init(fdbuf_t *fdb, int fd)
 {
-   return fd_init0(fdb, fd, '\n');
+   fd_init0(fdb, fd, '\n');
+}
+
+
+/*! This function opens the file pathname using open(2) and initializes fdb
+ * appropriately.
+ * @param fdb Pointer to fdbuf_t structure.
+ * @param pathname Pathname of file to open.
+ * @param flags Flags to be passed to open(2) (see there).
+ * @return The function returns a valid filedescriptor. On error, -1 is
+ * returned and errno is set appropriately.
+ */
+int fd_open(fdbuf_t *fdb, const char *pathname, int flags)
+{
+   int fd;
+
+   if ((fd = open(pathname, flags)) == -1)
+   {
+      log_msg(LOG_ERR, "open(\"%s\") failed: %s", pathname, strerror(errno));
+      return -1;
+   }
+   fd_init(fdb, fd);
+   return fd;
 }
 
 
@@ -197,7 +222,7 @@ int fd_gets(fdbuf_t *fdb, char *buf, int size)
       // wait for data
       for (maxfd = 0; !maxfd;)
       {
-         if (oc_select(fdb->fd + 1, &rset, NULL, NULL) == -1)
+         if ((maxfd = oc_select(fdb->fd + 1, &rset, NULL, NULL)) == -1)
          {
            // was interrupted?
            if (errno != EINTR)
@@ -211,7 +236,7 @@ int fd_gets(fdbuf_t *fdb, char *buf, int size)
       //check EOF
       if (!len)
       {
-         log_msg(LOG_INFO, "EOF received on fd %d", fdb->fd);
+         log_debug("EOF received on fd %d", fdb->fd);
          return 0;
       }
       // check error

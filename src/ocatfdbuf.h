@@ -32,7 +32,8 @@ typedef struct fdbuf
 } fdbuf_t;
 
 
-int fd_init(fdbuf_t *, int );
+void fd_init(fdbuf_t *, int );
+int fd_open(fdbuf_t *, const char *, int );
 int fd_full(const fdbuf_t *);
 int fd_copy(fdbuf_t *, char *, int , int );
 int fd_bufgets(fdbuf_t *, char *, int );
