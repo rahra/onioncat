@@ -18,7 +18,7 @@
 /*! \file ocat.c
  * This is the main file OnionCat. It initializes everything, runs all threads,
  * and finally terminates OnionCat again.
- * \date 2023/01/19
+ * \date 2023/01/31
  * \author Bernhard R. Fischer, <bf@abenteuerland.at>
  */
 
@@ -123,17 +123,17 @@ int open_logfile(void)
 
 int mk_pid_file(void)
 {
-   FILE *f;
+   int fd;
    char c;
 
-   if (!(f = fopen(CNF(pid_file), "w")))
+   if ((fd = open(CNF(pid_file), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) == -1)
    {
       log_msg(LOG_ERR, "could not create pid_file %s: %s", CNF(pid_file), strerror(errno));
       return -1;
    }
 
-   fprintf(f, "%d\n", (int) getpid());
-   fclose(f);
+   dprintf(fd, "%d\n", (int) getpid());
+   oe_close(fd);
    log_debug("pid_file %s created, pid = %d", CNF(pid_file), getpid());
 
    if (pipe(CNF(pid_fd)) == -1)
@@ -159,9 +159,7 @@ int mk_pid_file(void)
             oe_close(CNF(tunfd[1]));
 
          // wait for something happening on pipe
-         if (read(CNF(pid_fd[0]), &c, 1) == -1)
-            log_msg(LOG_ERR, "error reading from pid_fd %d: \"%s\"",
-                  CNF(pid_fd[0]), strerror(errno)), exit(1);
+         read(CNF(pid_fd[0]), &c, 1);
 
          if (unlink(CNF(pid_file)) == -1)
             log_msg(LOG_WARNING, "error deleting pid file \"%s\": \"%s\"",
@@ -288,7 +286,6 @@ void install_sig(void)
 void cleanup_system(void)
 {
    OcatPeer_t *peer, *next;
-   char c;
 
    log_msg(LOG_NOTICE, "waiting for system cleanup...");
    // close tunnel interface
@@ -333,8 +330,8 @@ void cleanup_system(void)
 
    if (CNF(create_pid_file) && (CNF(pid_fd[1]) != -1))
    {
-      if (write(CNF(pid_fd[1]), &c, 1) == -1)
-         log_msg(LOG_ERR, "cout not write to pid fd %d: \"%s\"", CNF(pid_fd[1]), strerror(errno));
+      log_debug("closing child pipe");
+      oe_close(CNF(pid_fd[1]));
    }
 }
 
