@@ -493,6 +493,38 @@ static ctrl_cmd_t cmd_[] =
 };
 
 
+int config_cmd_connect(fdbuf_t *fdb, int argc, char **argv)
+{
+   SocksQueue_t sq;
+   struct in6_addr in6;
+   int perm = 0;
+
+   if (validate_onionname(argv[1], &in6) == -1)
+   {
+      log_msg_fd(fdb->fd, LOG_ERR, "\"%s\" not a valid .onion-URL", argv[1]);
+      return -1;
+   }
+
+   if (argc > 2 && !strcmp("perm", argv[2]))
+      perm = 1;
+
+   memset(&sq, 0, sizeof(sq));
+   IN6_ADDR_COPY(&sq.addr, &in6);
+   sq.perm = perm;
+   socks_enqueue(&sq);
+
+   return 1;
+}
+
+
+static ctrl_cmd_t config_cmd_[] =
+{
+   {"connect", config_cmd_connect, 1},
+
+   {NULL, NULL, 0}
+};
+
+
 /*! Parse command line into argv array. As usual, the last entry in the list of
  * arguments will be NULL.
  * @param argv Array of char pointers.
@@ -527,11 +559,11 @@ int ctrl_parse_cmd(char **argv, int maxv, char *buf)
 }
 
 
-int ctrl_exec(fdbuf_t *fdb, int argc, char **argv)
+int ctrl_exec(const ctrl_cmd_t *cmdlist, fdbuf_t *fdb, int argc, char **argv)
 {
-   ctrl_cmd_t *cmd;
+   const ctrl_cmd_t *cmd;
 
-   for (cmd = cmd_; cmd->cmd != NULL; cmd++)
+   for (cmd = cmdlist; cmd->cmd != NULL; cmd++)
       if (!strcmp(cmd->cmd, argv[0]))
       {
          if (argc < cmd->min_argc)
@@ -547,16 +579,24 @@ int ctrl_exec(fdbuf_t *fdb, int argc, char **argv)
 }
 
 
-int ctrl_proc_line(fdbuf_t *fdb, char *buf)
+int ctrl_proc_line(const ctrl_cmd_t *cmdlist, fdbuf_t *fdb, char *buf)
 {
-#define MAX_CTRL_ARGV 10
    char *argv[MAX_CTRL_ARGV];
    int argc;
 
+   // parse command line string
    if ((argc = ctrl_parse_cmd(argv, MAX_CTRL_ARGV, buf)) <= 0)
       return 1;
 
-   return ctrl_exec(fdb, argc, argv);
+   // ignore comments
+   if (argv[0][0] == '#')
+   {
+      log_debug("ignoring comment");
+      return 1;
+   }
+
+   // execute command
+   return ctrl_exec(cmdlist, fdb, argc, argv);
 }
 
 
@@ -581,7 +621,7 @@ int ctrl_loop(fdbuf_t *fdb, ctrl_data_t *cd)
    if ((len = fd_bufgets(fdb, buf, sizeof(buf))) > 0)
    {
       cd->display_prompt = 1;
-      return ctrl_proc_line(fdb, buf);
+      return ctrl_proc_line(cmd_, fdb, buf);
    }
 
    FD_ZERO(&rset);
@@ -655,6 +695,21 @@ void *ctrl_handler(void *p)
 
    oe_close(fdb.fd);
    return NULL;
+}
+
+
+/*! This is a minimized version of the ctrl_handler to parse a config file.
+ */
+void parse_config(int fd)
+{
+   fdbuf_t fdb;
+   char buf[1024];
+
+   fd_init(&fdb, fd);
+   while (fd_gets(&fdb, buf, sizeof(buf)) > 0)
+      ctrl_proc_line(config_cmd_, &fdb, buf);
+
+   oe_close(fdb.fd);
 }
 
 

@@ -355,7 +355,6 @@ void parse_opt_early(int argc, char *argv_orig[])
          case 'f':
             if (!optf)
             {
-               free(CNF(config_file));
                CNF(config_file) = optarg;
                optf++;
             }
@@ -661,6 +660,10 @@ int main(int argc, char *argv[])
    struct passwd *pwd, pwdm;
    int urlconv = 0, mode_detect = 0;
 
+   // init main thread
+   (void) init_ocat_thread("main");
+   detach_thread();
+
    init_setup();
    // detect network type by command file name
    // FIXME: this should be not hardcoded in that way
@@ -683,11 +686,13 @@ int main(int argc, char *argv[])
    if ((c = open(CNF(config_file), O_RDONLY)) == -1)
    {
       CNF(config_failed) = errno;
-      CNF(config_read) = 1;
       log_debug("opening config file \"%s\" failed: \"%s\"", CNF(config_file), strerror(CNF(config_failed)));
    }
    else
-      ctrl_handler((void*) (long) c);
+   {
+      log_msg(LOG_NOTICE, "parsing config file \"%s\"", CNF(config_file));
+      parse_config(c);
+   }
  
    urlconv = parse_opt(argc, argv);
 
@@ -707,13 +712,6 @@ int main(int argc, char *argv[])
  
    if ((open_logfile() == -1) && !CNF(logfd))
       openlog(PACKAGE_NAME, LOG_NDELAY | LOG_PID, LOG_DAEMON);
-
-   // init main thread
-   (void) init_ocat_thread("main");
-   detach_thread();
-
-   if (CNF(config_failed) && (CNF(config_failed != ENOENT)))
-      log_msg(LOG_NOTICE, "could not open config file %s: %s", CNF(config_file), strerror(CNF(config_failed)));
 
    if (urlconv == 2)
    {

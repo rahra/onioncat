@@ -204,7 +204,8 @@
 #define OCAT_NS_PORT 53
 //! Local state dir for cached hosts file
 #define OCAT_HOSTS_STATE STATEDIR "/hosts.cached"
-
+//! maximum number of argvs of cli and config file
+#define MAX_CTRL_ARGV 10
 //! Maximum frame (packet) size, should be able to keep one maximum size ipv6-packet: 2^16 + 40 + 4
 #define FRAME_SIZE 65580
 
@@ -704,6 +705,11 @@ int validate_onionname(const char *, struct in6_addr *);
 int tun_alloc(char *, int, struct in6_addr);
 #endif
 
+/* ocatctrl.c */
+void *ctrl_handler(void *);
+void parse_config(int );
+void *ocat_controller(void *);
+
 /* ocatroute.c */
 extern int sockfd_[2];
 void init_peers(void);
@@ -714,8 +720,6 @@ void *packet_dequeuer(void *);
 #endif
 void *socket_acceptor(void *);
 void *socket_cleaner(void *);
-void *ocat_controller(void *);
-void *ctrl_handler(void *);
 int insert_peer(int, const SocksQueue_t *, time_t);
 int run_listeners(struct sockaddr **, int *, int, int (*)(int));
 int send_keepalive(OcatPeer_t *);
@@ -798,6 +802,7 @@ void free_ckbuf(uint16_t *);
 uint16_t *malloc_ckbuf(struct in6_addr, struct in6_addr, uint16_t, uint8_t, const void *);
 
 /* ocatsocks.c */
+void socks_enqueue(const SocksQueue_t *);
 void socks_queue(struct in6_addr, int);
 void print_socks_queue(int);
 void sig_socks_connector(void);

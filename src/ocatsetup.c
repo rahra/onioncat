@@ -80,7 +80,7 @@ struct OcatSetup setup_ =
    {0x00, 0x00, 0x6c, 0x00, 0x00, 0x00},   // ocat_hwaddr (OnionCat MAC address)
    PID_FILE,                               // pid_file
    0,                                      // create_pid_file
-   NULL, 0,                                // logfile
+   NULL, 2,                                // logfile
    0,                                      // use_syslog
 #ifdef __CYGWIN__
    0,
@@ -185,7 +185,7 @@ void init_setup(void)
 
 void post_init_setup(void)
 {
-   size_t l;
+   static char _config_file[1024];
    const uint32_t loop_ = htonl(INADDR_LOOPBACK);
 
    setup_.ocat_addr4 = NDESC(prefix4);
@@ -197,11 +197,11 @@ void post_init_setup(void)
    setup_.l_hs_namelen = NDESC(l_hs_namelen);
    hosts_init(NDESC(domain));
 
-   l = strlen(SYSCONFDIR) + strlen(NDESC(config_file)) + 2;
-   if ((setup_.config_file = malloc(l)) != NULL)
-      snprintf(setup_.config_file, l, "%s/%s", SYSCONFDIR, NDESC(config_file));
-   else
-      log_msg(LOG_WARNING, "could not get memory for config file string: \"%s\"", strerror(errno));
+   if (!setup_.config_file)
+   {
+      snprintf(_config_file, sizeof(_config_file), "%s/%s", SYSCONFDIR, NDESC(config_file));
+      setup_.config_file = _config_file;
+   }
 
    if (!setup_.socks_dst->sin_port)
       setup_.socks_dst->sin_port = htons(NDESC(socks_port));
