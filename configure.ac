@@ -1,7 +1,7 @@
 
 AC_PREREQ([2.62])
 #define([svnversion], esyscmd([sh -c "echo -n $(wc -l <GitLog)"]))dnl
-AC_INIT([onioncat],[[4.10.1]],[bf@abenteuerland.at])
+AC_INIT([onioncat],[[4.11.0]],[bf@abenteuerland.at])
 AM_INIT_AUTOMAKE([-Wall -Werror])
 AC_SUBST([CFLAGS], [["$CFLAGS -Wall -Wextra"]])
 AC_CONFIG_HEADERS([config.h])
@@ -58,8 +58,6 @@ CC="$PTHREAD_CC"
 
 AC_SEARCH_LIBS([bind], [socket])
 AC_SEARCH_LIBS([inet_ntop], [nsl])
-#AC_SEARCH_LIBS([__dn_expand], [resolv])
-#AC_SEARCH_LIBS([__dn_comp], [resolv])
 
 # Checks for header files.
 AC_HEADER_STDC
@@ -218,9 +216,7 @@ AC_CHECK_MEMBER([struct ether_header.ether_dhost.ether_addr_octet],
 #AC_FUNC_SELECT_ARGTYPES
 #AC_FUNC_STRFTIME
 #AC_FUNC_VPRINTF
-#AC_CHECK_FUNCS([clock_gettime memset select socket strchr strerror])
 AC_CHECK_FUNCS([strlcat strlcpy ether_ntoa ether_ntoa_r getpwnam_r])
-#AC_CHECK_FUNCS([__dn_expand __dn_comp])
 
 AC_CONFIG_FILES([Makefile src/cygwin/Makefile src/Makefile man/Makefile i2p/Makefile])
 AC_OUTPUT
