@@ -63,7 +63,7 @@ Open the "File Explorer" and navigate to the folder _"This PC > Desktop > Tor
 Browser > Browser > TorBrowser > Data > Tor"_. The folder contains the
 configuration file of Tor named `torrc`.
 
-[ONIONCAT_ON_WINDOWS_fig1.png](ONIONCAT_ON_WINDOWS_fig1.png)
+![ONIONCAT_ON_WINDOWS_fig1.png](ONIONCAT_ON_WINDOWS_fig1.png)
 
 Right-click it, chose "Open with" and select the Notepad (or your favorite text
 editor). Make sure that the Tor browser is _not_ running because otherwise it
@@ -103,7 +103,7 @@ Don't close the window, it would stop OnionCat.
 At the first time the Windows firewall will complain that a program opens a
 port. You have to choose **allow access**.
 
-[ONIONCAT_ON_WINDOWS_fig2.png](ONIONCAT_ON_WINDOWS_fig2.png)
+![ONIONCAT_ON_WINDOWS_fig2.png](ONIONCAT_ON_WINDOWS_fig2.png)
 
 ## Test Setup
 
