@@ -1,7 +1,7 @@
 # AN INTRODUCTION TO ONIONCAT4
 
-Version 1.0, 2022/07/21, Bernhard R. Fischer <bf@abenteuerland.at>
-Version 1.1, 2022/11/19, Bernhard R. Fischer <bf@abenteuerland.at>
+* Version 1.0, 2022/07/21, Bernhard R. Fischer <bf@abenteuerland.at>
+* Version 1.1, 2022/11/19, Bernhard R. Fischer <bf@abenteuerland.at>
 
 
 ## ABSTRACT
@@ -40,7 +40,7 @@ protected from surveillance.
 Once a connection between two OnionCats is established, any network packets
 (such as e.g. TCP, UDP, and ICMP) can pass through this tunnel as long as they
 are IPv6-based. But since OnionCat assigns IPv6 addresses with the prefix
-fd87:d87e:eb43::/48 to the tunnel interface, any point-to-point connection
+`fd87:d87e:eb43::/48` to the tunnel interface, any point-to-point connection
 between two nodes will work out-of-the box.
 
 
@@ -67,10 +67,10 @@ OnionCat IPv6 addresses.
 The "magic" is the translation between IPv6 addresses and .onion hostnames. The
 development of OnionCat started in 2008. At the time then .onion hostnames with
 hidden services version 2 were encoded 80 bit long identifiers, such as e.g.
-777myonionurl777.onion. Since IPv6 addresses have 128 bits, a translation back
+`777myonionurl777.onion`. Since IPv6 addresses have 128 bits, a translation back
 and forth into a special chosen prefix was possible. For example
-777myonionurl777.onion. would translate to
-fd87:d87e:eb43:fffe:cc39:a873:6915:ffff and back again.
+`777myonionurl777.onion`. would translate to
+`fd87:d87e:eb43:fffe:cc39:a873:6915:ffff` and back again.
 
 Since then several things changed and it was necessary to improve the
 cryptography of Tor and make it more strong. This led to the development of
@@ -248,18 +248,16 @@ reliable one. We let it collect all entries and define it as our master. Please
 note that this is just a personal definition. It's a point of view. All
 OnionCat instances are technically equal and have the same capabilities.
 
-Step 1: Start OnionCat4 on all instances with the additional command line
-argument "`-A <hostname_of_S0.onion>`".
-
-Step 2: On the command line of each instance (except S0) ping the IPv6 address
-of S0.
-
-Step 3: Because each instance can properly resolve S0 (because the hostname is
-already in every instance's hosts database because of -A), all of them will be
-able to open a connection to S0. Since OnionCat sends an initial keepalive
-packet, S0 will learn about all of those instances and its internal hosts
-database (of S0) will immediately be populated with all the entries (N0-N5 and
-S0-S5 in this example).
+1. Start OnionCat4 on all instances with the additional command line
+   argument "`-A <hostname_of_S0.onion>`".
+2. On the command line of each instance (except S0) ping the IPv6 address
+   of S0.
+3. Because each instance can properly resolve S0 (because the hostname is
+   already in every instance's hosts database because of -A), all of them will be
+   able to open a connection to S0. Since OnionCat sends an initial keepalive
+   packet, S0 will learn about all of those instances and its internal hosts
+   database (of S0) will immediately be populated with all the entries (N0-N5 and
+   S0-S5 in this example).
 
 Now let's assume N0 wants to connect to N1 (e.g. let's ping the IPv6 address of
 N1 on the command line of N0). N0 has no entry for N1 in its hosts database.
