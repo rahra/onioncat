@@ -1,7 +1,8 @@
 # Onioncat on Windows
 
-Version 2.0, 2023/01/18, Bernhard R. Fischer <bf@abenteuerland.at>
-Version 1.0, 2019/08/21, Bernhard R. Fischer <bf@abenteuerland.at>
+* Version 2.1, 2023/09/29, Bernhard R. Fischer <bf@abenteuerland.at>
+* Version 2.0, 2023/01/18, Bernhard R. Fischer <bf@abenteuerland.at>
+* Version 1.0, 2019/08/21, Bernhard R. Fischer <bf@abenteuerland.at>
 
 Onioncat ist written in a portable manner, thus it runs on almost all operating
 systems, even on Windows. This document describes how to run Onioncat on a
@@ -12,7 +13,7 @@ Tor Browser 12.0.1, OpenVPN 2.5.8 (and also 2.4.12), and OnionCat 4.11.0
 (OnionCat 4.10.0 runs only with OpenVPN 2.4.x).
 
 The Windows part of the code was already written in 2008, hence Onioncat on
-Windows is nothing new. There were only minor changes since then. This document
+Windows is nothing new. There were only minor changes in the Windows code since then. This document
 is to meet recent versions of Windows, Tor, and Onioncat.
 
 ## Preface
@@ -45,7 +46,7 @@ Tor for Windows can only be downloaded as the Tor Browser Bundle but that
 doesn’t matter. Before running the Tor browser we have to configure it which is
 explained in the next section.
 
-Download the precompiled Windows 10 files of Onioncat from the **Releases** on Github.
+Download the precompiled Windows 10 files of Onioncat from the [Releases on Github](https://github.com/rahra/onioncat/releases/).
 Unzip the archive.  Unzip the archive somewhere. In the directory are 4 files:
 
 * `ocat.bat` -- The batch file to run OnionCat. You have to edit it first.
@@ -68,8 +69,8 @@ configuration file of Tor named `torrc`.
 Right-click it, chose "Open with" and select the Notepad (or your favorite text
 editor). Make sure that the Tor browser is _not_ running because otherwise it
 will overwrite the file after you edited it. The Notepad will open the file and
-show its contents. Copy the following lines into it. They configure two hidden
-services for Onioncat.
+show its contents. Copy the following lines into it. They configure a hidden
+service for Onioncat.
 
 ```
 HiddenServiceDir TorBrowser\Data\Tor\onioncat_hsv3
@@ -80,10 +81,10 @@ Save the file and close the Notepad. Now you can start the Tor browser (there
 should be an icon on your desktop) and click on "Connect".
 
 After it started successfully, again go to the File Explorer to the same
-directory ("This PC > Desktop > Tor Browser > Browser > TorBrowser > Data >
-Tor"). An additional folder should have appeared: `onioncat_hsv3`.
+directory (_"This PC > Desktop > Tor Browser > Browser > TorBrowser > Data >
+Tor"_). An additional folder should have appeared: `onioncat_hsv3`.
 Navigate into `onioncat_hsv3`, there’s a file named
-"hostname". Open it with the Notepad (right-click -> "Open with" -> "Notepad").
+`hostname`. Open it with the Notepad (right-click -> "Open with" -> "Notepad").
 The file contains the onion ID of your hidden service, e.g.
 `foobar...xxx...2e6c3gboyngav2rq.onion`. Keep the file open, you will need this
 string in the next step.
@@ -93,11 +94,11 @@ string in the next step.
 Now navigate to the folder where you unzipped the OnionCat packaged and edit
 the `ocat.bat` file with a text editor (e.g. Notepad).
 Edit the following line in the file and replace the `SET_THIS_PROPERLY` with
-your .onion hostname as found in the file `onioncat_hsv3` from above.
+your .onion hostname as found in the file `onioncat_hsv3/hostname` from above.
 Save the file and close the editor.
 
 Now right-click the `ocat.bat` again and choose "Run as administrator".
-A DOS box will open and OnionCat will output a bunch of messages as show below.
+A DOS box will open and OnionCat will output a bunch of messages as shown below.
 Don't close the window, it would stop OnionCat.
 
 At the first time the Windows firewall will complain that a program opens a
@@ -111,7 +112,45 @@ Tor is running, Onioncat is running, you are ready to test the setup. Actually
 you need a second Onioncat node somewhere. Of course, a single Onioncat
 instance doesn’t make much sense 😉
 
-Try to ping another running Onioncat node. Get its IPv6 address and open a
+But anyway, there are two specific IPv6 addresses built-in which allows you to test if
+your instance works properly even without having another OnionCat out
+somewhere. These addresses are `fd87:d87e:eb43::dead:beef` and
+`fd87:d87e:eb43::feed:beef`. OnionCat will redirect the packets back to your
+host exactly like a loopback interface (such as `127.0.0.1`) does. Please be
+aware that your Windows firewall will block ICMPv6 requests by default. Thus, to be able
+to ping yourself through such a loop you have to add a rule to the Windows firewall. To do so open
+a DOS box in administrator mode (Run as Administrator) and issue the following
+command:
+
+```
+netsh advfirewall firewall add rule name="ICMPv6 Allow Ping Requests" protocol=icmpv6:any,any dir=in action=allow
+```
+
+This will allow all incoming ICMPv6 packets (note: it could be restricted to only echo request/reply). Now you are ready to ping "dead
+beef" and "feed beef" as shown below. The 1st IPv6 address is a direct loop
+within OnionCat. This shows that the connection between your OS and OnionCat is
+fine. The 2nd address is a loop through Tor, i.e. it makes your Tor node to connect to itself through Tor. It shows that the connection
+between OnionCat and Tor is fine and that your hidden service is setup
+properly. Please note that the connection setup could take a few seconds since
+this goes through Tor. In anyway make sure your system has the correct time
+since Tor highly depends and time.
+
+```
+C:\Users\dummy>ping fd87:d87e:eb43::dead:beef
+
+Pinging fd87:d87e:eb43::dead:beef with 32 bytes of data:
+Reply from fd87:d87e:eb43::dead:beef: time<1ms
+Reply from fd87:d87e:eb43::dead:beef: time=2ms
+Reply from fd87:d87e:eb43::dead:beef: time=1ms
+Reply from fd87:d87e:eb43::dead:beef: time=1ms
+
+Ping statistics for fd87:d87e:eb43::dead:beef:
+    Packets: Sent = 4, Received = 4, Lost = 0 (0% loss),
+Approximate round trip times in milli-seconds:
+    Minimum = 0ms, Maximum = 2ms, Average = 1ms
+```
+
+now try to ping another running Onioncat node. Get its IPv6 address and open a
 command window (type cmd in the Windows search bar on the bottom of the screen
 and press enter). Now enter the command ping followed by the IPv6 address of
 the target node. It may take a while (a few seconds) until the first pings will
