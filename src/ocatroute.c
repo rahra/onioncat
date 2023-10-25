@@ -611,7 +611,8 @@ void *socket_receiver(void *UNUSED(p))
       // thread woke up because of internal pipe read => restart selection
       if (FD_ISSET(lpfd_[0], &rset))
       {
-         read(lpfd_[0], buf, FRAME_SIZE - 4);
+         if (read(lpfd_[0], buf, FRAME_SIZE - 4) == -1)
+            log_msg(LOG_ERR, "read from pipe %d failed: %s", lpfd_[0], strerror(errno));
          maxfd--;
       }
 
@@ -1445,8 +1446,10 @@ int loopback_handler(int fd, const struct in6_addr *laddr)
    log_debug("clearing unidirectional mode and sending packet");
    uni = CNF(unidirectional);
    CNF(unidirectional) = 0;
-   len = write(fd, buf, wlen);
-   log_debug("sent %d of %d bytes to fd %d", len, wlen, fd);
+   if ((len = oe_write(fd, buf, wlen)) != -1)
+   {
+      log_debug("sent %d of %d bytes to fd %d", len, wlen, fd);
+   }
 
    for (peer = NULL; peer == NULL; )
    {

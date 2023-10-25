@@ -812,6 +812,7 @@ int synchron_socks_connect(const struct in6_addr *);
 
 /* ocatlibe.c */
 void oe_close(int);
+ssize_t oe_write(int , const void *, size_t );
 int oe_remtr(char *);
 int strsockaddr(const char *, struct sockaddr *);
 void add_local_listeners(void);

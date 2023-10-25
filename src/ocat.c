@@ -159,7 +159,8 @@ int mk_pid_file(void)
             oe_close(CNF(tunfd[1]));
 
          // wait for something happening on pipe
-         read(CNF(pid_fd[0]), &c, 1);
+         if (read(CNF(pid_fd[0]), &c, 1) == -1)
+            log_msg(LOG_ERR, "read from pipe %d failed: %s", CNF(pid_fd[0]), strerror(errno));
 
          if (unlink(CNF(pid_file)) == -1)
             log_msg(LOG_WARNING, "error deleting pid file \"%s\": \"%s\"",

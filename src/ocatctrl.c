@@ -77,7 +77,7 @@ void ctrl_ns_response(void *p, struct in6_addr addr, int code)
    {
       snprintf(buf, sizeof(buf), "response received, code = %s (%d)\n", code_str(code), code);
    }
-   write((long) p, buf, strlen(buf));
+   oe_write((long) p, buf, strlen(buf));
 }
 #endif
 
@@ -404,7 +404,7 @@ int ctrl_cmd_queue(fdbuf_t *fdb, int UNUSED(argc), char **UNUSED(argv))
          len--;
          e++;
       }
-      write(fdb->fd, buf, len);
+      oe_write(fdb->fd, buf, len);
    }
 
    oe_close(fd[0]);

@@ -380,7 +380,7 @@ void socks_output_queue(int fd)
             );
    }
    i = 0;
-   write(fd, &i, 1);
+   oe_write(fd, &i, 1);
 }
 
 

@@ -50,6 +50,19 @@ void oe_close(int fd)
 }
 
 
+/*! This function is wrapper for write(2) which creates a log message in case
+ * of write failes (i.e. returns -1).
+ */
+ssize_t oe_write(int fd, const void *buf, size_t count)
+{
+   ssize_t len;
+
+   if ((len = write(fd, buf, count)) == -1)
+      log_msg(LOG_ERR, "write on fd %d failed: %s", fd, strerror(errno));
+   return len;
+}
+
+
 /*! Remove leading and trailing spaces of a string.
  *  @param s Pointer to string.
  *  @return Length of string after character removal.
