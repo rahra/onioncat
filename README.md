@@ -1,6 +1,6 @@
 # ocat(1) - OnionCat creates a transparent IPv6 layer on top of Tor's or I2P hidden
 
-ocat, 2022-07-21
+ocat, 2023-10-25
 
 services.
 
@@ -52,6 +52,9 @@ OnionCat and Tor itself works, hidden service correctly configured and enabled.
 
 ### OPTIONS
 
+In the following is a description of all options. Typically you won't need any
+of them except specifying your OnionCat's .onion hostname. Depending on your
+setup you may use options **-g** and **-A**.
 
 * **-2**  
   This option is here only for simplicity. With this option OnionCat behaves like
@@ -82,10 +85,17 @@ OnionCat and Tor itself works, hidden service correctly configured and enabled.
   OnionCat creates a log file at $HOME/.ocat/connect_log. All incoming connects are
   logged to that file. $HOME is determined from the user under which OnionCat runs
   (see option -u).
-* **-A** _ipv6_/_hostname_  
+* **-A** [_ipv6_/]_hostname_  
   This option lets you add an IP address hostname pair to the internal hosts db.
-  This option may be specified multple times. Alternatively you could put the
-  IP/hostname pairs into the OnionCat hosts file (see option -g).
+  Typically it is enough to specify just the .onion hostname because the IPv6
+  address is derived from the hostname. Adding an IP address is either redundant
+  or may be used in special scenarios where the IPv6 address differes from its
+  original address. The latter will only work in a closed environment and is not
+  interoperable with other OnionCats in the wild because by default the names and
+  IPs are verified to be correct.
+  This option may be specified multple times.
+  Alternatively you could put the IP/hostname pairs into the OnionCat hosts file
+  (see option -g).
 * **-b**  
   Run OnionCat in background. This is default. OnionCat will detach from a running
   shell and close standard IO if no log file is given with option -L.
@@ -366,8 +376,16 @@ $HOME/.ocat/connect_log
 # Author
 
 Concepts, software, and man page written by Bernhard R. Fischer
-&lt;[bf@abenteuerland.at](mailto:bf@abenteuerland.at)&gt;. Package maintenance and additional support by Ferdinand
-Haselbacher, Daniel Haslinger &lt;[creo-ocat@blackmesa.at](mailto:creo-ocat@blackmesa.at)&gt;, and Wim Gaethofs.
+&lt;[bf@abenteuerland.at](mailto:bf@abenteuerland.at)&gt;.
+
+
+<a name="credits"></a>
+
+# Credits
+
+Credits go to Ferdinand Haselbacher, Daniel Haslinger, Wim Gaethofs,
+Marshalbanana, all package maintainers of several Linux and BSD distros, and
+many others who have contributed and reported bugs.
 
 
 <a name="see-also"></a>
@@ -376,9 +394,9 @@ Haselbacher, Daniel Haslinger &lt;[creo-ocat@blackmesa.at](mailto:creo-ocat@blac
 
 Onioncat source code https://github.com/rahra/onioncat
 
-OnionCat project page https://www.onioncat.org/
+Further docs and howtos are found at https://github.com/rahra/onioncat/tree/master/doc
 
-OnionCat source packages are found at https://www.cypherpunk.at/ocat/download/Source/
+OnionCat source packages are also found at https://www.abenteuerland.at/ocat/download/Source/
 
 Tor project homepage https://www.torproject.org/
 
@@ -389,7 +407,7 @@ I2P project homepage https://geti2p.net/
 
 # Copyright
 
-Copyright 2008-2021 Bernhard R. Fischer.
+Copyright 2008-2023 Bernhard R. Fischer.
 
 This file is part of OnionCat.
 
