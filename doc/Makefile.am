@@ -1,0 +1,2 @@
+dist_doc_DATA = INTRO_TO_ONIONCAT4.md INTRO_TO_ONIONCAT4.txt Makefile.am onioncat_flow_dia_v1_1.odg onioncat_flow_dia_v1_1.pdf ONIONCAT_ON_WINDOWS_fig1.png ONIONCAT_ON_WINDOWS_fig2.png ONIONCAT_ON_WINDOWS.md SECURITY_CONSIDERATIONS_fig1.png SECURITY_CONSIDERATIONS.md
+
