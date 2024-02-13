@@ -1,3 +1,8 @@
+onioncat (4.11.0-1) UNRELEASED; urgency=low
+
+  * upstream git build #61290c9
+
+ -- Bernhard R. Fischer <bf@abenteuerland.at>  Tue, 13 Feb 2024 18:21:07 +0100
 onioncat (0.2.0.r514) jaunty; urgency=low
 
   * Upstream svn build debian unstable
