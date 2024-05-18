@@ -1,4 +1,4 @@
-/* Copyright 2008-2023 Bernhard R. Fischer.
+/* Copyright 2008-2024 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -19,7 +19,7 @@
  *  These functions create and initialized the TUN/TAP device.
  *
  *  @author Bernhard R. Fischer <rahra _at_ cypherpunk at>
- *  \date 2023/01/17
+ *  \date 2024/05/18
  */
 
 
@@ -76,7 +76,7 @@ extern char **environ;
  */
 int run_tun_ifup(const char *ifname, const char *astr, int prefix_len)
 {
-   char env_ifname[ENVLEN], env_address[ENVLEN], env_prefix[ENVLEN], env_prefix_len[ENVLEN], env_onion_url[ENVLEN], env_onion3_url[ENVLEN], env_domain[ENVLEN];
+   char env_ifname[ENVLEN], env_address[ENVLEN], env_prefix[ENVLEN], env_prefix_len[ENVLEN], env_onion_url[SIZE_256 + ENVLEN], env_onion3_url[SIZE_256 + ENVLEN], env_domain[ENVLEN];
    char *env[] = {env_ifname, env_address, env_prefix, env_prefix_len, env_onion_url, env_onion3_url, env_domain, NULL};
    pid_t pid;
 
@@ -528,6 +528,9 @@ int tun_add_route(const char *dev, const struct in6_addr *prefix, int prefix_len
    char buf[SIZE_256] = "";
    int e = 0;
 
+   // this is only to avoid unused-warning
+   snprintf(pfx, sizeof(pfx), "%.1s%d", dev, prefix_len);
+
    inet_ntop(AF_INET6, prefix, pfx, INET6_ADDRSTRLEN);
    inet_ntop(AF_INET6, addr, astr, INET6_ADDRSTRLEN);
 
@@ -555,10 +558,9 @@ int tun_add_route(const char *dev, const struct in6_addr *prefix, int prefix_len
  * (i.e. it points to a \0-char). The string will be initialized by this
  * function.
  * @param dev_s Number of bytes available in dev.
- * @param in6_addr DEPRECATED.
  * @return On success it returns a filedescriptor >= 0, otherwise -1 is returned.
  */
-int tun_alloc(char *dev, int dev_s, struct in6_addr addr)
+int tun_alloc(char *dev, int dev_s)
 {
    int fd;
 

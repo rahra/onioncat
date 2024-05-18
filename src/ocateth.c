@@ -1,4 +1,4 @@
-/* Copyright 2008-2023 Bernhard R. Fischer.
+/* Copyright 2008-2024 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -19,7 +19,7 @@
  *  Contains Ethernet (for TAP) and ICMPv6 (for NDP) code.
  *
  *  @author Bernhard Fischer <bf@abenteuerland.at>
- *  @version 2023/01/24
+ *  @version 2024/05/18
  */
 
 
@@ -433,7 +433,7 @@ int ndp_soladv(char *buf, int rlen)
 /*! Extract source ipv6 and MAC address and add/update MAC table.
  *  FIXME: there should be some additional checks!
  */
-int ndp_recadv(char *buf, int len)
+int ndp_recadv(char *buf, int UNUSED(len))
 {
    ndp6_t *ndp6 = (ndp6_t*) (buf + 4);
 

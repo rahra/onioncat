@@ -1,4 +1,4 @@
-/* Copyright 2008-2023 Bernhard R. Fischer, Daniel Haslinger.
+/* Copyright 2008-2024 Bernhard R. Fischer, Daniel Haslinger.
  *
  * This file is part of OnionCat.
  *
@@ -20,7 +20,7 @@
  *  wrapper functions around create_pthread.
  *
  *  \author Bernhard R. Fischer <bf@abenteuerland.at>
- *  \date 2023/01/10
+ *  \date 2024/05/18
  */
 
 
@@ -463,9 +463,9 @@ int check_threads(void)
  * @return Returns the previous value of the flags. If the current thread is
  * not found in OnionCat's internal thread list, -1 is returned.
  */
+#ifdef DEBUG
 int set_thread_flags(int f)
 {
-#ifdef DEBUG
    int f0 = -1;
    OcatThread_t *th;
    pthread_t thread = pthread_self();
@@ -481,8 +481,11 @@ int set_thread_flags(int f)
    pthread_mutex_unlock(&thread_mutex_);
 
    return f0;
-#else
-   return 0;
-#endif
 }
+#else
+int set_thread_flags(int UNUSED(f))
+{
+   return 0;
+}
+#endif
 

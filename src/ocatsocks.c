@@ -1,4 +1,4 @@
-/* Copyright 2008-2023 Bernhard R. Fischer.
+/* Copyright 2008-2024 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -18,8 +18,8 @@
 /*! \file ocatsocks.c
  *  Contains functions for connecting to TOR via SOCKS.
  *
- *  @author Bernhard Fischer <rahra _at_ cypherpunk at>
- *  \date 2023/01/24
+ *  \author Bernhard Fischer <bf@abenteuerland.at>
+ *  \date 2024/05/18
  */
 
 /* SOCKS5 is defined in RFC1928 */
@@ -250,10 +250,16 @@ void sig_socks_connector(void)
 /*! This is a wrapper function for sig_socks_connector() to be suitable for the
  * DNS query callback.
  */
+#ifdef DEBUG
 void socks_query_callback(void *UNUSED(p), struct in6_addr in6, int code)
+#else
+void socks_query_callback(void *UNUSED(p), struct in6_addr UNUSED(in6), int UNUSED(code))
+#endif
 {
+#ifdef DEBUG
    char astr[INET6_ADDRSTRLEN];
    log_debug("query callback received for %s, code = %d", inet_ntop(AF_INET6, &in6, astr, sizeof(astr)), code);
+#endif
    sig_socks_connector();
 }
 

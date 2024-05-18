@@ -1,4 +1,4 @@
-/* Copyright 2008-2023 Bernhard R. Fischer.
+/* Copyright 2008-2024 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -18,7 +18,7 @@
 /*! \file ocat.c
  * This is the main file OnionCat. It initializes everything, runs all threads,
  * and finally terminates OnionCat again.
- * \date 2023/01/31
+ * \date 2024/05/18
  * \author Bernhard R. Fischer, <bf@abenteuerland.at>
  */
 
@@ -780,7 +780,7 @@ int main(int argc, char *argv[])
 
 #ifndef WITHOUT_TUN
    // create TUN device
-   if ((CNF(tunfd[0]) = CNF(tunfd[1]) = tun_alloc(CNF(tunname), sizeof(CNF(tunname)), CNF(ocat_addr))) == -1)
+   if ((CNF(tunfd[0]) = CNF(tunfd[1]) = tun_alloc(CNF(tunname), sizeof(CNF(tunname)))) == -1)
    {
       log_msg(LOG_CRIT, "error opening TUN/TAP device");
       exit(1);
@@ -859,7 +859,10 @@ int main(int argc, char *argv[])
       CNF(create_clog) = 0;
    }
 
-   mode_t u = umask(0022);
+#ifdef DEBUG
+   mode_t u =
+#endif
+   umask(0022);
    log_debug("umask set to 0%03o (was 0%03o)", 0022, u);
 
    if (!getuid())

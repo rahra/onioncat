@@ -1,4 +1,4 @@
-/* Copyright 2008-2023 Bernhard R. Fischer.
+/* Copyright 2008-2024 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -19,7 +19,7 @@
  * This file is the central header file of OnionCat. It includes all other
  * headers and contains all macros, structures, typedefs,...
  * \author Bernhard R. Fischer <bf@abenteuerland.at>
- * \date 2023/01/24
+ * \date 2024/05/18
  */
 
 #ifndef OCAT_H
@@ -702,7 +702,7 @@ int validate_onionname(const char *, struct in6_addr *);
 
 /* ocattun.c */
 #ifndef WITHOUT_TUN
-int tun_alloc(char *, int, struct in6_addr);
+int tun_alloc(char *, int);
 #endif
 
 /* ocatctrl.c */
