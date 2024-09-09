@@ -137,7 +137,7 @@ The hosts database may be populated by 6 different sources as follows. The 1st
 0. Its own hostname. There is always just a single entry.
 1. Hostnames passed as command line arguments with option -A.
 2. The hosts file. By default this is /usr/local/etc/tor/onioncat.hosts. It is
-   pulled in at program startup and automatically re-read every time if the
+   pulled in at program startup and automatically re-read every time the
    file was modified.
 3. Keepalive packets. Every OnionCat sends at least one initial keepalive
    packet to the remote end. It contains its own hostname.
@@ -180,10 +180,10 @@ Basically that means that hosts with a higher priority and a higher
 answer/query ratio are considered better.
 
 Technically the resolver does reverse lookups (PTR queries) because it tries
-the find a hostname for a given IPv6 address. Queries are sent using UDP on
+to find a hostname for a given IPv6 address. Queries are sent using UDP on
 port 53.
 
-Every time a query is sent the query counter (qcount) is increased. Successful
+Every time a query is sent, the query counter (qcount) is increased. Successful
 responses will increase the answer counter (acnt) of the hostname entry of the
 name server. Responses will also update the TTL value of the hosts entry of the
 corresponding name in the query.
@@ -239,7 +239,7 @@ A group of people use a set of OnionCat nodes to connect to each other. Assume
 there are some notebooks (nodes N0 to N5) which are not permanently online and
 some servers (nodes S0 to S5) which are online all the time. All instances have
 Tor and OnionCat4 setup properly. Since hidden services version 3 require a
-hostname lookup the OnionCats need additional configuration and will not just
+hostname lookup, the OnionCats need additional configuration and will not just
 magically work out of the box. At least one entry in the hosts database (except
 its own address) is necessary.
 
