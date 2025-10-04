@@ -1,4 +1,4 @@
-/* Copyright 2008-2024 Bernhard R. Fischer.
+/* Copyright 2008-2025 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -19,7 +19,7 @@
  * This file is the central header file of OnionCat. It includes all other
  * headers and contains all macros, structures, typedefs,...
  * \author Bernhard R. Fischer <bf@abenteuerland.at>
- * \date 2024/05/18
+ * \date 2025/10/04
  */
 
 #ifndef OCAT_H
@@ -758,6 +758,12 @@ size_t strlcat(char*, const char*, size_t);
 #endif
 #ifndef HAVE_STRLCPY
 size_t strlcpy(char*, const char*, size_t);
+#endif
+#ifndef HAVE_DPRINTF
+int dprintf(int, const char*, ...);
+#endif
+#ifndef HAVE_VDPRINTF
+int vdprintf(int, const char*, va_list);
 #endif
 
 /* ocatpeer.c */
