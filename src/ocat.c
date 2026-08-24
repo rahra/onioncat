@@ -1,4 +1,4 @@
-/* Copyright 2008-2024 Bernhard R. Fischer.
+/* Copyright 2008-2026 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -18,7 +18,7 @@
 /*! \file ocat.c
  * This is the main file OnionCat. It initializes everything, runs all threads,
  * and finally terminates OnionCat again.
- * \date 2024/05/18
+ * \date 2026/08/24
  * \author Bernhard R. Fischer, <bf@abenteuerland.at>
  */
 
@@ -233,7 +233,7 @@ void sig_handler(int sig)
       case SIGINT:
          // emergency shutdown if signalled twice
          if (sig_term_)
-            exit(0);
+            _exit(0);
 
          sig_term_ = 1;
          break;
