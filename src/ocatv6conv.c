@@ -1,4 +1,4 @@
-/* Copyright 2008,2009 Bernhard R. Fischer.
+/* Copyright 2008-2026 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -21,7 +21,7 @@
  *  and vice versa.
  *
  *  @author Bernhard R. Fischer <rahra _at_ cypherpunkt at>
- *  @version 2008/02/03-01
+ *  @date 2026/10/15
  */
 
 
@@ -203,7 +203,7 @@ void strtolower(char *s)
  */
 int validate_onionname(const char *name, struct in6_addr *addr)
 {
-   char *pp;
+   const char *pp;
    int len;
 
    // safety check

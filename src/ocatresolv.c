@@ -1,4 +1,4 @@
-/* Copyright 2008-2021 Bernhard R. Fischer.
+/* Copyright 2008-2026 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -28,7 +28,7 @@
  *  used.
  *
  *  \author Bernhard Fischer <bf@abenteuerland.at>
- *  \date 2021/07/03
+ *  \date 2026/10/15
  */
 
 
@@ -206,7 +206,7 @@ int oc_rev6ptr_addr(const char *buf, char *in6)
  */
 int oc_label_len(const char *s)
 {
-   char *t;
+   const char *t;
 
    t = strchr(s, '.');
    return t == NULL ? (int) strlen(s) : t - s;

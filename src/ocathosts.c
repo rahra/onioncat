@@ -1,4 +1,4 @@
-/* Copyright 2008-2023 Bernhard R. Fischer.
+/* Copyright 2008-2026 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -19,7 +19,7 @@
  * This file contains the code of the hosts file handling and OnionCat's
  * internal database of hosts.
  * \author Bernhard R. Fischer <bf@abenteuerland.at>
- * \dat 2023/01/31
+ * \dat 2026/10/15
  */
 
 #ifdef HAVE_CONFIG_H
@@ -329,7 +329,8 @@ int hosts_check(void)
 int validate_hostname(const char *src)
 {
    const char * const charset = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM234567";
-   char *s, buf[128];
+   const char *s;
+   char buf[128];
    int len;
 
    // check if a domain is appended
