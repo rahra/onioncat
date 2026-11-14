@@ -1,4 +1,4 @@
-/* Copyright 2008-2025 Bernhard R. Fischer.
+/* Copyright 2008-2026 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -19,7 +19,7 @@
  * This file is the central header file of OnionCat. It includes all other
  * headers and contains all macros, structures, typedefs,...
  * \author Bernhard R. Fischer <bf@abenteuerland.at>
- * \date 2025/10/04
+ * \date 2026/11/14
  */
 
 #ifndef OCAT_H
@@ -206,8 +206,8 @@
 #define OCAT_HOSTS_STATE STATEDIR "/hosts.cached"
 //! maximum number of argvs of cli and config file
 #define MAX_CTRL_ARGV 10
-//! Maximum frame (packet) size, should be able to keep one maximum size ipv6-packet: 2^16 + 40 + 4
-#define FRAME_SIZE 65580
+//! Maximum frame (packet) size, should be able to keep one maximum size ipv6-packet: 2^16 (IPv6 payload) + 40 (IPv6 header) + 4 (tun header) + 14 (Ethernet header) + 6 (padding to round up to 16 byte alignment)
+#define FRAME_SIZE 65600
 
 //! Standard buffer size 1024 bytes
 #define SIZE_1K 1024

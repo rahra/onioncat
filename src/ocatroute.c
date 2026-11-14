@@ -1,4 +1,4 @@
-/* Copyright 2008-2022 Bernhard R. Fischer.
+/* Copyright 2008-2026 Bernhard R. Fischer.
  *
  * This file is part of OnionCat.
  *
@@ -20,7 +20,7 @@
  *  Those are active SOCKS4A and passive TCP-LISTEN.
  *
  *  \author Bernhard Fischer <bf@abenteuerland.at>
- *  \date 2022/08/23
+ *  \date 2026/11/14
  */
 
 
@@ -611,7 +611,7 @@ void *socket_receiver(void *UNUSED(p))
       // thread woke up because of internal pipe read => restart selection
       if (FD_ISSET(lpfd_[0], &rset))
       {
-         if (read(lpfd_[0], buf, FRAME_SIZE - 4) == -1)
+         if (read(lpfd_[0], buf, sizeof(buf) - 4) == -1)
             log_msg(LOG_ERR, "read from pipe %d failed: %s", lpfd_[0], strerror(errno));
          maxfd--;
       }
@@ -657,7 +657,7 @@ void *socket_receiver(void *UNUSED(p))
          log_debug("reading from %d", peer->tcpfd);
 
          // read/append data to peer's fragment buffer
-         if ((len = read(peer->tcpfd, peer->fragbuf + peer->fraglen, FRAME_SIZE - 4 - peer->fraglen)) == -1)
+         if ((len = read(peer->tcpfd, peer->fragbuf + peer->fraglen, sizeof(peer->_fragbuf) - 4 - peer->fraglen)) == -1)
          {
             // this might happen on linux, see SELECT(2)
             log_debug("spurious wakup of %d: \"%s\"", peer->tcpfd, strerror(errno));
@@ -773,7 +773,7 @@ void *socket_receiver(void *UNUSED(p))
             if (peer->fraglen)
             {
                log_debug("moving fragment. fragsize %d", peer->fraglen);
-               memmove(peer->fragbuf, peer->fragbuf + len, FRAME_SIZE - 4 - len);
+               memmove(peer->fragbuf, peer->fragbuf + len, sizeof(peer->_fragbuf) - 4 - len);
             }
             else
             {
