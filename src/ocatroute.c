@@ -1050,7 +1050,7 @@ void packet_forwarder(void)
       fcntl(CNF(tunfd[0]), F_SETFL, fcntl(CNF(tunfd[0]), F_GETFL) & ~O_NONBLOCK);
 #endif
       log_debug("reading from tunfd[0] = %d", CNF(tunfd[0]));
-      if ((rlen = tun_read(CNF(tunfd[0]), buf + BUF_OFF, FRAME_SIZE - BUF_OFF)) == -1)
+      if ((rlen = tun_read(CNF(tunfd[0]), buf + BUF_OFF, sizeof(buf) - BUF_OFF)) == -1)
       {
          rlen = errno;
          log_debug("read from tun %d returned on error: \"%s\"", CNF(tunfd[0]), strerror(rlen));
