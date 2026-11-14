@@ -1207,7 +1207,8 @@ int send_keepalive(OcatPeer_t *peer)
    char buf[512];
    int len, slen;
 
-   slen = make_keepalive(&CNF(ocat_addr), &peer->addr, peer->rand, CNF(onion3_url), buf, sizeof(buf));
+   if ((slen = make_keepalive(&CNF(ocat_addr), &peer->addr, peer->rand, CNF(onion3_url), buf, sizeof(buf))) == -1)
+      return -1;
 
    log_debug("sending %d bytes keepalive to fd %d", slen, peer->tcpfd);
 
@@ -1441,7 +1442,8 @@ int loopback_handler(int fd, const struct in6_addr *laddr)
    OcatPeer_t *peer;
 
    log_debug("starting loopback_handler");
-   wlen = make_keepalive(laddr, &CNF(ocat_addr), 0, NULL, buf, sizeof(buf));
+   if ((wlen = make_keepalive(laddr, &CNF(ocat_addr), 0, NULL, buf, sizeof(buf))) == -1)
+      return -1;
 
    log_debug("clearing unidirectional mode and sending packet");
    uni = CNF(unidirectional);
