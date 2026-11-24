@@ -21,7 +21,7 @@
  *  There is no portable thread-safe low level resolver interface, thus, I
  *  wrote the code completely new for OnionCat. Although it is not a full
  *  resolver nor a full nameserver. It just implements those parts which are
- *  necessary as far as the conform to the standards, which is mainly RFC1034
+ *  necessary as far as to conform to the standards, which is mainly RFC1034
  *  and RFC1035.
  *
  *  Note: The code previously found in this file was deleted since it was never
@@ -55,8 +55,8 @@ static int ocres_pipe_fd_[2];
 #endif
 
 
-/*! This function returns the length (number of bytes) of raw dns name in a dns
- * message.
+/*! This function returns the length (number of bytes) of the raw dns name in a
+ * dns message.
  * @param buf Pointer to the beginning of the name.
  * @param buflen Total number of bytes in the buffer.
  * @return The function returns the number of bytes of the name in the message
